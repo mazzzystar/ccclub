@@ -3,7 +3,7 @@ import { stdin, stdout } from "node:process";
 import chalk from "chalk";
 import ora from "ora";
 import { loadConfig, saveConfig, generateDeviceToken, getApiUrl, getDefaultDisplayName } from "../config.js";
-import { installHook } from "../hook.js";
+import { installHook, isHookInstalled } from "../hook.js";
 import { doSync } from "./sync.js";
 import { ensureGlobalInstall } from "../global-install.js";
 import type { InitResponse } from "@ccclub/shared";
@@ -14,6 +14,11 @@ export async function initCommand(): Promise<void> {
     console.log(chalk.yellow("Already initialized!"));
     console.log(`  User: ${existing.displayName}`);
     console.log(`  Groups: ${existing.groups.join(", ") || "(none)"}`);
+    // Ensure hook is installed for users who initialized before hook support
+    if (!isHookInstalled()) {
+      const hookOk = await installHook();
+      if (hookOk) console.log(chalk.green("  Auto-sync hook installed!"));
+    }
     console.log(chalk.dim('\n  Run "ccclub" to see rankings'));
     return;
   }

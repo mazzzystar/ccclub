@@ -219,7 +219,8 @@ function dashboardHTML(code: string) {
 
     function load() {
       var apiPath = IS_GLOBAL ? "/api/rank/global" : "/api/rank/" + encodeURIComponent(CODE);
-      fetch(apiPath + "?period=" + period)
+      var tz = -new Date().getTimezoneOffset();
+      fetch(apiPath + "?period=" + period + "&tz=" + tz)
         .then(function(res) { return res.json(); })
         .then(function(data) {
           document.getElementById("title").textContent = data.group.name;

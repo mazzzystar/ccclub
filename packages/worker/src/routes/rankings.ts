@@ -17,28 +17,29 @@ function parsePeriod(raw: string | undefined): RankingPeriod {
   return "daily";
 }
 
-function getDateRange(period: RankingPeriod, date?: string): { start: Date; end: Date } {
-  const now = date ? new Date(date) : new Date();
+function getDateRange(period: RankingPeriod, tzOffsetMin = 0): { start: Date; end: Date } {
+  // Shift "now" into the user's local day by applying their tz offset
+  const nowUtc = Date.now();
+  const nowLocal = new Date(nowUtc + tzOffsetMin * 60_000);
+
   switch (period) {
     case "daily": {
-      const s = new Date(now);
+      const s = new Date(nowLocal);
       s.setUTCHours(0, 0, 0, 0);
-      const e = new Date(s);
-      e.setUTCDate(e.getUTCDate() + 1);
-      return { start: s, end: e };
+      // Shift back to real UTC
+      return { start: new Date(s.getTime() - tzOffsetMin * 60_000), end: new Date(s.getTime() - tzOffsetMin * 60_000 + 86_400_000) };
     }
     case "weekly": {
-      const s = new Date(now);
+      const s = new Date(nowLocal);
       s.setUTCDate(s.getUTCDate() - s.getUTCDay());
       s.setUTCHours(0, 0, 0, 0);
-      const e = new Date(s);
-      e.setUTCDate(e.getUTCDate() + 7);
-      return { start: s, end: e };
+      const startUtc = s.getTime() - tzOffsetMin * 60_000;
+      return { start: new Date(startUtc), end: new Date(startUtc + 7 * 86_400_000) };
     }
     case "monthly": {
-      const s = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-      const e = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
-      return { start: s, end: e };
+      const s = new Date(Date.UTC(nowLocal.getUTCFullYear(), nowLocal.getUTCMonth(), 1));
+      const e = new Date(Date.UTC(nowLocal.getUTCFullYear(), nowLocal.getUTCMonth() + 1, 1));
+      return { start: new Date(s.getTime() - tzOffsetMin * 60_000), end: new Date(e.getTime() - tzOffsetMin * 60_000) };
     }
     case "all-time":
       return { start: new Date("2020-01-01"), end: new Date("2099-12-31") };
@@ -48,6 +49,7 @@ function getDateRange(period: RankingPeriod, date?: string): { start: Date; end:
 // GET /api/rank/global - Global public ranking (must be before :code route)
 app.get("/rank/global", async (c) => {
   const period = parsePeriod(c.req.query("period"));
+  const tz = parseInt(c.req.query("tz") || "0", 10) || 0;
   const publicUsers = (await c.env.KV.get<string[]>("public_users", "json")) || [];
 
   if (publicUsers.length === 0) {
@@ -60,7 +62,7 @@ app.get("/rank/global", async (c) => {
     });
   }
 
-  const { start, end } = getDateRange(period);
+  const { start, end } = getDateRange(period, tz);
   const startMs = start.getTime();
   const endMs = end.getTime();
 
@@ -135,13 +137,14 @@ app.get("/rank/global", async (c) => {
 app.get("/rank/:code", async (c) => {
   const code = c.req.param("code").toUpperCase();
   const period = parsePeriod(c.req.query("period"));
+  const tz = parseInt(c.req.query("tz") || "0", 10) || 0;
 
   const group = await c.env.KV.get<GroupRecord>(`group:${code}`, { type: "json", cacheTtl: 60 });
   if (!group) {
     return c.json({ error: "group not found" }, 404);
   }
 
-  const { start, end } = getDateRange(period);
+  const { start, end } = getDateRange(period, tz);
   const startMs = start.getTime();
   const endMs = end.getTime();
 

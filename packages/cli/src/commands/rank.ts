@@ -34,7 +34,8 @@ export async function rankCommand(options: { period?: string; group?: string; gl
   try {
     for (let i = 0; i < codes.length; i++) {
       const code = codes[i];
-      const url = `${config.apiUrl}/api/rank/${code}?period=${period}`;
+      const tz = -new Date().getTimezoneOffset();
+      const url = `${config.apiUrl}/api/rank/${code}?period=${period}&tz=${tz}`;
       const res = await fetch(url);
 
       if (!res.ok) {

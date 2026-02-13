@@ -41,7 +41,7 @@ CCClub은 Claude Code가 로컬에 기록하는 JSONL 로그를 읽어 5시간 �
 ```bash
 ccclub init                        # 최초 설정, 그룹 생성
 ccclub join <CODE>                 # 친구 그룹 참여
-ccclub sync                        # 수동 동기화 (매시간 자동 실행)
+ccclub sync                        # 수동 동기화 (세션 종료 시 자동 실행)
 ccclub                             # 오늘의 사용량 확인
 ```
 

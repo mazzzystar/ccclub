@@ -290,7 +290,7 @@ function landingHTML() {
         <div class="cmd-row"><code class="mono">ccclub join CODE</code><span>Join a friend's group</span></div>
         <div class="cmd-row"><code class="mono">ccclub</code><span>Today's leaderboard</span></div>
         <div class="cmd-row"><code class="mono">ccclub -p weekly</code><span>Weekly / monthly / all-time</span></div>
-        <div class="cmd-row"><code class="mono">ccclub sync</code><span>Manual sync</span></div>
+        <div class="cmd-row"><code class="mono">ccclub sync</code><span>Manual sync (auto-syncs on session end)</span></div>
         <div class="cmd-row"><code class="mono">ccclub show-data</code><span>Privacy audit</span></div>
       </div>
     </div>

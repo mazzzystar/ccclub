@@ -41,7 +41,7 @@ Claude Code 在本地写 JSONL 日志，CCClub 把它们打包成 5 小时的摘
 ```bash
 ccclub init                        # 一次性初始化，创建小组
 ccclub join <邀请码>                # 加入朋友的小组
-ccclub sync                        # 手动同步（每小时也会自动跑）
+ccclub sync                        # 手动同步（会话结束也会自动跑）
 ccclub                             # 看今天的用量
 ```
 
@@ -107,7 +107,7 @@ packages/
   worker/     Cloudflare Worker — Hono API + KV + 看板
 ```
 
-心跳：macOS LaunchAgent 每小时执行 `ccclub sync --silent`。
+自动同步：Claude Code `SessionEnd` 钩子在每次会话结束时执行 `ccclub sync --silent`。
 
 ## 开发
 

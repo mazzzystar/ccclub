@@ -41,7 +41,7 @@ Für den Alltag reichen diese vier:
 ```bash
 ccclub init                        # Einmalige Einrichtung, erstellt eine Gruppe
 ccclub join <CODE>                 # Einer Gruppe beitreten
-ccclub sync                        # Manuelle Synchronisierung (läuft auch stündlich)
+ccclub sync                        # Manuelle Synchronisierung (auch bei Sitzungsende)
 ccclub                             # Heutige Nutzung anzeigen
 ```
 

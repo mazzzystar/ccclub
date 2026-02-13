@@ -41,7 +41,7 @@ Para el uso diario, estos cuatro son suficientes:
 ```bash
 ccclub init                        # Configuración inicial, crea un grupo
 ccclub join <CODE>                 # Unirse al grupo de un amigo
-ccclub sync                        # Sincronización manual (también automática cada hora)
+ccclub sync                        # Sincronización manual (también al finalizar sesión)
 ccclub                             # Ver el uso de hoy
 ```
 

@@ -231,7 +231,7 @@ function dashboardHTML(code: string) {
             document.getElementById("content").innerHTML =
               '<div class="empty">' + (IS_GLOBAL
                 ? 'No public users yet.<br>Set your profile to public with: ccclub profile --public'
-                : 'No usage data for this period yet.<br>Sync with: ccclub sync') + '</div>';
+                : 'No usage data for this period yet.<br>Run: ccclub sync') + '</div>';
             return;
           }
 

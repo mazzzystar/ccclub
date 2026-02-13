@@ -18,7 +18,7 @@ It asks your name, gives you a 6-letter code. Send it to friends:
 npx ccclub join R4NK7D
 ```
 
-Done. Usage syncs in the background every hour. No config, no signup, no account.
+Done. Usage syncs automatically via Claude Code hook. No config, no signup, no account.
 
 Once a friend joins, check the leaderboard:
 
@@ -41,7 +41,7 @@ Everyday use — these four are all you need:
 ```bash
 ccclub init                        # One-time setup, creates a group
 ccclub join <CODE>                 # Join a friend's group
-ccclub sync                        # Manual sync (also runs hourly automatically)
+ccclub sync                        # Manual sync (also runs on session end)
 ccclub                             # See usage for today
 ```
 
@@ -107,7 +107,7 @@ packages/
   worker/     Cloudflare Worker — Hono API + KV + dashboard
 ```
 
-Heartbeat: macOS LaunchAgent runs `ccclub sync --silent` every hour.
+Auto-sync: Claude Code `SessionEnd` hook runs `ccclub sync --silent` after each session.
 
 ## Development
 

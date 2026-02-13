@@ -41,7 +41,7 @@ CCClub は Claude Code がローカルに書き出す JSONL ログを読み取�
 ```bash
 ccclub init                        # 初回セットアップ、グループ作成
 ccclub join <CODE>                 # 友達のグループに参加
-ccclub sync                        # 手動同期（1時間ごとに自動実行）
+ccclub sync                        # 手動同期（セッション終了時にも自動実行）
 ccclub                             # 今日の使用量を表示
 ```
 

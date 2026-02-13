@@ -1,10 +1,10 @@
 import { readFile, writeFile } from "node:fs/promises";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import chalk from "chalk";
 import ora from "ora";
-import { requireConfig, getLastSyncPath } from "../config.js";
+import { requireConfig, getLastSyncPath, getLastSyncTimePath } from "../config.js";
 import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
 import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
@@ -26,7 +26,24 @@ export function needsFullSync(): boolean {
   } catch { return true; }
 }
 
+// Throttle interval for silent (hook-triggered) syncs: 5 minutes
+const THROTTLE_MS = 5 * 60 * 1000;
+
 export async function syncCommand(options: { silent?: boolean; full?: boolean }): Promise<void> {
+  // When called silently (from hook), skip if last sync was < 5 minutes ago
+  if (options.silent && !options.full) {
+    const timePath = getLastSyncTimePath();
+    if (existsSync(timePath)) {
+      try {
+        const ts = parseInt(readFileSync(timePath, "utf-8").trim(), 10);
+        if (Date.now() - ts < THROTTLE_MS) return;
+      } catch { /* proceed with sync */ }
+    }
+    // Write timestamp NOW, before sync attempt.
+    // Prevents rapid retries if doSync fails, exits, or finds nothing new.
+    try { writeFileSync(timePath, String(Date.now())); } catch { /* dir may not exist yet */ }
+  }
+
   await doSync(options.full || false, options.silent);
 }
 
@@ -98,6 +115,7 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
     const latest = blocksToSync[blocksToSync.length - 1];
     await writeFile(lastSyncPath, latest.blockStart);
     await writeFile(getSyncVersionPath(), SYNC_FORMAT_VERSION);
+    await writeFile(getLastSyncTimePath(), String(Date.now()));
 
     const totalTokens = blocksToSync.reduce((s, b) => s + b.totalTokens, 0);
     const totalCost = blocksToSync.reduce((s, b) => s + b.costUSD, 0);

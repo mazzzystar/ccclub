@@ -26,6 +26,10 @@ export function getLastSyncPath(): string {
   return join(getConfigDir(), "last-sync");
 }
 
+export function getLastSyncTimePath(): string {
+  return join(getConfigDir(), "last-sync-time");
+}
+
 export async function loadConfig(): Promise<CliConfig | null> {
   const path = getConfigPath();
   if (!existsSync(path)) return null;

@@ -1,10 +1,10 @@
-[English](./README.md) | [中文](./README_CN.md) | [日本語](./README_JA.md) | [한국어](./README_KO.md) | [Français](./README_FR.md) | [Español](./README_ES.md)
+[English](../README.md) | [中文](./README_CN.md) | [日本語](./README_JA.md) | [한국어](./README_KO.md) | [Français](./README_FR.md) | [Español](./README_ES.md)
 
 # ccclub.dev
 
 Finde heraus, wie viel Claude Code deine Freunde verbrauchen.
 
-<img src="assets/demo.png" alt="ccclub rank" width="80%" />
+<img src="./demo.png" alt="ccclub rank" width="80%" />
 
 ## Erste Schritte
 

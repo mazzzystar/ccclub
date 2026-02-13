@@ -1,10 +1,10 @@
-[English](./README.md) | [中文](./README_CN.md) | [日本語](./README_JA.md) | [한국어](./README_KO.md) | [Deutsch](./README_DE.md) | [Français](./README_FR.md)
+[English](../README.md) | [中文](./README_CN.md) | [日本語](./README_JA.md) | [한국어](./README_KO.md) | [Deutsch](./README_DE.md) | [Français](./README_FR.md)
 
 # ccclub.dev
 
 Descubre cuánto Claude Code están quemando tus amigos.
 
-<img src="assets/demo.png" alt="ccclub rank" width="80%" />
+<img src="./demo.png" alt="ccclub rank" width="80%" />
 
 ## Empezar
 

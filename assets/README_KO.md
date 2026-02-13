@@ -1,10 +1,10 @@
-[English](./README.md) | [中文](./README_CN.md) | [日本語](./README_JA.md) | [Deutsch](./README_DE.md) | [Français](./README_FR.md) | [Español](./README_ES.md)
+[English](../README.md) | [中文](./README_CN.md) | [日本語](./README_JA.md) | [Deutsch](./README_DE.md) | [Français](./README_FR.md) | [Español](./README_ES.md)
 
 # ccclub.dev
 
 친구들이 Claude Code를 얼마나 쓰고 있는지 확인하세요.
 
-<img src="assets/demo.png" alt="ccclub rank" width="80%" />
+<img src="./demo.png" alt="ccclub rank" width="80%" />
 
 ## 시작하기
 

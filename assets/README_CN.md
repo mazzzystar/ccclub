@@ -1,10 +1,10 @@
-[English](./README.md) | [日本語](./README_JA.md) | [한국어](./README_KO.md) | [Deutsch](./README_DE.md) | [Français](./README_FR.md) | [Español](./README_ES.md)
+[English](../README.md) | [日本語](./README_JA.md) | [한국어](./README_KO.md) | [Deutsch](./README_DE.md) | [Français](./README_FR.md) | [Español](./README_ES.md)
 
 # ccclub.dev
 
 看看朋友们用 Claude Code 烧了多少 token。
 
-<img src="assets/demo.png" alt="ccclub rank" width="80%" />
+<img src="./demo.png" alt="ccclub rank" width="80%" />
 
 ## 开始
 

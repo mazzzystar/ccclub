@@ -68,7 +68,7 @@ function landingHTML() {
     .hero-links a:hover { opacity: 1; }
 
     /* Terminal */
-    .terminal-wrap { padding: 48px 0; }
+    .terminal-wrap { padding: 24px 0 48px; }
     .terminal {
       background: #13110f; border: 1px solid #2e2c2a; border-radius: 10px;
       overflow: hidden;

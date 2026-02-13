@@ -1,6 +1,6 @@
 {
   "name": "ccclub",
-  "version": "0.2.21",
+  "version": "0.2.22",
   "type": "module",
   "description": "See how much Claude Code you and your friends are using",
   "bin": {

@@ -6,7 +6,7 @@ import { requireConfig } from "../config.js";
 import { doSync, needsFullSync } from "./sync.js";
 import { installHook, isHookInstalled } from "../hook.js";
 
-export async function rankCommand(options: { period?: string; group?: string; global?: boolean }): Promise<void> {
+export async function rankCommand(options: { period?: string; group?: string; global?: boolean; cache?: boolean }): Promise<void> {
   const config = await requireConfig();
 
   // Ensure hook is installed (silent, one-time for existing users)
@@ -54,12 +54,12 @@ export async function rankCommand(options: { period?: string; group?: string; gl
       const data = (await res.json()) as RankResponse;
       if (i === 0) spinner.stop();
 
-      printGroup(data, code, period, config);
+      printGroup(data, code, period, config, options.cache);
 
       if (i < codes.length - 1) console.log("");
     }
 
-    console.log(chalk.dim("\n  Data syncs automatically when each Claude Code session ends."));
+    console.log(chalk.dim("\n  Tokens = input + output (cache excluded). Use --cache to include cache tokens."));
   } catch (err) {
     spinner.fail(`Error: ${err instanceof Error ? err.message : err}`);
   }
@@ -77,7 +77,7 @@ function formatTokens(n: number): string {
   return String(n);
 }
 
-function printGroup(data: RankResponse, code: string, period: RankingPeriod, config: { userId: string; apiUrl: string }): void {
+function printGroup(data: RankResponse, code: string, period: RankingPeriod, config: { userId: string; apiUrl: string }, showCache = false): void {
   if (data.rankings.length === 0) {
     console.log(chalk.bold(`\n  ${data.group.name}`));
     console.log(chalk.yellow("  No rankings data for this period"));
@@ -99,11 +99,12 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
     const marker = isMe ? chalk.green("→") : " ";
     const name = isMe ? chalk.green.bold(entry.displayName) : entry.displayName;
     const rankColor = entry.rank <= 3 ? chalk.yellow : chalk.white;
+    const tokens = showCache ? entry.totalTokens : entry.inputTokens + entry.outputTokens;
 
     table.push([
       `${marker}${rankColor(String(entry.rank))}`,
       name,
-      formatTokens(entry.inputTokens + entry.outputTokens),
+      formatTokens(tokens),
       `$${entry.costUSD.toFixed(2)}`,
       String(entry.chatCount),
     ]);

@@ -51,6 +51,7 @@ More time periods:
 ccclub -p weekly                   # This week
 ccclub -p monthly                  # This month
 ccclub -p all-time                 # All time
+ccclub --cache                     # Include cache tokens in count
 ccclub --global                    # Everyone who opted in
 ccclub -g R4NK7D                   # Specific group
 ```
@@ -107,7 +108,7 @@ packages/
   worker/     Cloudflare Worker — Hono API + KV + dashboard
 ```
 
-Auto-sync: Claude Code `SessionEnd` hook runs `ccclub sync --silent` after each session.
+Auto-sync: Claude Code `SessionEnd` + `Stop` hooks run `ccclub sync --silent` (throttled to once per 5 minutes).
 
 ## Development
 

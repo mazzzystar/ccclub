@@ -12,7 +12,7 @@ const program = new Command();
 program
   .name("ccclub")
   .description("CCClub - Compare Claude Code usage with friends")
-  .version("0.2.21");
+  .version("0.2.22");
 
 program
   .command("init")
@@ -38,6 +38,7 @@ program
   .option("-p, --period <period>", "daily, weekly, monthly, all-time", "daily")
   .option("-g, --group <code>", "Group invite code")
   .option("--global", "Show global public ranking")
+  .option("--cache", "Show token count including cache")
   .action(rankCommand);
 
 program

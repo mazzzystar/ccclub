@@ -138,6 +138,7 @@ function dashboardHTML(code: string) {
     </div>`}
 
     <div class="meta" id="refresh-info"></div>
+    <div class="meta" style="margin-top:12px"><a href="/" style="color:#6b6560;text-decoration:none">ccclub.dev</a></div>
   </div>
 
   <script>

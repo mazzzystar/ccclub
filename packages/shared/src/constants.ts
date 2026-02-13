@@ -14,12 +14,14 @@ export const CCCLUB_CONFIG_DIR = ".ccclub";
 // Invite code length
 export const INVITE_CODE_LENGTH = 6;
 
-// Pricing per million tokens (source: LiteLLM / Anthropic pricing)
-export const MODEL_PRICING: Record<string, { input: number; output: number; cacheCreation: number; cacheRead: number }> = {
-  // Opus 4.5+ (reduced pricing)
+// Pricing per million tokens (source: Anthropic pricing page)
+type ModelPricing = { input: number; output: number; cacheCreation: number; cacheRead: number };
+
+export const MODEL_PRICING: Record<string, ModelPricing> = {
+  // Opus 4.5+
   "claude-opus-4-6": { input: 5, output: 25, cacheCreation: 6.25, cacheRead: 0.5 },
   "claude-opus-4-5-20251101": { input: 5, output: 25, cacheCreation: 6.25, cacheRead: 0.5 },
-  // Opus 4.1 (original pricing)
+  // Opus 4.0–4.1
   "claude-opus-4-1-20250805": { input: 15, output: 75, cacheCreation: 18.75, cacheRead: 1.5 },
   // Sonnet
   "claude-sonnet-4-5-20250929": { input: 3, output: 15, cacheCreation: 3.75, cacheRead: 0.3 },
@@ -30,6 +32,23 @@ export const MODEL_PRICING: Record<string, { input: number; output: number; cach
   "claude-3-5-haiku-20241022": { input: 0.8, output: 4, cacheCreation: 1, cacheRead: 0.08 },
 };
 
+// Fallback pricing by model family — used when exact model ID is unknown.
+// Keeps cost estimates reasonable for new models without code changes.
+const FAMILY_FALLBACK: Record<string, ModelPricing> = {
+  opus:   MODEL_PRICING["claude-opus-4-6"],
+  sonnet: MODEL_PRICING["claude-sonnet-4-5-20250929"],
+  haiku:  MODEL_PRICING["claude-haiku-4-5-20251001"],
+};
+
+function getPricing(model: string): ModelPricing {
+  if (MODEL_PRICING[model]) return MODEL_PRICING[model];
+  const lower = model.toLowerCase();
+  for (const family of Object.keys(FAMILY_FALLBACK)) {
+    if (lower.includes(family)) return FAMILY_FALLBACK[family];
+  }
+  return FAMILY_FALLBACK.sonnet;
+}
+
 export function calculateCost(
   model: string,
   inputTokens: number,
@@ -37,7 +56,7 @@ export function calculateCost(
   cacheCreationTokens: number,
   cacheReadTokens: number,
 ): number {
-  const pricing = MODEL_PRICING[model] || MODEL_PRICING["claude-sonnet-4-5-20250929"];
+  const pricing = getPricing(model);
   return (
     (inputTokens * pricing.input +
       outputTokens * pricing.output +

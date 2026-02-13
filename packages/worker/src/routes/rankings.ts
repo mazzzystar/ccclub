@@ -66,17 +66,34 @@ app.get("/rank/global", async (c) => {
   const startMs = start.getTime();
   const endMs = end.getTime();
 
+  // Fetch all usage data and user groups in parallel
+  const [usageResults, groupsResults] = await Promise.all([
+    Promise.all(publicUsers.map((id) => c.env.KV.get<UsageData>(`usage:${id}`, "json"))),
+    Promise.all(publicUsers.map((id) => c.env.KV.get<string[]>(`user_groups:${id}`, "json"))),
+  ]);
+
+  // Fetch first group for each user (for display name) in parallel
+  const firstGroupCodes = groupsResults.map((g) => g?.[0]);
+  const uniqueCodes = [...new Set(firstGroupCodes.filter(Boolean))] as string[];
+  const groupMap = new Map<string, GroupRecord>();
+  await Promise.all(
+    uniqueCodes.map(async (code) => {
+      const g = await c.env.KV.get<GroupRecord>(`group:${code}`, "json");
+      if (g) groupMap.set(code, g);
+    }),
+  );
+
   const entries: RankingEntry[] = [];
 
-  for (const userId of publicUsers) {
-    const usage = await c.env.KV.get<UsageData>(`usage:${userId}`, "json");
+  for (let idx = 0; idx < publicUsers.length; idx++) {
+    const userId = publicUsers[idx];
+    const usage = usageResults[idx];
 
-    // Get user's display name and avatar from their first group
     let displayName = userId.slice(0, 8);
     let avatar = "";
-    const userGroups = await c.env.KV.get<string[]>(`user_groups:${userId}`, "json");
-    if (userGroups && userGroups.length > 0) {
-      const group = await c.env.KV.get<GroupRecord>(`group:${userGroups[0]}`, "json");
+    const firstCode = firstGroupCodes[idx];
+    if (firstCode) {
+      const group = groupMap.get(firstCode);
       const member = group?.members.find((m) => m.userId === userId);
       if (member) {
         displayName = member.displayName;
@@ -151,11 +168,16 @@ app.get("/rank/:code", async (c) => {
   const startMs = start.getTime();
   const endMs = end.getTime();
 
-  // Fetch usage for each member
+  // Fetch usage for all members in parallel
+  const usageResults = await Promise.all(
+    group.members.map((m) => c.env.KV.get<UsageData>(`usage:${m.userId}`, "json")),
+  );
+
   const entries: RankingEntry[] = [];
 
-  for (const member of group.members) {
-    const usage = await c.env.KV.get<UsageData>(`usage:${member.userId}`, "json");
+  for (let idx = 0; idx < group.members.length; idx++) {
+    const member = group.members[idx];
+    const usage = usageResults[idx];
 
     let totalTokens = 0;
     let inputTokens = 0;

@@ -60,8 +60,10 @@ export async function collectUsageEntries(): Promise<CollectionResult> {
       const requestId = parsed.requestId || "";
       const sessionId = parsed.sessionId || "";
 
-      // Deduplicate by sessionId:requestId
-      const dedupeKey = `${sessionId}:${requestId}`;
+      // Deduplicate by sessionId:requestId (fall back to timestamp+tokens when requestId missing)
+      const dedupeKey = requestId
+        ? `${sessionId}:${requestId}`
+        : `${sessionId}:${parsed.timestamp}:${usage.input_tokens}:${usage.output_tokens}`;
       if (seen.has(dedupeKey)) continue;
       seen.add(dedupeKey);
 

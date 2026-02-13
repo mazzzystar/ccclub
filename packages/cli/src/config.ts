@@ -36,9 +36,9 @@ export async function loadConfig(): Promise<CliConfig | null> {
 export async function saveConfig(config: CliConfig): Promise<void> {
   const dir = getConfigDir();
   if (!existsSync(dir)) {
-    await mkdir(dir, { recursive: true });
+    await mkdir(dir, { recursive: true, mode: 0o700 });
   }
-  await writeFile(getConfigPath(), JSON.stringify(config, null, 2));
+  await writeFile(getConfigPath(), JSON.stringify(config, null, 2), { mode: 0o600 });
 }
 
 export function generateDeviceToken(): string {

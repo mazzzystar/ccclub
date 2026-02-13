@@ -43,7 +43,7 @@ export async function rankCommand(options: { period?: string; group?: string; gl
       const code = codes[i];
       const tz = -new Date().getTimezoneOffset();
       const url = `${config.apiUrl}/api/rank/${code}?period=${period}&tz=${tz}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
 
       if (!res.ok) {
         if (i === 0) spinner.stop();

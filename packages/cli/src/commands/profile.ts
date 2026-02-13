@@ -19,6 +19,7 @@ export async function profileCommand(options: {
     try {
       const res = await fetch(`${config.apiUrl}/api/profile`, {
         headers: { Authorization: `Bearer ${config.token}` },
+        signal: AbortSignal.timeout(15_000),
       });
       if (!res.ok) {
         spinner.fail("Failed to fetch profile");
@@ -54,6 +55,7 @@ export async function profileCommand(options: {
         Authorization: `Bearer ${config.token}`,
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15_000),
     });
 
     if (!res.ok) {

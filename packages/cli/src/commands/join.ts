@@ -39,11 +39,18 @@ export async function joinCommand(inviteCode: string): Promise<void> {
 
   const spinner = ora("Joining group...").start();
 
-  const res = await fetch(`${apiUrl}/api/join`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token, displayName, inviteCode }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${apiUrl}/api/join`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, displayName, inviteCode }),
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (err) {
+    spinner.fail(`Join failed: ${err instanceof Error ? err.message : err}`);
+    return;
+  }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));

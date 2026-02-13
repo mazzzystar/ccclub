@@ -9,7 +9,7 @@ import { landingRoute } from "./landing.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
-app.use("/api/*", cors());
+app.use("/api/*", cors({ origin: "https://ccclub.dev" }));
 
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 

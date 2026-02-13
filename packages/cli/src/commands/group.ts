@@ -16,14 +16,21 @@ export async function createGroupCommand(): Promise<void> {
 
     const spinner = ora("Creating group...").start();
 
-    const res = await fetch(`${config.apiUrl}/api/group/create`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${config.token}`,
-      },
-      body: JSON.stringify({ name: name.trim() }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${config.apiUrl}/api/group/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${config.token}`,
+        },
+        body: JSON.stringify({ name: name.trim() }),
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch (err) {
+      spinner.fail(`Failed: ${err instanceof Error ? err.message : err}`);
+      return;
+    }
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));

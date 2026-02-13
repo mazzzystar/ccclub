@@ -42,11 +42,18 @@ export async function initCommand(): Promise<void> {
     const token = generateDeviceToken();
     const apiUrl = getApiUrl();
 
-    const res = await fetch(`${apiUrl}/api/init`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, displayName }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${apiUrl}/api/init`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, displayName }),
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch (err) {
+      spinner.fail(`Setup failed: ${err instanceof Error ? err.message : err}`);
+      return;
+    }
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));

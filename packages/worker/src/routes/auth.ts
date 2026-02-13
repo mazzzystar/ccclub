@@ -35,6 +35,10 @@ app.post("/init", async (c) => {
     return c.json({ error: "token and displayName required" }, 400);
   }
 
+  if (displayName.length > 50) {
+    return c.json({ error: "displayName too long (max 50)" }, 400);
+  }
+
   // Check if token already exists
   const existing = await c.env.KV.get<UserRecord>(`token:${token}`, "json");
   if (existing) {
@@ -81,6 +85,10 @@ app.post("/join", async (c) => {
 
   if (!token || !displayName || !inviteCode) {
     return c.json({ error: "token, displayName, and inviteCode required" }, 400);
+  }
+
+  if (displayName.length > 50) {
+    return c.json({ error: "displayName too long (max 50)" }, 400);
   }
 
   const code = inviteCode.toUpperCase();
@@ -133,6 +141,9 @@ app.post("/group/create", async (c) => {
   if (!name) {
     return c.json({ error: "name required" }, 400);
   }
+  if (name.length > 100) {
+    return c.json({ error: "name too long (max 100)" }, 400);
+  }
 
   const inviteCode = generateInviteCode();
   const now = new Date().toISOString();
@@ -166,6 +177,17 @@ app.post("/profile", async (c) => {
   }
 
   const body = await c.req.json<ProfileUpdateRequest>();
+
+  if (body.displayName !== undefined && body.displayName.length > 50) {
+    return c.json({ error: "displayName too long (max 50)" }, 400);
+  }
+  if (body.avatar !== undefined && body.avatar.length > 500) {
+    return c.json({ error: "avatar URL too long (max 500)" }, 400);
+  }
+  if (body.visibility !== undefined && body.visibility !== "public" && body.visibility !== "private") {
+    return c.json({ error: "visibility must be 'public' or 'private'" }, 400);
+  }
+
   const oldVisibility = user.visibility || "private";
   let changed = false;
 

@@ -22,6 +22,28 @@ app.post("/sync", async (c) => {
     return c.json({ error: "blocks array required" }, 400);
   }
 
+  // Cap blocks per request to prevent abuse
+  if (blocks.length > 500) {
+    return c.json({ error: "too many blocks (max 500)" }, 400);
+  }
+
+  // Validate block fields
+  for (const b of blocks) {
+    if (typeof b.blockStart !== "string" || !b.blockStart) {
+      return c.json({ error: "invalid block: missing blockStart" }, 400);
+    }
+    if (typeof b.totalTokens !== "number" || !isFinite(b.totalTokens) ||
+        typeof b.costUSD !== "number" || !isFinite(b.costUSD) ||
+        typeof b.inputTokens !== "number" || !isFinite(b.inputTokens) ||
+        typeof b.outputTokens !== "number" || !isFinite(b.outputTokens) ||
+        typeof b.entryCount !== "number" || !isFinite(b.entryCount)) {
+      return c.json({ error: "invalid block: missing or invalid numeric fields" }, 400);
+    }
+    if (!Array.isArray(b.models)) {
+      return c.json({ error: "invalid block: models must be an array" }, 400);
+    }
+  }
+
   // Get existing usage data
   const existing = (await c.env.KV.get<UsageData>(`usage:${user.userId}`, "json")) || {
     blocks: [],

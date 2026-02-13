@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const CLAUDE_SETTINGS_DIR = join(homedir(), ".claude");
 const CLAUDE_SETTINGS_PATH = join(CLAUDE_SETTINGS_DIR, "settings.json");
@@ -73,7 +73,7 @@ export function isHookInstalled(): boolean {
   try {
     if (!existsSync(CLAUDE_SETTINGS_PATH)) return false;
     // Sync read for quick check — not ideal but simple
-    const raw = require("node:fs").readFileSync(CLAUDE_SETTINGS_PATH, "utf-8");
+    const raw = readFileSync(CLAUDE_SETTINGS_PATH, "utf-8");
     const settings = JSON.parse(raw) as ClaudeSettings;
     return hasOurHook(settings);
   } catch {

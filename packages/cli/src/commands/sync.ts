@@ -1,5 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import chalk from "chalk";
@@ -21,7 +21,7 @@ export function needsFullSync(): boolean {
   const path = getSyncVersionPath();
   if (!existsSync(path)) return true;
   try {
-    const stored = require("node:fs").readFileSync(path, "utf-8").trim();
+    const stored = readFileSync(path, "utf-8").trim();
     return stored !== SYNC_FORMAT_VERSION;
   } catch { return true; }
 }
@@ -83,6 +83,7 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
         Authorization: `Bearer ${config.token}`,
       },
       body: JSON.stringify({ blocks: blocksToSync }),
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!res.ok) {

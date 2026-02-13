@@ -20,6 +20,12 @@ npx ccclub join R4NK7D
 
 Fertig. Die Nutzung wird automatisch jede Stunde synchronisiert. Keine Konfiguration, keine Registrierung, kein Account.
 
+Sobald ein Freund beitritt, sieh dir das Ranking an:
+
+```bash
+ccclub rank
+```
+
 ## So funktioniert es
 
 ```

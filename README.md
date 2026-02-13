@@ -20,6 +20,12 @@ npx ccclub join R4NK7D
 
 Done. Usage syncs in the background every hour. No config, no signup, no account.
 
+Once a friend joins, check the leaderboard:
+
+```bash
+ccclub rank
+```
+
 ## What Happens
 
 ```

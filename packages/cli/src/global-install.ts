@@ -9,7 +9,7 @@ function run(cmd: string): Promise<string> {
 
 /**
  * Check if `ccclub` is globally installed (not just available via npx).
- * If not, install it globally so users can run `ccclub rank` directly.
+ * If not, install it globally so users can run `ccclub` directly.
  */
 export async function ensureGlobalInstall(): Promise<void> {
   // Check npm global list, not PATH (npx temporarily adds to PATH)
@@ -20,7 +20,7 @@ export async function ensureGlobalInstall(): Promise<void> {
 
   const result = await run("npm install -g ccclub");
   if (result) {
-    console.log(chalk.green("  Done!") + chalk.dim(" You can now use ") + chalk.white("ccclub rank") + chalk.dim(" directly."));
+    console.log(chalk.green("  Done!") + chalk.dim(" You can now use ") + chalk.white("ccclub") + chalk.dim(" directly."));
   } else {
     console.log(chalk.dim("  Could not auto-install. Run manually:"));
     console.log(chalk.white("    npm install -g ccclub"));

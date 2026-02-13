@@ -4,7 +4,7 @@
 
 Descubre cuánto Claude Code están quemando tus amigos.
 
-<img src="./demo.png" alt="ccclub rank" width="80%" />
+<img src="./demo.png" alt="ccclub" width="80%" />
 
 ## Empezar
 
@@ -23,7 +23,7 @@ Listo. El uso se sincroniza automáticamente cada hora. Sin configuración, sin 
 Cuando un amigo se una, revisa el ranking:
 
 ```bash
-ccclub rank
+ccclub
 ```
 
 ## Cómo funciona
@@ -42,17 +42,17 @@ Para el uso diario, estos cuatro son suficientes:
 ccclub init                        # Configuración inicial, crea un grupo
 ccclub join <CODE>                 # Unirse al grupo de un amigo
 ccclub sync                        # Sincronización manual (también automática cada hora)
-ccclub rank                        # Ver el uso de hoy
+ccclub                             # Ver el uso de hoy
 ```
 
 Más períodos:
 
 ```bash
-ccclub rank -p weekly              # Esta semana
-ccclub rank -p monthly             # Este mes
-ccclub rank -p all-time            # Todo el tiempo
-ccclub rank --global               # Todos los usuarios públicos
-ccclub rank -g R4NK7D              # Grupo específico
+ccclub -p weekly                   # Esta semana
+ccclub -p monthly                  # Este mes
+ccclub -p all-time                 # Todo el tiempo
+ccclub --global                    # Todos los usuarios públicos
+ccclub -g R4NK7D                   # Grupo específico
 ```
 
 Funciones adicionales:

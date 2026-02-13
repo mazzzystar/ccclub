@@ -206,7 +206,7 @@ function landingHTML() {
           <div class="terminal-dot y"></div>
           <div class="terminal-dot g"></div>
         </div>
-        <div class="terminal-body"><span class="prompt">$</span> <span class="cmd">ccclub rank</span>
+        <div class="terminal-body"><span class="prompt">$</span> <span class="cmd">ccclub</span>
 
   <span class="accent">Ada's club</span>
   <span class="dim">DAILY \u00b7 2025-02-13 \u2192 2025-02-14 \u00b7 3 members</span>
@@ -251,7 +251,7 @@ function landingHTML() {
           <div class="step-num">3</div>
           <div class="step-content">
             <h3>Compare</h3>
-            <p>Usage syncs automatically. Check <code class="mono">ccclub rank</code> or open the web dashboard.</p>
+            <p>Usage syncs automatically. Run <code class="mono">ccclub</code> or open the web dashboard.</p>
           </div>
         </div>
       </div>
@@ -287,8 +287,8 @@ function landingHTML() {
       <div class="cmd-list">
         <div class="cmd-row"><code class="mono">ccclub init</code><span>Create a group</span></div>
         <div class="cmd-row"><code class="mono">ccclub join CODE</code><span>Join a friend's group</span></div>
-        <div class="cmd-row"><code class="mono">ccclub rank</code><span>Today's leaderboard</span></div>
-        <div class="cmd-row"><code class="mono">ccclub rank -p weekly</code><span>Weekly / monthly / all-time</span></div>
+        <div class="cmd-row"><code class="mono">ccclub</code><span>Today's leaderboard</span></div>
+        <div class="cmd-row"><code class="mono">ccclub -p weekly</code><span>Weekly / monthly / all-time</span></div>
         <div class="cmd-row"><code class="mono">ccclub sync</code><span>Manual sync</span></div>
         <div class="cmd-row"><code class="mono">ccclub show-data</code><span>Privacy audit</span></div>
       </div>

@@ -13,7 +13,7 @@ const program = new Command();
 program
   .name("ccclub")
   .description("CCClub - Compare Claude Code usage with friends")
-  .version("0.1.11");
+  .version("0.1.12");
 
 // Auto-install globally on any command (silent if already installed)
 program.hook("postAction", () => ensureGlobalInstall());

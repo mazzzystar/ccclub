@@ -4,7 +4,7 @@
 
 친구들이 Claude Code를 얼마나 쓰고 있는지 확인하세요.
 
-<img src="./demo.png" alt="ccclub rank" width="80%" />
+<img src="./demo.png" alt="ccclub" width="80%" />
 
 ## 시작하기
 
@@ -23,7 +23,7 @@ npx ccclub join R4NK7D
 친구가 참여하면 리더보드를 확인하세요:
 
 ```bash
-ccclub rank
+ccclub
 ```
 
 ## 작동 방식
@@ -42,17 +42,17 @@ CCClub은 Claude Code가 로컬에 기록하는 JSONL 로그를 읽어 5시간 �
 ccclub init                        # 최초 설정, 그룹 생성
 ccclub join <CODE>                 # 친구 그룹 참여
 ccclub sync                        # 수동 동기화 (매시간 자동 실행)
-ccclub rank                        # 오늘의 사용량 확인
+ccclub                             # 오늘의 사용량 확인
 ```
 
 기간 지정:
 
 ```bash
-ccclub rank -p weekly              # 이번 주
-ccclub rank -p monthly             # 이번 달
-ccclub rank -p all-time            # 전체 기간
-ccclub rank --global               # 공개 사용자 전체
-ccclub rank -g R4NK7D              # 특정 그룹
+ccclub -p weekly                   # 이번 주
+ccclub -p monthly                  # 이번 달
+ccclub -p all-time                 # 전체 기간
+ccclub --global                    # 공개 사용자 전체
+ccclub -g R4NK7D                   # 특정 그룹
 ```
 
 추가 명령어:

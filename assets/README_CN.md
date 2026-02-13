@@ -4,7 +4,7 @@
 
 看看朋友们用 Claude Code 烧了多少 token。
 
-<img src="./demo.png" alt="ccclub rank" width="80%" />
+<img src="./demo.png" alt="ccclub" width="80%" />
 
 ## 开始
 
@@ -23,7 +23,7 @@ npx ccclub join R4NK7D
 朋友加入后，查看排行榜：
 
 ```bash
-ccclub rank
+ccclub
 ```
 
 ## 原理
@@ -42,17 +42,17 @@ Claude Code 在本地写 JSONL 日志，CCClub 把它们打包成 5 小时的摘
 ccclub init                        # 一次性初始化，创建小组
 ccclub join <邀请码>                # 加入朋友的小组
 ccclub sync                        # 手动同步（每小时也会自动跑）
-ccclub rank                        # 看今天的用量
+ccclub                             # 看今天的用量
 ```
 
 更多时间范围：
 
 ```bash
-ccclub rank -p weekly              # 本周
-ccclub rank -p monthly             # 本月
-ccclub rank -p all-time            # 全部
-ccclub rank --global               # 所有公开用户
-ccclub rank -g R4NK7D              # 指定小组
+ccclub -p weekly                   # 本周
+ccclub -p monthly                  # 本月
+ccclub -p all-time                 # 全部
+ccclub --global                    # 所有公开用户
+ccclub -g R4NK7D                   # 指定小组
 ```
 
 想折腾的话，这些也有：

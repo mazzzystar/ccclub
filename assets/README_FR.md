@@ -4,7 +4,7 @@
 
 Découvrez combien de Claude Code vos amis consomment.
 
-<img src="./demo.png" alt="ccclub rank" width="80%" />
+<img src="./demo.png" alt="ccclub" width="80%" />
 
 ## Pour commencer
 
@@ -23,7 +23,7 @@ C'est tout. L'utilisation se synchronise automatiquement toutes les heures. Pas 
 Une fois qu'un ami rejoint, consultez le classement :
 
 ```bash
-ccclub rank
+ccclub
 ```
 
 ## Comment ça marche
@@ -42,17 +42,17 @@ Au quotidien, ces quatre commandes suffisent :
 ccclub init                        # Configuration initiale, crée un groupe
 ccclub join <CODE>                 # Rejoindre le groupe d'un ami
 ccclub sync                        # Synchronisation manuelle (aussi automatique chaque heure)
-ccclub rank                        # Voir l'utilisation du jour
+ccclub                             # Voir l'utilisation du jour
 ```
 
 Autres périodes :
 
 ```bash
-ccclub rank -p weekly              # Cette semaine
-ccclub rank -p monthly             # Ce mois
-ccclub rank -p all-time            # Depuis le début
-ccclub rank --global               # Tous les utilisateurs publics
-ccclub rank -g R4NK7D              # Groupe spécifique
+ccclub -p weekly                   # Cette semaine
+ccclub -p monthly                  # Ce mois
+ccclub -p all-time                 # Depuis le début
+ccclub --global                    # Tous les utilisateurs publics
+ccclub -g R4NK7D                   # Groupe spécifique
 ```
 
 Fonctions avancées :

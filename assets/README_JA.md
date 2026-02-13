@@ -4,7 +4,7 @@
 
 友達が Claude Code をどれだけ使っているか見てみよう。
 
-<img src="./demo.png" alt="ccclub rank" width="80%" />
+<img src="./demo.png" alt="ccclub" width="80%" />
 
 ## はじめに
 
@@ -23,7 +23,7 @@ npx ccclub join R4NK7D
 友達が参加したら、リーダーボードを確認：
 
 ```bash
-ccclub rank
+ccclub
 ```
 
 ## 仕組み
@@ -42,17 +42,17 @@ CCClub は Claude Code がローカルに書き出す JSONL ログを読み取�
 ccclub init                        # 初回セットアップ、グループ作成
 ccclub join <CODE>                 # 友達のグループに参加
 ccclub sync                        # 手動同期（1時間ごとに自動実行）
-ccclub rank                        # 今日の使用量を表示
+ccclub                             # 今日の使用量を表示
 ```
 
 期間指定:
 
 ```bash
-ccclub rank -p weekly              # 今週
-ccclub rank -p monthly             # 今月
-ccclub rank -p all-time            # 全期間
-ccclub rank --global               # 公開ユーザー全員
-ccclub rank -g R4NK7D              # 特定のグループ
+ccclub -p weekly                   # 今週
+ccclub -p monthly                  # 今月
+ccclub -p all-time                 # 全期間
+ccclub --global                    # 公開ユーザー全員
+ccclub -g R4NK7D                   # 特定のグループ
 ```
 
 その他:

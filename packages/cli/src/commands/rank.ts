@@ -62,7 +62,7 @@ export async function rankCommand(options: { period?: string; group?: string; gl
 
     console.log(table.toString());
     console.log(chalk.dim(`\n  Dashboard: ${config.apiUrl}/g/${groupCode}`));
-    console.log(chalk.dim("  Data syncs automatically every hour. Run ccclub sync to update now."));
+    console.log(chalk.dim("  Data syncs automatically ") + chalk.white("every hour") + chalk.dim(". Run ") + chalk.white("ccclub sync") + chalk.dim(" to update now."));
   } catch (err) {
     spinner.fail(`Error: ${err instanceof Error ? err.message : err}`);
   }

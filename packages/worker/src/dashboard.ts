@@ -147,7 +147,7 @@ function dashboardHTML(code: string) {
       if (avatarUrl) {
         // img with CSS fallback: on error, hide img and show the fallback span
         return '<div class="avatar">' +
-          '<img src="' + esc(avatarUrl) + '" alt="" onerror="this.classList.add(\'errored\')">' +
+          '<img src="' + esc(avatarUrl) + '" alt="" onerror="this.classList.add(&#39;errored&#39;)">' +
           '<span class="fallback avatar" style="background:' + color + ';width:32px;height:32px;display:none;align-items:center;justify-content:center">' + initial + '</span>' +
           '</div>';
       }

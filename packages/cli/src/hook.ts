@@ -18,8 +18,9 @@ function hasOurHook(settings: ClaudeSettings): boolean {
   if (!Array.isArray(sessionEndHooks)) return false;
 
   return sessionEndHooks.some((group: unknown) => {
-    const g = group as { hooks?: Array<{ command?: string }> };
-    return g.hooks?.some((h) => h.command === HOOK_COMMAND);
+    const g = group as { matcher?: string; hooks?: Array<{ command?: string }> };
+    // Must have matcher field to be valid (old versions omitted it)
+    return g.matcher !== undefined && g.hooks?.some((h) => h.command === HOOK_COMMAND);
   });
 }
 
@@ -44,7 +45,13 @@ export async function installHook(): Promise<boolean> {
     if (!settings.hooks) settings.hooks = {};
     if (!Array.isArray(settings.hooks.SessionEnd)) settings.hooks.SessionEnd = [];
 
+    // Remove old entries without matcher field
+    settings.hooks.SessionEnd = (settings.hooks.SessionEnd as Array<{ matcher?: string; hooks?: Array<{ command?: string }> }>).filter(
+      (g) => !(g.hooks?.some((h) => h.command === HOOK_COMMAND) && g.matcher === undefined),
+    );
+
     (settings.hooks.SessionEnd as unknown[]).push({
+      matcher: "",
       hooks: [
         {
           type: "command",

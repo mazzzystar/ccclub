@@ -4,9 +4,7 @@
 
 Descubre cuánto Claude Code están quemando tus amigos.
 
-<p align="center">
-  <img src="assets/demo.png" alt="ccclub rank" width="500" />
-</p>
+![ccclub rank](assets/demo.png)
 
 ## Empezar
 

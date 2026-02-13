@@ -4,9 +4,7 @@
 
 Know how much Claude Code your friends are burning through.
 
-<p align="center">
-  <img src="assets/demo.png" alt="ccclub rank" width="500" />
-</p>
+![ccclub rank](assets/demo.png)
 
 ## Get Started
 

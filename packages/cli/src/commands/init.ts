@@ -1,0 +1,78 @@
+import { createInterface } from "node:readline/promises";
+import { stdin, stdout } from "node:process";
+import chalk from "chalk";
+import ora from "ora";
+import { loadConfig, saveConfig, generateDeviceToken, getApiUrl } from "../config.js";
+import { installHeartbeat } from "../heartbeat.js";
+import { doSync } from "./sync.js";
+import type { InitResponse } from "@ccclub/shared";
+
+export async function initCommand(): Promise<void> {
+  const existing = await loadConfig();
+  if (existing) {
+    console.log(chalk.yellow("Already initialized!"));
+    console.log(`  User: ${existing.displayName}`);
+    console.log(`  Groups: ${existing.groups.join(", ") || "(none)"}`);
+    console.log(chalk.dim('\n  Run "ccclub rank" to see rankings'));
+    return;
+  }
+
+  const rl = createInterface({ input: stdin, output: stdout });
+
+  try {
+    const displayName = await rl.question(chalk.bold("Your display name: "));
+    if (!displayName.trim()) {
+      console.error(chalk.red("Name cannot be empty"));
+      return;
+    }
+
+    const spinner = ora("Setting up...").start();
+
+    const token = generateDeviceToken();
+    const apiUrl = getApiUrl();
+
+    const res = await fetch(`${apiUrl}/api/init`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, displayName: displayName.trim() }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      spinner.fail(`Setup failed: ${(err as { error: string }).error}`);
+      return;
+    }
+
+    const data = (await res.json()) as InitResponse;
+
+    await saveConfig({
+      apiUrl,
+      token,
+      userId: data.userId,
+      displayName: displayName.trim(),
+      groups: [data.groupCode],
+    });
+
+    // Install heartbeat (silent, best-effort)
+    const heartbeatOk = await installHeartbeat();
+    spinner.succeed("CCClub initialized!");
+
+    console.log("");
+    console.log(chalk.bold("  Your invite code:"));
+    console.log(chalk.cyan.bold(`\n    ${data.groupCode}\n`));
+    console.log(chalk.dim("  Share with friends: ") + chalk.white(`npx ccclub join ${data.groupCode}`));
+
+    if (heartbeatOk) {
+      console.log(chalk.dim("  Heartbeat: installed (syncs every hour)"));
+    } else {
+      console.log(chalk.dim('  Tip: run "ccclub sync" periodically to update data'));
+    }
+
+    // First sync
+    console.log("");
+    await doSync(true);
+
+  } finally {
+    rl.close();
+  }
+}

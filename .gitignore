@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.next/
+*.db
+*.sqlite
+.env
+.env.local
+.env*.local
+.dev.vars
+.ccclub/
+*.tsbuildinfo
+
+# Cloudflare
+.wrangler/
+
+# Claude Code local settings
+.claude/

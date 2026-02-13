@@ -1,0 +1,9 @@
+name = "ccclub"
+main = "src/index.ts"
+compatibility_date = "2024-12-30"
+workers_dev = true
+
+[[kv_namespaces]]
+binding = "KV"
+id = "04ff7a30114d42f9bd986d692d888f96"
+preview_id = "f039624636834c6ca8954c98c6ff843f"

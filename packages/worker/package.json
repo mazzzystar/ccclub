@@ -1,0 +1,20 @@
+{
+  "name": "@ccclub/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "echo 'Worker builds via wrangler'"
+  },
+  "dependencies": {
+    "@ccclub/shared": "workspace:*",
+    "hono": "^4.6.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241230.0",
+    "wrangler": "^3.99.0",
+    "typescript": "^5.7.0"
+  }
+}

@@ -7,8 +7,8 @@ import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
 import type { SyncResponse, UsageBlock } from "@ccclub/shared";
 
-export async function syncCommand(options: { silent?: boolean }): Promise<void> {
-  await doSync(false, options.silent);
+export async function syncCommand(options: { silent?: boolean; full?: boolean }): Promise<void> {
+  await doSync(options.full || false, options.silent);
 }
 
 export async function doSync(firstSync = false, silent = false): Promise<void> {

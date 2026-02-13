@@ -35,8 +35,8 @@ export async function collectUsageEntries(): Promise<CollectionResult> {
         continue;
       }
 
-      // Count human turns (user messages)
-      if (parsed.type === "human" && parsed.timestamp) {
+      // Count user turns (user messages)
+      if (parsed.type === "user" && parsed.timestamp) {
         const humanKey = `${parsed.sessionId || ""}:${parsed.timestamp}`;
         if (!seenHuman.has(humanKey)) {
           seenHuman.add(humanKey);

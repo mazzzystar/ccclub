@@ -14,7 +14,7 @@ const program = new Command();
 program
   .name("ccclub")
   .description("CCClub - Compare Claude Code usage with friends")
-  .version("0.2.3");
+  .version("0.2.4");
 
 // Auto-install globally on any command (silent if already installed)
 program.hook("postAction", () => ensureGlobalInstall());
@@ -34,6 +34,7 @@ program
   .command("sync")
   .description("Sync local usage data to server")
   .option("-s, --silent", "No output (used by auto-sync hook)")
+  .option("-f, --full", "Force full re-sync of all data")
   .action(syncCommand);
 
 program

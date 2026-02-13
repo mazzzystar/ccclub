@@ -24,10 +24,13 @@ export async function showDataCommand(): Promise<void> {
 
   for (const block of recent) {
     console.log(chalk.cyan(`  ${block.blockStart.slice(0, 16)} → ${block.blockEnd.slice(11, 16)}`));
-    console.log(chalk.dim(`    tokens: ${block.totalTokens.toLocaleString()}  cost: $${block.costUSD.toFixed(4)}  calls: ${block.entryCount}  models: ${block.models.join(", ")}`));
+    console.log(chalk.dim(`    input: ${block.inputTokens.toLocaleString()}  output: ${block.outputTokens.toLocaleString()}  cache_create: ${block.cacheCreationTokens.toLocaleString()}  cache_read: ${block.cacheReadTokens.toLocaleString()}`));
+    console.log(chalk.dim(`    cost: $${block.costUSD.toFixed(4)}  calls: ${block.entryCount}  models: ${block.models.join(", ")}`));
   }
 
-  const totalTokens = blocks.reduce((s, b) => s + b.totalTokens, 0);
+  const totalInput = blocks.reduce((s, b) => s + b.inputTokens, 0);
+  const totalOutput = blocks.reduce((s, b) => s + b.outputTokens, 0);
   const totalCost = blocks.reduce((s, b) => s + b.costUSD, 0);
-  console.log(chalk.bold(`\n  All-time total: ${totalTokens.toLocaleString()} tokens · $${totalCost.toFixed(2)}`));
+  console.log(chalk.bold(`\n  All-time total: ${(totalInput + totalOutput).toLocaleString()} tokens · $${totalCost.toFixed(2)}`));
+  console.log(chalk.dim(`    input: ${totalInput.toLocaleString()}  output: ${totalOutput.toLocaleString()}`));
 }

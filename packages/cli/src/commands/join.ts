@@ -5,6 +5,7 @@ import ora from "ora";
 import { loadConfig, saveConfig, generateDeviceToken, getApiUrl, getDefaultDisplayName } from "../config.js";
 import { installHook } from "../hook.js";
 import { doSync } from "./sync.js";
+import { ensureGlobalInstall } from "../global-install.js";
 import type { JoinResponse } from "@ccclub/shared";
 
 export async function joinCommand(inviteCode: string): Promise<void> {
@@ -75,6 +76,8 @@ export async function joinCommand(inviteCode: string): Promise<void> {
   if (!config) {
     console.log("");
     await doSync(true);
+    // Auto-install globally so `ccclub` works without npx
+    await ensureGlobalInstall();
   }
 
   console.log("");

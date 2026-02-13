@@ -106,6 +106,8 @@ app.get("/rank/global", async (c) => {
     let totalTokens = 0;
     let inputTokens = 0;
     let outputTokens = 0;
+    let cacheCreationTokens = 0;
+    let cacheReadTokens = 0;
     let costUSD = 0;
     let entryCount = 0;
     let chatCount = 0;
@@ -117,6 +119,8 @@ app.get("/rank/global", async (c) => {
         totalTokens += block.totalTokens;
         inputTokens += block.inputTokens;
         outputTokens += block.outputTokens;
+        cacheCreationTokens += block.cacheCreationTokens || 0;
+        cacheReadTokens += block.cacheReadTokens || 0;
         costUSD += block.costUSD;
         entryCount += block.entryCount;
         chatCount += block.chatCount || 0;
@@ -133,6 +137,8 @@ app.get("/rank/global", async (c) => {
         totalTokens,
         inputTokens,
         outputTokens,
+        cacheCreationTokens,
+        cacheReadTokens,
         costUSD: Math.round(costUSD * 10000) / 10000,
         models: Array.from(models),
         entryCount,
@@ -182,6 +188,8 @@ app.get("/rank/:code", async (c) => {
     let totalTokens = 0;
     let inputTokens = 0;
     let outputTokens = 0;
+    let cacheCreationTokens = 0;
+    let cacheReadTokens = 0;
     let costUSD = 0;
     let entryCount = 0;
     let chatCount = 0;
@@ -194,6 +202,8 @@ app.get("/rank/:code", async (c) => {
           totalTokens += block.totalTokens;
           inputTokens += block.inputTokens;
           outputTokens += block.outputTokens;
+          cacheCreationTokens += block.cacheCreationTokens || 0;
+          cacheReadTokens += block.cacheReadTokens || 0;
           costUSD += block.costUSD;
           entryCount += block.entryCount;
           chatCount += block.chatCount || 0;
@@ -210,6 +220,8 @@ app.get("/rank/:code", async (c) => {
       totalTokens,
       inputTokens,
       outputTokens,
+      cacheCreationTokens,
+      cacheReadTokens,
       costUSD: Math.round(costUSD * 10000) / 10000,
       models: Array.from(models),
       entryCount,

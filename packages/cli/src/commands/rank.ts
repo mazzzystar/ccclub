@@ -89,9 +89,9 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   console.log(chalk.dim(`  ${period.toUpperCase()} · ${data.start.slice(0, 10)} → ${data.end.slice(0, 10)} · ${data.group.memberCount} members\n`));
 
   const table = new Table({
-    head: ["#", "Name", "Tokens", "Cost", "Chats"].map((h) => chalk.cyan(h)),
+    head: ["#", "Name", "Input", "Output", "Cost", "Chats"].map((h) => chalk.cyan(h)),
     style: { head: [], border: [] },
-    colWidths: [5, 20, 10, 12, 8],
+    colWidths: [5, 18, 10, 10, 10, 8],
   });
 
   for (const entry of data.rankings) {
@@ -100,10 +100,16 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
     const name = isMe ? chalk.green.bold(entry.displayName) : entry.displayName;
     const rankColor = entry.rank <= 3 ? chalk.yellow : chalk.white;
 
+    // Input = inputTokens + cacheCreationTokens + cacheReadTokens (all prompt-side tokens)
+    const cacheCreation = entry.cacheCreationTokens || 0;
+    const cacheRead = entry.cacheReadTokens || 0;
+    const totalInput = entry.inputTokens + cacheCreation + cacheRead;
+
     table.push([
       `${marker}${rankColor(String(entry.rank))}`,
       name,
-      formatTokens(entry.totalTokens),
+      formatTokens(totalInput),
+      formatTokens(entry.outputTokens),
       `$${entry.costUSD.toFixed(2)}`,
       String(entry.chatCount),
     ]);

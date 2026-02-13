@@ -87,6 +87,8 @@ export interface RankingEntry {
   totalTokens: number;
   inputTokens: number;
   outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
   costUSD: number;
   models: string[];
   entryCount: number;

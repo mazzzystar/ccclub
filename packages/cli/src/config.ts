@@ -51,7 +51,8 @@ export function getApiUrl(): string {
 export async function requireConfig(): Promise<CliConfig> {
   const config = await loadConfig();
   if (!config) {
-    throw new Error('Not initialized. Run "ccclub init" first.');
+    console.error('Not initialized. Run "ccclub init" or "ccclub join <code>" first.');
+    process.exit(1);
   }
   return config;
 }

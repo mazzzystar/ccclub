@@ -22,6 +22,20 @@ function dashboardHTML(code: string) {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CCClub \u2014 Rankings</title>
+  <meta name="description" content="Live Claude Code usage leaderboard" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="CCClub \u2014 Rankings" />
+  <meta property="og:description" content="Live Claude Code usage leaderboard. See who's burning the most tokens." />
+  <meta property="og:url" content="https://ccclub.dev/g/${code}" />
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="CCClub \u2014 Rankings" />
+  <meta name="twitter:description" content="Live Claude Code usage leaderboard. See who's burning the most tokens." />
+
+  <meta name="theme-color" content="#1a1816" />
+  <link rel="canonical" href="https://ccclub.dev/g/${code}" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     body {

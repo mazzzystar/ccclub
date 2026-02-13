@@ -1,4 +1,4 @@
-[English](./README.md)
+[English](./README.md) | [日本語](./README_JA.md) | [한국어](./README_KO.md) | [Deutsch](./README_DE.md) | [Français](./README_FR.md) | [Español](./README_ES.md)
 
 # ccclub.dev
 
@@ -7,7 +7,7 @@
 ```
 $ npx ccclub rank
 
-  Ada 的编程俱乐部
+  Ada's club
   DAILY · 2025-02-13 → 2025-02-14 · 3 members
 
   #   Name              Tokens          Cost     Calls
@@ -58,6 +58,7 @@ ccclub rank -p weekly              # 本周
 ccclub rank -p monthly             # 本月
 ccclub rank -p all-time            # 全部
 ccclub rank --global               # 所有公开用户
+ccclub rank -g R4NK7D              # 指定小组
 ```
 
 想折腾的话，这些也有：
@@ -92,6 +93,9 @@ https://ccclub.dev/g/R4NK7D
   "blockEnd": "2025-02-13T05:00:00Z",
   "inputTokens": 48210,
   "outputTokens": 12050,
+  "cacheCreationTokens": 0,
+  "cacheReadTokens": 31200,
+  "totalTokens": 91460,
   "costUSD": 0.2184,
   "models": ["claude-sonnet-4-5-20250929"],
   "entryCount": 23

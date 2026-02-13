@@ -1,4 +1,4 @@
-[中文版](./README_CN.md)
+[中文](./README_CN.md) | [日本語](./README_JA.md) | [한국어](./README_KO.md) | [Deutsch](./README_DE.md) | [Français](./README_FR.md) | [Español](./README_ES.md)
 
 # ccclub.dev
 
@@ -7,7 +7,7 @@ Know how much Claude Code your friends are burning through.
 ```
 $ npx ccclub rank
 
-  Ada's Coding Club
+  Ada's club
   DAILY · 2025-02-13 → 2025-02-14 · 3 members
 
   #   Name              Tokens          Cost     Calls
@@ -58,6 +58,7 @@ ccclub rank -p weekly              # This week
 ccclub rank -p monthly             # This month
 ccclub rank -p all-time            # All time
 ccclub rank --global               # Everyone who opted in
+ccclub rank -g R4NK7D              # Specific group
 ```
 
 If you want more, it's there:
@@ -92,6 +93,9 @@ Uploads **only** this:
   "blockEnd": "2025-02-13T05:00:00Z",
   "inputTokens": 48210,
   "outputTokens": 12050,
+  "cacheCreationTokens": 0,
+  "cacheReadTokens": 31200,
+  "totalTokens": 91460,
   "costUSD": 0.2184,
   "models": ["claude-sonnet-4-5-20250929"],
   "entryCount": 23

@@ -1,0 +1,109 @@
+[English](./README.md) | [中文](./README_CN.md) | [한국어](./README_KO.md) | [Deutsch](./README_DE.md) | [Français](./README_FR.md) | [Español](./README_ES.md)
+
+# ccclub.dev
+
+友達が Claude Code をどれだけ使っているか見てみよう。
+
+```
+$ npx ccclub rank
+
+  Ada's club
+  DAILY · 2025-02-13 → 2025-02-14 · 3 members
+
+  #   Name              Tokens          Cost     Calls
+  →1   Ada              481,200        $7.22       142
+   2   Bob              203,800        $3.06        87
+   3   Carol             98,500        $1.48        53
+
+  Dashboard: https://ccclub.dev/g/R4NK7D
+```
+
+## はじめに
+
+```bash
+npx ccclub init
+```
+
+名前を入力すると、6文字の招待コードが発行されます。友達に共有しましょう:
+
+```bash
+npx ccclub join R4NK7D
+```
+
+以上です。使用量は1時間ごとに自動同期されます。設定不要、登録不要、アカウント不要。
+
+## 仕組み
+
+```
+~/.claude/projects/*.jsonl → 5時間ブロックに集約 → アップロード → みんなで見る
+```
+
+CCClub は Claude Code がローカルに書き出す JSONL ログを読み取り、5時間ごとの要約（トークン数 + コスト）にまとめてアップロードします。**プロンプト、コード、ファイルパス、プロジェクト名は一切含まれません** — カウンターのみです。`ccclub show-data` で送信内容を確認できます。
+
+## コマンド
+
+日常使いはこの4つだけ:
+
+```bash
+ccclub init                        # 初回セットアップ、グループ作成
+ccclub join <CODE>                 # 友達のグループに参加
+ccclub sync                        # 手動同期（1時間ごとに自動実行）
+ccclub rank                        # 今日の使用量を表示
+```
+
+期間指定:
+
+```bash
+ccclub rank -p weekly              # 今週
+ccclub rank -p monthly             # 今月
+ccclub rank -p all-time            # 全期間
+ccclub rank --global               # 公開ユーザー全員
+ccclub rank -g R4NK7D              # 特定のグループ
+```
+
+その他:
+
+```bash
+ccclub create                      # 別のグループを作成
+ccclub profile                     # プロフィールを表示
+ccclub profile --name "新しい名前"  # 表示名を変更
+ccclub profile --avatar "URL"      # カスタムアバター
+ccclub profile --public            # グローバルランキングに表示
+ccclub profile --private           # グローバルランキングから非表示（デフォルト）
+ccclub show-data                   # アップロード内容を確認
+```
+
+## Webダッシュボード
+
+各グループにライブページがあります:
+
+```
+https://ccclub.dev/g/R4NK7D
+```
+
+期間切替（日次/週次/月次/全期間）、アバター、5分ごとの自動更新。公開ユーザーのグローバルページは `/g/global` にあります。
+
+## プライバシー
+
+アップロードされるのは**これだけ**:
+
+```json
+{
+  "blockStart": "2025-02-13T00:00:00Z",
+  "blockEnd": "2025-02-13T05:00:00Z",
+  "inputTokens": 48210,
+  "outputTokens": 12050,
+  "cacheCreationTokens": 0,
+  "cacheReadTokens": 31200,
+  "totalTokens": 91460,
+  "costUSD": 0.2184,
+  "models": ["claude-sonnet-4-5-20250929"],
+  "entryCount": 23
+}
+```
+
+**デフォルトは非公開** — 参加したグループ内でのみ表示されます。グローバルランキングはオプトイン（`ccclub profile --public`）です。
+
+## ライセンス
+
+MIT

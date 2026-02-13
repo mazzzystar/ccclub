@@ -16,6 +16,21 @@ function landingHTML() {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ccclub \u2014 Know how much Claude Code your friends are burning through</title>
   <meta name="description" content="Track and compare Claude Code usage with friends. Create a group, share a code, see the leaderboard together." />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://ccclub.dev/" />
+  <meta property="og:title" content="ccclub — Compare Claude Code usage with friends" />
+  <meta property="og:description" content="Create a group, share a 6-letter code, compare usage. No signup, no config." />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="ccclub — Compare Claude Code usage with friends" />
+  <meta name="twitter:description" content="Create a group, share a 6-letter code, compare usage. No signup, no config." />
+
+  <meta name="theme-color" content="#1a1816" />
+  <link rel="canonical" href="https://ccclub.dev/" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     body {

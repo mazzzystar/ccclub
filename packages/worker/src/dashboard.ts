@@ -78,6 +78,7 @@ function dashboardHTML(code: string) {
     .rank { font-weight: 600; width: 40px; color: #6b6560; }
     .rank.top { color: #d4a03e; }
     .name-cell { display: flex; align-items: center; gap: 12px; }
+    .name-cell > div:last-child { flex: 1; min-width: 0; }
     .avatar {
       width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;

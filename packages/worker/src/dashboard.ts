@@ -235,12 +235,12 @@ function dashboardHTML(code: string) {
             return;
           }
 
-          var maxTok = 0;
-          data.rankings.forEach(function(r) { if (r.totalTokens > maxTok) maxTok = r.totalTokens; });
+          var maxCost = 0;
+          data.rankings.forEach(function(r) { if (r.costUSD > maxCost) maxCost = r.costUSD; });
           var h = '<table><thead><tr><th>#</th><th>Name</th><th>Tokens</th><th>Cost</th><th>Calls</th></tr></thead><tbody>';
 
           data.rankings.forEach(function(r) {
-            var pct = maxTok > 0 ? (r.totalTokens / maxTok * 100) : 0;
+            var pct = maxCost > 0 ? (r.costUSD / maxCost * 100) : 0;
             var rankClass = r.rank <= 3 ? "rank top" : "rank";
             h += '<tr>' +
               '<td class="' + rankClass + '">' + r.rank + '</td>' +

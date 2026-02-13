@@ -12,7 +12,7 @@ const program = new Command();
 program
   .name("ccclub")
   .description("CCClub - Compare Claude Code usage with friends")
-  .version("0.2.25");
+  .version("0.2.26");
 
 program
   .command("init")
@@ -33,13 +33,17 @@ program
   .action(syncCommand);
 
 program
-  .command("rank", { isDefault: true })
-  .description("Show leaderboard (default: today)")
+  .command("rank", { isDefault: true, hidden: true })
+  .description("Show leaderboard")
   .option("-p, --period <period>", "daily | weekly | monthly | all-time", "daily")
   .option("-g, --group <code>", "Group invite code")
   .option("--global", "Show global public ranking")
   .option("--cache", "Include cache tokens in count")
   .action(rankCommand);
+
+program
+  .command("-p weekly|monthly|all-time", { hidden: false })
+  .description("Switch period (default: daily)");
 
 program
   .command("profile")

@@ -119,7 +119,7 @@ app.get("/rank/global", async (c) => {
     }
   }
 
-  entries.sort((a, b) => b.totalTokens - a.totalTokens);
+  entries.sort((a, b) => b.costUSD - a.costUSD);
   entries.forEach((e, i) => (e.rank = i + 1));
 
   return c.json<RankResponse>({
@@ -187,7 +187,7 @@ app.get("/rank/:code", async (c) => {
     }
   }
 
-  entries.sort((a, b) => b.totalTokens - a.totalTokens);
+  entries.sort((a, b) => b.costUSD - a.costUSD);
   entries.forEach((e, i) => (e.rank = i + 1));
 
   return c.json<RankResponse>({

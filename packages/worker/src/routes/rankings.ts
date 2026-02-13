@@ -150,7 +150,6 @@ app.get("/rank/:code", async (c) => {
 
   for (const member of group.members) {
     const usage = await c.env.KV.get<UsageData>(`usage:${member.userId}`, "json");
-    if (!usage) continue;
 
     let totalTokens = 0;
     let inputTokens = 0;
@@ -159,32 +158,32 @@ app.get("/rank/:code", async (c) => {
     let entryCount = 0;
     const models = new Set<string>();
 
-    for (const block of usage.blocks) {
-      const blockTime = new Date(block.blockStart).getTime();
-      if (blockTime >= startMs && blockTime < endMs) {
-        totalTokens += block.totalTokens;
-        inputTokens += block.inputTokens;
-        outputTokens += block.outputTokens;
-        costUSD += block.costUSD;
-        entryCount += block.entryCount;
-        for (const m of block.models) models.add(m);
+    if (usage) {
+      for (const block of usage.blocks) {
+        const blockTime = new Date(block.blockStart).getTime();
+        if (blockTime >= startMs && blockTime < endMs) {
+          totalTokens += block.totalTokens;
+          inputTokens += block.inputTokens;
+          outputTokens += block.outputTokens;
+          costUSD += block.costUSD;
+          entryCount += block.entryCount;
+          for (const m of block.models) models.add(m);
+        }
       }
     }
 
-    if (totalTokens > 0 || entryCount > 0) {
-      entries.push({
-        rank: 0,
-        userId: member.userId,
-        displayName: member.displayName,
-        avatar: member.avatar || "",
-        totalTokens,
-        inputTokens,
-        outputTokens,
-        costUSD: Math.round(costUSD * 10000) / 10000,
-        models: Array.from(models),
-        entryCount,
-      });
-    }
+    entries.push({
+      rank: 0,
+      userId: member.userId,
+      displayName: member.displayName,
+      avatar: member.avatar || "",
+      totalTokens,
+      inputTokens,
+      outputTokens,
+      costUSD: Math.round(costUSD * 10000) / 10000,
+      models: Array.from(models),
+      entryCount,
+    });
   }
 
   entries.sort((a, b) => b.costUSD - a.costUSD);

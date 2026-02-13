@@ -124,7 +124,7 @@ function dashboardHTML(code: string) {
 
     @media (max-width: 600px) {
       .wrap { padding: 32px 16px; }
-      th:nth-child(5), td:nth-child(5) { display: none; }
+      th:nth-child(5), td:nth-child(5), th:nth-child(6), td:nth-child(6) { display: none; }
     }
   </style>
 </head>
@@ -239,16 +239,18 @@ function dashboardHTML(code: string) {
 
           var maxCost = 0;
           data.rankings.forEach(function(r) { if (r.costUSD > maxCost) maxCost = r.costUSD; });
-          var h = '<table><thead><tr><th>#</th><th>Name</th><th>Tokens</th><th>Cost</th><th>Chats</th></tr></thead><tbody>';
+          var h = '<table><thead><tr><th>#</th><th>Name</th><th>Tokens</th><th>+ Cache</th><th>Cost</th><th>Chats</th></tr></thead><tbody>';
 
           data.rankings.forEach(function(r) {
             var pct = maxCost > 0 ? (r.costUSD / maxCost * 100) : 0;
             var rankClass = r.rank <= 3 ? "rank top" : "rank";
+            var tokens = r.inputTokens + r.outputTokens;
             h += '<tr>' +
               '<td class="' + rankClass + '">' + r.rank + '</td>' +
               '<td><div class="name-cell">' + avatarHTML(r.userId, r.displayName, r.avatar) +
                 '<div><div class="name-text">' + esc(r.displayName) + '</div>' +
                 '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +
+              '<td class="tokens">' + formatTokens(tokens) + '</td>' +
               '<td class="tokens">' + formatTokens(r.totalTokens) + '</td>' +
               '<td class="cost">$' + r.costUSD.toFixed(2) + '</td>' +
               '<td class="calls">' + (r.chatCount || 0) + '</td></tr>';

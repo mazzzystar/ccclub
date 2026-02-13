@@ -52,7 +52,7 @@ app.post("/init", async (c) => {
   const userId = generateId();
   const inviteCode = generateInviteCode();
   const now = new Date().toISOString();
-  const groupName = `${displayName}的小组`;
+  const groupName = `${displayName}'s club`;
 
   // Create user
   const userRecord: UserRecord = { userId, displayName, avatar: "", visibility: "private", createdAt: now };

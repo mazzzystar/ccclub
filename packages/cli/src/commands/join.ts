@@ -66,8 +66,6 @@ export async function joinCommand(inviteCode: string): Promise<void> {
   }
 
   spinner.succeed(`Joined "${data.groupName}"!`);
-  console.log(chalk.dim(`\n  Dashboard: ${apiUrl}/g/${data.groupCode}`));
-  console.log(chalk.dim('  Run "ccclub rank" to see rankings'));
 
   // First sync if new user
   if (!config) {
@@ -75,4 +73,16 @@ export async function joinCommand(inviteCode: string): Promise<void> {
     await doSync(true);
   }
 
+  console.log("");
+  console.log(chalk.bold("  What's next?"));
+  console.log("");
+  console.log(chalk.dim("  See the leaderboard:"));
+  console.log(chalk.white("    ccclub rank"));
+  console.log("");
+  console.log(chalk.dim("  This week / this month / all-time:"));
+  console.log(chalk.white("    ccclub rank -p weekly"));
+  console.log("");
+  console.log(chalk.dim("  Open the dashboard in browser:"));
+  console.log(chalk.white(`    https://ccclub.dev/g/${data.groupCode}`));
+  console.log("");
 }

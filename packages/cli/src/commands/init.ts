@@ -63,7 +63,7 @@ export async function initCommand(): Promise<void> {
     console.log(chalk.dim("  Share with friends: ") + chalk.white(`npx ccclub join ${data.groupCode}`));
 
     if (heartbeatOk) {
-      console.log(chalk.dim("  Heartbeat: installed (syncs every hour)"));
+      console.log(chalk.dim("  Auto-sync: on (every hour)"));
     } else {
       console.log(chalk.dim('  Tip: run "ccclub sync" periodically to update data'));
     }
@@ -72,7 +72,27 @@ export async function initCommand(): Promise<void> {
     console.log("");
     await doSync(true);
 
+    printQuickStart(data.groupCode);
+
   } finally {
     rl.close();
   }
+}
+
+function printQuickStart(groupCode: string): void {
+  console.log("");
+  console.log(chalk.bold("  What's next?"));
+  console.log("");
+  console.log(chalk.dim("  See the leaderboard:"));
+  console.log(chalk.white("    ccclub rank"));
+  console.log("");
+  console.log(chalk.dim("  This week / this month / all-time:"));
+  console.log(chalk.white("    ccclub rank -p weekly"));
+  console.log("");
+  console.log(chalk.dim("  Open the dashboard in browser:"));
+  console.log(chalk.white(`    https://ccclub.dev/g/${groupCode}`));
+  console.log("");
+  console.log(chalk.dim("  Check what data gets uploaded:"));
+  console.log(chalk.white("    ccclub show-data"));
+  console.log("");
 }

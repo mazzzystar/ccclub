@@ -103,7 +103,7 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
     table.push([
       `${marker}${rankColor(String(entry.rank))}`,
       name,
-      formatTokens(entry.totalTokens),
+      formatTokens(entry.inputTokens + entry.outputTokens),
       `$${entry.costUSD.toFixed(2)}`,
       String(entry.chatCount),
     ]);

@@ -75,8 +75,9 @@ function landingHTML() {
     .terminal-dot.y { background: #d4a03e; }
     .terminal-dot.g { background: #5aad7d; }
     .terminal-body {
-      padding: 20px 24px; font-size: 13px; line-height: 1.8;
+      padding: 20px 24px; font-size: 14px; line-height: 1.8;
       color: #8a8480; white-space: pre; overflow-x: auto;
+      font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace;
     }
     .terminal-body .prompt { color: #5aad7d; }
     .terminal-body .cmd { color: #e8e4de; }

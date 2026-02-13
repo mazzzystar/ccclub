@@ -13,7 +13,7 @@ const program = new Command();
 program
   .name("ccclub")
   .description("CCClub - Compare Claude Code usage with friends")
-  .version("0.1.10");
+  .version("0.1.11");
 
 // Auto-install globally on any command (silent if already installed)
 program.hook("postAction", () => ensureGlobalInstall());
@@ -36,7 +36,7 @@ program
   .action(syncCommand);
 
 program
-  .command("rank")
+  .command("rank", { isDefault: true })
   .description("Show leaderboard rankings")
   .option("-p, --period <period>", "daily, weekly, monthly, all-time", "daily")
   .option("-g, --group <code>", "Group invite code")

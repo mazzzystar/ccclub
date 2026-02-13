@@ -11,13 +11,13 @@ import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
 import type { SyncResponse, UsageBlock } from "@ccclub/shared";
 
 // Bump this when block format changes to auto-trigger full re-sync
-const SYNC_FORMAT_VERSION = "3";
+const SYNC_FORMAT_VERSION = "4";
 
 function getSyncVersionPath(): string {
   return join(homedir(), CCCLUB_CONFIG_DIR, "sync-version");
 }
 
-function needsFullSync(): boolean {
+export function needsFullSync(): boolean {
   const path = getSyncVersionPath();
   if (!existsSync(path)) return true;
   try {

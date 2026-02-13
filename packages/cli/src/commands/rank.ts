@@ -3,13 +3,16 @@ import Table from "cli-table3";
 import ora from "ora";
 import type { RankingPeriod, RankResponse } from "@ccclub/shared";
 import { requireConfig } from "../config.js";
-import { doSync } from "./sync.js";
+import { doSync, needsFullSync } from "./sync.js";
 
 export async function rankCommand(options: { period?: string; group?: string; global?: boolean }): Promise<void> {
   const config = await requireConfig();
 
-  // Quick sync before showing rankings
-  await doSync(false, true);
+  // Only auto-sync when format version changed (one-time after CLI upgrade)
+  // Regular syncing is handled by the session-end hook
+  if (needsFullSync()) {
+    await doSync(true, true);
+  }
 
   const isGlobal = options.global === true;
   const period = (options.period || "daily") as RankingPeriod;

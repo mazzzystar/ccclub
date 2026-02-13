@@ -70,13 +70,14 @@ function landingHTML() {
     /* Terminal */
     .terminal-wrap { padding: 24px 0 48px; }
     .terminal {
-      background: #13110f; border: 1px solid #2e2c2a; border-radius: 10px;
+      background: #13110f; border: none; border-radius: 10px;
       overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06);
     }
     .terminal-bar {
       padding: 12px 16px;
       display: flex; align-items: center; gap: 8px;
-      border-bottom: 1px solid #2e2c2a;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
     }
     .terminal-dot { width: 10px; height: 10px; border-radius: 50%; }
     .terminal-dot.r { background: #e05555; }

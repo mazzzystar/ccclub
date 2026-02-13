@@ -99,35 +99,17 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
     const tokens = showCache ? entry.totalTokens : entry.inputTokens + entry.outputTokens;
     const marker = isMe ? chalk.green("→") : " ";
 
-    // Color by column role: rank = medal, name = identity, data = secondary
-    let rankC: (s: string) => string;
-    let nameC: (s: string) => string;
-    let dataC: (s: string) => string;
-
-    if (isMe) {
-      rankC = chalk.green.bold;
-      nameC = chalk.green.bold;
-      dataC = chalk.green;
-    } else if (entry.rank === 1) {
-      rankC = chalk.yellow.bold;
-      nameC = chalk.yellow;
-      dataC = chalk.white;
-    } else if (entry.rank <= 3) {
-      rankC = chalk.yellow;
-      nameC = chalk.white;
-      dataC = chalk.white;
-    } else {
-      rankC = chalk.dim;
-      nameC = chalk.white;
-      dataC = chalk.dim;
-    }
+    // Only two highlights: #1 gold, self green. Everything else default.
+    const id = (s: string) => s;
+    const c = isMe ? chalk.green : entry.rank === 1 ? chalk.yellow : id;
+    const nameC = isMe ? chalk.green.bold : entry.rank === 1 ? chalk.yellow.bold : id;
 
     table.push([
-      `${marker}${rankC(String(entry.rank))}`,
+      `${marker}${c(String(entry.rank))}`,
       nameC(entry.displayName),
-      dataC(formatTokens(tokens)),
-      dataC(`$${entry.costUSD.toFixed(2)}`),
-      dataC(String(entry.chatCount)),
+      c(formatTokens(tokens)),
+      c(`$${entry.costUSD.toFixed(2)}`),
+      c(String(entry.chatCount)),
     ]);
   }
 

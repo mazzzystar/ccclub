@@ -53,7 +53,7 @@ function dashboardHTML(code: string) {
     .subtitle { color: #6b6560; font-size: 13px; margin-top: 4px; }
 
     /* Period selector */
-    .periods { display: flex; gap: 6px; margin: 28px 0; flex-wrap: wrap; }
+    .periods { display: flex; gap: 6px; margin: 28px 0; flex-wrap: wrap; align-items: center; }
     .periods button {
       padding: 6px 14px; border-radius: 6px; border: 1px solid #363330;
       background: transparent; color: #8a8480; cursor: pointer;
@@ -64,6 +64,24 @@ function dashboardHTML(code: string) {
     .periods button.active {
       background: #2a2826; color: #e8e4de; border-color: #4a4640;
     }
+
+    /* Cache toggle */
+    .toggle-wrap {
+      margin-left: auto; display: flex; align-items: center; gap: 6px;
+    }
+    .toggle-label { font-size: 12px; color: #6b6560; user-select: none; cursor: pointer; }
+    .toggle {
+      position: relative; width: 32px; height: 18px; cursor: pointer;
+      background: #363330; border-radius: 9px; border: none;
+      transition: background 0.2s;
+    }
+    .toggle::after {
+      content: ""; position: absolute; top: 2px; left: 2px;
+      width: 14px; height: 14px; border-radius: 50%;
+      background: #6b6560; transition: all 0.2s;
+    }
+    .toggle.on { background: #5aad7d; }
+    .toggle.on::after { left: 16px; background: #e8e4de; }
 
     /* Table */
     table { width: 100%; border-collapse: collapse; margin-top: 8px; }
@@ -139,6 +157,10 @@ function dashboardHTML(code: string) {
       <button data-period="monthly">This Month</button>
       <button data-period="all-time">All Time</button>
       ${isGlobal ? html`` : html`<button data-nav="global">Global</button>`}
+      <div class="toggle-wrap">
+        <span class="toggle-label" id="cache-label">Cache</span>
+        <button class="toggle" id="cache-toggle" aria-label="Include cache tokens"></button>
+      </div>
     </div>
 
     <div id="content"></div>
@@ -163,6 +185,18 @@ function dashboardHTML(code: string) {
     var CODE = "${code}";
     var IS_GLOBAL = ${isGlobal ? "true" : "false"};
     var period = "daily";
+    var showCache = false;
+
+    var cacheToggle = document.getElementById("cache-toggle");
+    var cacheLabel = document.getElementById("cache-label");
+    cacheToggle.addEventListener("click", function() {
+      showCache = !showCache;
+      cacheToggle.classList.toggle("on", showCache);
+      load();
+    });
+    cacheLabel.addEventListener("click", function() {
+      cacheToggle.click();
+    });
 
     var inviteEl = document.getElementById("invite-code-display");
     if (inviteEl) inviteEl.textContent = "npx ccclub join " + CODE;
@@ -249,7 +283,7 @@ function dashboardHTML(code: string) {
               '<td><div class="name-cell">' + avatarHTML(r.userId, r.displayName, r.avatar) +
                 '<div><div class="name-text">' + esc(r.displayName) + '</div>' +
                 '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +
-              '<td class="tokens">' + formatTokens(r.inputTokens + r.outputTokens) + '</td>' +
+              '<td class="tokens">' + formatTokens(showCache ? r.totalTokens : (r.inputTokens + r.outputTokens)) + '</td>' +
               '<td class="cost">$' + r.costUSD.toFixed(2) + '</td>' +
               '<td class="calls">' + (r.chatCount || 0) + '</td></tr>';
           });

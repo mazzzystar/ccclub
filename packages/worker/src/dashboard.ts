@@ -299,6 +299,7 @@ function dashboardHTML(code: string) {
     }
 
     function formatTokens(n) {
+      if (n >= 1000000000) { var b = n / 1000000000; return (b % 1 === 0 ? b : parseFloat(b.toFixed(1))) + "B"; }
       if (n >= 1000000) { var m = n / 1000000; return (m % 1 === 0 ? m : parseFloat(m.toFixed(1))) + "M"; }
       if (n >= 1000) { var k = n / 1000; return (k % 1 === 0 ? k : parseFloat(k.toFixed(1))) + "K"; }
       return String(n);

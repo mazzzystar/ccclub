@@ -66,6 +66,10 @@ export async function rankCommand(options: { period?: string; group?: string; gl
 }
 
 function formatTokens(n: number): string {
+  if (n >= 1_000_000_000) {
+    const b = n / 1_000_000_000;
+    return b % 1 === 0 ? `${b}B` : `${parseFloat(b.toFixed(1))}B`;
+  }
   if (n >= 1_000_000) {
     const m = n / 1_000_000;
     return m % 1 === 0 ? `${m}M` : `${parseFloat(m.toFixed(1))}M`;

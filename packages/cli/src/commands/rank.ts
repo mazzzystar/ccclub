@@ -4,9 +4,13 @@ import ora from "ora";
 import type { RankingPeriod, RankResponse } from "@ccclub/shared";
 import { requireConfig } from "../config.js";
 import { doSync, needsFullSync } from "./sync.js";
+import { installHook, isHookInstalled } from "../hook.js";
 
 export async function rankCommand(options: { period?: string; group?: string; global?: boolean }): Promise<void> {
   const config = await requireConfig();
+
+  // Ensure hook is installed (silent, one-time for existing users)
+  if (!isHookInstalled()) await installHook();
 
   // Only auto-sync when format version changed (one-time after CLI upgrade)
   // Regular syncing is handled by the session-end hook

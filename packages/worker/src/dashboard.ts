@@ -109,7 +109,7 @@ function dashboardHTML(code: string) {
     .invite-label { color: #6b6560; font-size: 13px; margin-bottom: 4px; }
     .invite-code {
       font-family: "SF Mono", Menlo, monospace;
-      font-size: 18px; letter-spacing: 3px; font-weight: 600; color: #e8e4de;
+      font-size: 14px; letter-spacing: 0.5px; font-weight: 600; color: #e8e4de;
     }
     .copy-btn {
       padding: 8px 16px; border-radius: 6px; border: 1px solid #363330;
@@ -148,7 +148,7 @@ function dashboardHTML(code: string) {
         <div class="invite-label">Invite friends to join</div>
         <div class="invite-code" id="invite-code-display"></div>
       </div>
-      <button class="copy-btn" id="copy-btn">Copy</button>
+      <button class="copy-btn" id="copy-btn">Copy command</button>
     </div>`}
 
     <div class="meta" id="refresh-info"></div>
@@ -164,7 +164,7 @@ function dashboardHTML(code: string) {
     var period = "daily";
 
     var inviteEl = document.getElementById("invite-code-display");
-    if (inviteEl) inviteEl.textContent = CODE;
+    if (inviteEl) inviteEl.textContent = "npx ccclub join " + CODE;
     var copyBtn = document.getElementById("copy-btn");
     if (copyBtn) {
       copyBtn.addEventListener("click", function() {

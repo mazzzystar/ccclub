@@ -2,7 +2,7 @@ import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import chalk from "chalk";
 import ora from "ora";
-import { loadConfig, saveConfig, generateDeviceToken, getApiUrl } from "../config.js";
+import { loadConfig, saveConfig, generateDeviceToken, getApiUrl, getDefaultDisplayName } from "../config.js";
 import { installHeartbeat } from "../heartbeat.js";
 import { doSync } from "./sync.js";
 import type { JoinResponse } from "@ccclub/shared";
@@ -17,15 +17,19 @@ export async function joinCommand(inviteCode: string): Promise<void> {
     token = config.token;
     displayName = config.displayName;
   } else {
-    // New user, ask for name
+    // New user, ask for name (with auto-detected default)
     const rl = createInterface({ input: stdin, output: stdout });
     try {
-      displayName = await rl.question(chalk.bold("Your display name: "));
-      if (!displayName.trim()) {
+      const defaultName = getDefaultDisplayName();
+      const prompt = defaultName
+        ? chalk.bold(`Your display name (${defaultName}): `)
+        : chalk.bold("Your display name: ");
+      const input = await rl.question(prompt);
+      displayName = input.trim() || defaultName || "";
+      if (!displayName) {
         console.error(chalk.red("Name cannot be empty"));
         return;
       }
-      displayName = displayName.trim();
     } finally {
       rl.close();
     }

@@ -1,8 +1,9 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { homedir } from "node:os";
+import { homedir, userInfo } from "node:os";
 import { existsSync } from "node:fs";
 import { randomBytes } from "node:crypto";
+import { execSync } from "node:child_process";
 import { CCCLUB_CONFIG_DIR, DEFAULT_API_URL } from "@ccclub/shared";
 
 export interface CliConfig {
@@ -46,6 +47,40 @@ export function generateDeviceToken(): string {
 
 export function getApiUrl(): string {
   return process.env.CCCLUB_API_URL || DEFAULT_API_URL;
+}
+
+export function getDefaultDisplayName(): string | null {
+  // 1. Try git global user name
+  try {
+    const name = execSync("git config --global user.name", {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
+    if (name) return name;
+  } catch {
+    // git not available or not configured
+  }
+
+  // 2. Try macOS full name
+  try {
+    const name = execSync("id -F", {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
+    if (name) return name;
+  } catch {
+    // Not macOS or command failed
+  }
+
+  // 3. Fall back to OS username
+  try {
+    const name = userInfo().username;
+    if (name) return name;
+  } catch {
+    // userInfo() can throw on some platforms
+  }
+
+  return null;
 }
 
 export async function requireConfig(): Promise<CliConfig> {

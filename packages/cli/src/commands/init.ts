@@ -2,7 +2,7 @@ import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import chalk from "chalk";
 import ora from "ora";
-import { loadConfig, saveConfig, generateDeviceToken, getApiUrl } from "../config.js";
+import { loadConfig, saveConfig, generateDeviceToken, getApiUrl, getDefaultDisplayName } from "../config.js";
 import { installHeartbeat } from "../heartbeat.js";
 import { doSync } from "./sync.js";
 import type { InitResponse } from "@ccclub/shared";
@@ -20,8 +20,13 @@ export async function initCommand(): Promise<void> {
   const rl = createInterface({ input: stdin, output: stdout });
 
   try {
-    const displayName = await rl.question(chalk.bold("Your display name: "));
-    if (!displayName.trim()) {
+    const defaultName = getDefaultDisplayName();
+    const prompt = defaultName
+      ? chalk.bold(`Your display name (${defaultName}): `)
+      : chalk.bold("Your display name: ");
+    const input = await rl.question(prompt);
+    const displayName = input.trim() || defaultName || "";
+    if (!displayName) {
       console.error(chalk.red("Name cannot be empty"));
       return;
     }
@@ -34,7 +39,7 @@ export async function initCommand(): Promise<void> {
     const res = await fetch(`${apiUrl}/api/init`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, displayName: displayName.trim() }),
+      body: JSON.stringify({ token, displayName }),
     });
 
     if (!res.ok) {

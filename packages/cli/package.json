@@ -11,7 +11,8 @@
   ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean",
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "chalk": "^5.3.0",
@@ -22,10 +23,11 @@
   },
   "devDependencies": {
     "@ccclub/shared": "workspace:*",
+    "@types/node": "^22.0.0",
     "tsup": "^8.3.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
-    "@types/node": "^22.0.0"
+    "vitest": "^4.0.18"
   },
   "keywords": [
     "claude",

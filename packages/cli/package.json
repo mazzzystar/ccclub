@@ -34,5 +34,10 @@
     "ranking",
     "leaderboard"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "homepage": "https://ccclub.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mazzzystar/ccclub"
+  }
 }

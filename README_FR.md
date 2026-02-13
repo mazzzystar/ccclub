@@ -4,19 +4,9 @@
 
 Découvrez combien de Claude Code vos amis consomment.
 
-```
-$ npx ccclub rank
-
-  Ada's club
-  DAILY · 2025-02-13 → 2025-02-14 · 3 members
-
-  #   Name              Tokens          Cost     Calls
-  →1   Ada              481,200        $7.22       142
-   2   Bob              203,800        $3.06        87
-   3   Carol             98,500        $1.48        53
-
-  Dashboard: https://ccclub.dev/g/R4NK7D
-```
+<p align="center">
+  <img src="assets/demo.png" alt="ccclub rank" width="500" />
+</p>
 
 ## Pour commencer
 

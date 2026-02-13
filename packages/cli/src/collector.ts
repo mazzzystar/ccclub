@@ -5,16 +5,23 @@ import { glob } from "glob";
 import { CLAUDE_PROJECTS_DIR } from "@ccclub/shared";
 import type { RawJSONLEntry, UsageEntry } from "@ccclub/shared";
 
-export async function collectUsageEntries(): Promise<UsageEntry[]> {
+export interface CollectionResult {
+  entries: UsageEntry[];
+  humanTurns: string[];  // timestamps of user messages
+}
+
+export async function collectUsageEntries(): Promise<CollectionResult> {
   const projectsDir = join(homedir(), CLAUDE_PROJECTS_DIR);
   const files = await glob("**/*.jsonl", { cwd: projectsDir, absolute: true });
 
   if (files.length === 0) {
-    return [];
+    return { entries: [], humanTurns: [] };
   }
 
   const entries: UsageEntry[] = [];
+  const humanTurns: string[] = [];
   const seen = new Set<string>();
+  const seenHuman = new Set<string>();
 
   for (const file of files) {
     const content = await readFile(file, "utf-8");
@@ -25,6 +32,16 @@ export async function collectUsageEntries(): Promise<UsageEntry[]> {
       try {
         parsed = JSON.parse(line);
       } catch {
+        continue;
+      }
+
+      // Count human turns (user messages)
+      if (parsed.type === "human" && parsed.timestamp) {
+        const humanKey = `${parsed.sessionId || ""}:${parsed.timestamp}`;
+        if (!seenHuman.has(humanKey)) {
+          seenHuman.add(humanKey);
+          humanTurns.push(parsed.timestamp);
+        }
         continue;
       }
 
@@ -64,5 +81,6 @@ export async function collectUsageEntries(): Promise<UsageEntry[]> {
 
   // Sort by timestamp
   entries.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-  return entries;
+  humanTurns.sort();
+  return { entries, humanTurns };
 }

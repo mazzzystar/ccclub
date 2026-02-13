@@ -18,7 +18,7 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
   const spinner = silent ? null : ora("Collecting usage data...").start();
 
   try {
-    const entries = await collectUsageEntries();
+    const { entries, humanTurns } = await collectUsageEntries();
     if (spinner) spinner.text = `Found ${entries.length} entries`;
 
     if (entries.length === 0) {
@@ -26,7 +26,7 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
       return;
     }
 
-    const allBlocks = aggregateToBlocks(entries);
+    const allBlocks = aggregateToBlocks(entries, humanTurns);
 
     // Filter to blocks since last sync
     const lastSyncPath = getLastSyncPath();

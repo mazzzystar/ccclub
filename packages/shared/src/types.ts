@@ -43,6 +43,7 @@ export interface UsageBlock {
   costUSD: number;
   models: string[];
   entryCount: number;
+  chatCount?: number;
 }
 
 // KV: token:{deviceToken} → UserRecord
@@ -88,6 +89,7 @@ export interface RankingEntry {
   costUSD: number;
   models: string[];
   entryCount: number;
+  chatCount: number;
 }
 
 export type RankingPeriod = "daily" | "weekly" | "monthly" | "all-time";

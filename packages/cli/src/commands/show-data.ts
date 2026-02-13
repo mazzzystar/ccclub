@@ -7,8 +7,8 @@ export async function showDataCommand(): Promise<void> {
   console.log(chalk.dim("  Only aggregated 5-hour block summaries. No conversation content,"));
   console.log(chalk.dim("  no file paths, no project names, no session details.\n"));
 
-  const entries = await collectUsageEntries();
-  const blocks = aggregateToBlocks(entries);
+  const { entries, humanTurns } = await collectUsageEntries();
+  const blocks = aggregateToBlocks(entries, humanTurns);
 
   if (blocks.length === 0) {
     console.log(chalk.yellow("  No usage data found in ~/.claude/projects/"));

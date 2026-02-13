@@ -70,7 +70,7 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   console.log(chalk.dim(`  ${period.toUpperCase()} · ${data.start.slice(0, 10)} → ${data.end.slice(0, 10)} · ${data.group.memberCount} members\n`));
 
   const table = new Table({
-    head: ["#", "Name", "Tokens", "Cost", "Calls"].map((h) => chalk.cyan(h)),
+    head: ["#", "Name", "Tokens", "Cost", "Chats"].map((h) => chalk.cyan(h)),
     style: { head: [], border: [] },
     colWidths: [5, 20, 16, 12, 8],
   });
@@ -86,7 +86,7 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
       name,
       entry.totalTokens.toLocaleString(),
       `$${entry.costUSD.toFixed(2)}`,
-      String(entry.entryCount),
+      String(entry.chatCount || entry.entryCount),
     ]);
   }
 

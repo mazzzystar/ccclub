@@ -238,7 +238,7 @@ function dashboardHTML(code: string) {
 
           var maxCost = 0;
           data.rankings.forEach(function(r) { if (r.costUSD > maxCost) maxCost = r.costUSD; });
-          var h = '<table><thead><tr><th>#</th><th>Name</th><th>Tokens</th><th>Cost</th><th>Calls</th></tr></thead><tbody>';
+          var h = '<table><thead><tr><th>#</th><th>Name</th><th>Tokens</th><th>Cost</th><th>Chats</th></tr></thead><tbody>';
 
           data.rankings.forEach(function(r) {
             var pct = maxCost > 0 ? (r.costUSD / maxCost * 100) : 0;
@@ -250,7 +250,7 @@ function dashboardHTML(code: string) {
                 '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +
               '<td class="tokens">' + r.totalTokens.toLocaleString() + '</td>' +
               '<td class="cost">$' + r.costUSD.toFixed(2) + '</td>' +
-              '<td class="calls">' + r.entryCount + '</td></tr>';
+              '<td class="calls">' + (r.chatCount || r.entryCount) + '</td></tr>';
           });
           h += '</tbody></table>';
           document.getElementById("content").innerHTML = h;

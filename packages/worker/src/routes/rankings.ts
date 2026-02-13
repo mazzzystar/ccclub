@@ -91,6 +91,7 @@ app.get("/rank/global", async (c) => {
     let outputTokens = 0;
     let costUSD = 0;
     let entryCount = 0;
+    let chatCount = 0;
     const models = new Set<string>();
 
     for (const block of usage.blocks) {
@@ -101,6 +102,7 @@ app.get("/rank/global", async (c) => {
         outputTokens += block.outputTokens;
         costUSD += block.costUSD;
         entryCount += block.entryCount;
+        chatCount += block.chatCount || 0;
         for (const m of block.models) models.add(m);
       }
     }
@@ -117,6 +119,7 @@ app.get("/rank/global", async (c) => {
         costUSD: Math.round(costUSD * 10000) / 10000,
         models: Array.from(models),
         entryCount,
+        chatCount,
       });
     }
   }
@@ -159,6 +162,7 @@ app.get("/rank/:code", async (c) => {
     let outputTokens = 0;
     let costUSD = 0;
     let entryCount = 0;
+    let chatCount = 0;
     const models = new Set<string>();
 
     if (usage) {
@@ -170,6 +174,7 @@ app.get("/rank/:code", async (c) => {
           outputTokens += block.outputTokens;
           costUSD += block.costUSD;
           entryCount += block.entryCount;
+          chatCount += block.chatCount || 0;
           for (const m of block.models) models.add(m);
         }
       }
@@ -186,6 +191,7 @@ app.get("/rank/:code", async (c) => {
       costUSD: Math.round(costUSD * 10000) / 10000,
       models: Array.from(models),
       entryCount,
+      chatCount,
     });
   }
 

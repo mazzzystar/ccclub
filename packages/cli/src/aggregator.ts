@@ -7,13 +7,29 @@ function floorToHour(date: Date): Date {
   return floored;
 }
 
-export function aggregateToBlocks(entries: UsageEntry[]): UsageBlock[] {
+export function aggregateToBlocks(entries: UsageEntry[], humanTurns: string[] = []): UsageBlock[] {
   if (entries.length === 0) return [];
+
+  // Pre-convert human turn timestamps to ms for fast lookup
+  const humanTurnMs = humanTurns.map((t) => new Date(t).getTime());
 
   const blocks: UsageBlock[] = [];
   let blockStart = floorToHour(new Date(entries[0].timestamp));
   let blockEnd = new Date(blockStart.getTime() + BLOCK_DURATION_MS);
   let currentBlock: UsageEntry[] = [];
+  let humanIdx = 0;
+
+  function countHumanTurns(): number {
+    const startMs = blockStart.getTime();
+    const endMs = blockEnd.getTime();
+    let count = 0;
+    // Advance past any turns before this block
+    while (humanIdx < humanTurnMs.length && humanTurnMs[humanIdx] < startMs) humanIdx++;
+    // Count turns within this block
+    let i = humanIdx;
+    while (i < humanTurnMs.length && humanTurnMs[i] < endMs) { count++; i++; }
+    return count;
+  }
 
   function flushBlock() {
     if (currentBlock.length === 0) return;
@@ -58,6 +74,7 @@ export function aggregateToBlocks(entries: UsageEntry[]): UsageBlock[] {
       costUSD: Math.round(costUSD * 10000) / 10000,
       models: Array.from(models),
       entryCount: currentBlock.length,
+      chatCount: countHumanTurns(),
     });
   }
 

@@ -4,7 +4,7 @@
 
 看看朋友们用 Claude Code 烧了多少 token。
 
-![ccclub rank](assets/demo.png)
+<img src="assets/demo.png" alt="ccclub rank" width="75%" />
 
 ## 开始
 

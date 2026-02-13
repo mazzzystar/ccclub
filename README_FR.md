@@ -4,7 +4,7 @@
 
 Découvrez combien de Claude Code vos amis consomment.
 
-![ccclub rank](assets/demo.png)
+<img src="assets/demo.png" alt="ccclub rank" width="75%" />
 
 ## Pour commencer
 

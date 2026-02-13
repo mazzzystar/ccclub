@@ -7,6 +7,7 @@ export interface RawJSONLEntry {
   requestId?: string;
   message?: {
     model?: string;
+    content?: unknown;
     usage?: {
       input_tokens: number;
       output_tokens: number;

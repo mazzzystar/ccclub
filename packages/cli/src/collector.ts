@@ -35,12 +35,18 @@ export async function collectUsageEntries(): Promise<CollectionResult> {
         continue;
       }
 
-      // Count user turns (user messages)
+      // Count real human messages (skip automated tool_result turns)
       if (parsed.type === "user" && parsed.timestamp) {
-        const humanKey = `${parsed.sessionId || ""}:${parsed.timestamp}`;
-        if (!seenHuman.has(humanKey)) {
-          seenHuman.add(humanKey);
-          humanTurns.push(parsed.timestamp);
+        const content = parsed.message?.content;
+        const isToolResult = Array.isArray(content) &&
+          content.length > 0 &&
+          content.every((c: { type?: string }) => c.type === "tool_result");
+        if (!isToolResult) {
+          const humanKey = `${parsed.sessionId || ""}:${parsed.timestamp}`;
+          if (!seenHuman.has(humanKey)) {
+            seenHuman.add(humanKey);
+            humanTurns.push(parsed.timestamp);
+          }
         }
         continue;
       }

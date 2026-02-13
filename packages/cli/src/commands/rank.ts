@@ -86,7 +86,7 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
       name,
       entry.totalTokens.toLocaleString(),
       `$${entry.costUSD.toFixed(2)}`,
-      String(entry.chatCount || entry.entryCount),
+      String(entry.chatCount),
     ]);
   }
 

@@ -1,11 +1,30 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
 import chalk from "chalk";
 import ora from "ora";
 import { requireConfig, getLastSyncPath } from "../config.js";
 import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
+import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
 import type { SyncResponse, UsageBlock } from "@ccclub/shared";
+
+// Bump this when block format changes to auto-trigger full re-sync
+const SYNC_FORMAT_VERSION = "2";
+
+function getSyncVersionPath(): string {
+  return join(homedir(), CCCLUB_CONFIG_DIR, "sync-version");
+}
+
+function needsFullSync(): boolean {
+  const path = getSyncVersionPath();
+  if (!existsSync(path)) return true;
+  try {
+    const stored = require("node:fs").readFileSync(path, "utf-8").trim();
+    return stored !== SYNC_FORMAT_VERSION;
+  } catch { return true; }
+}
 
 export async function syncCommand(options: { silent?: boolean; full?: boolean }): Promise<void> {
   await doSync(options.full || false, options.silent);
@@ -13,6 +32,11 @@ export async function syncCommand(options: { silent?: boolean; full?: boolean })
 
 export async function doSync(firstSync = false, silent = false): Promise<void> {
   const config = await requireConfig();
+
+  // Auto full-sync when block format version changes (e.g. chatCount added)
+  if (!firstSync && needsFullSync()) {
+    firstSync = true;
+  }
 
   const log = silent ? () => {} : console.log;
   const spinner = silent ? null : ora("Collecting usage data...").start();
@@ -45,6 +69,8 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
 
     if (blocksToSync.length === 0) {
       if (spinner) spinner.succeed("Already up to date");
+      // Still write sync version even if no new blocks
+      await writeFile(getSyncVersionPath(), SYNC_FORMAT_VERSION);
       return;
     }
 
@@ -67,9 +93,10 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
 
     const data = (await res.json()) as SyncResponse;
 
-    // Save last sync timestamp
+    // Save last sync timestamp and format version
     const latest = blocksToSync[blocksToSync.length - 1];
     await writeFile(lastSyncPath, latest.blockStart);
+    await writeFile(getSyncVersionPath(), SYNC_FORMAT_VERSION);
 
     const totalTokens = blocksToSync.reduce((s, b) => s + b.totalTokens, 0);
     const totalCost = blocksToSync.reduce((s, b) => s + b.costUSD, 0);

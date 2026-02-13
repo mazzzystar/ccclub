@@ -250,7 +250,7 @@ function dashboardHTML(code: string) {
                 '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +
               '<td class="tokens">' + r.totalTokens.toLocaleString() + '</td>' +
               '<td class="cost">$' + r.costUSD.toFixed(2) + '</td>' +
-              '<td class="calls">' + (r.chatCount || r.entryCount) + '</td></tr>';
+              '<td class="calls">' + (r.chatCount || 0) + '</td></tr>';
           });
           h += '</tbody></table>';
           document.getElementById("content").innerHTML = h;

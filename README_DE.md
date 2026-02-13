@@ -4,7 +4,7 @@
 
 Finde heraus, wie viel Claude Code deine Freunde verbrauchen.
 
-<img src="assets/demo.png" alt="ccclub rank" width="75%" />
+<img src="assets/demo.png" alt="ccclub rank" width="80%" />
 
 ## Erste Schritte
 

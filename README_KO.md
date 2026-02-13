@@ -4,7 +4,7 @@
 
 친구들이 Claude Code를 얼마나 쓰고 있는지 확인하세요.
 
-<img src="assets/demo.png" alt="ccclub rank" width="75%" />
+<img src="assets/demo.png" alt="ccclub rank" width="80%" />
 
 ## 시작하기
 

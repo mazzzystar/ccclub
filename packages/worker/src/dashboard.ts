@@ -248,7 +248,7 @@ function dashboardHTML(code: string) {
               '<td><div class="name-cell">' + avatarHTML(r.userId, r.displayName, r.avatar) +
                 '<div><div class="name-text">' + esc(r.displayName) + '</div>' +
                 '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +
-              '<td class="tokens">' + r.totalTokens.toLocaleString() + '</td>' +
+              '<td class="tokens">' + formatTokens(r.totalTokens) + '</td>' +
               '<td class="cost">$' + r.costUSD.toFixed(2) + '</td>' +
               '<td class="calls">' + (r.chatCount || 0) + '</td></tr>';
           });
@@ -263,6 +263,11 @@ function dashboardHTML(code: string) {
         });
     }
 
+    function formatTokens(n) {
+      if (n >= 1000000) { var m = n / 1000000; return (m % 1 === 0 ? m : parseFloat(m.toFixed(1))) + "M"; }
+      if (n >= 1000) { var k = n / 1000; return (k % 1 === 0 ? k : parseFloat(k.toFixed(1))) + "K"; }
+      return String(n);
+    }
     function esc(s) {
       var d = document.createElement("div"); d.textContent = s; return d.innerHTML;
     }

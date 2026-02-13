@@ -65,6 +65,18 @@ export async function rankCommand(options: { period?: string; group?: string; gl
   }
 }
 
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) {
+    const m = n / 1_000_000;
+    return m % 1 === 0 ? `${m}M` : `${parseFloat(m.toFixed(1))}M`;
+  }
+  if (n >= 1_000) {
+    const k = n / 1_000;
+    return k % 1 === 0 ? `${k}K` : `${parseFloat(k.toFixed(1))}K`;
+  }
+  return String(n);
+}
+
 function printGroup(data: RankResponse, code: string, period: RankingPeriod, config: { userId: string; apiUrl: string }): void {
   if (data.rankings.length === 0) {
     console.log(chalk.bold(`\n  ${data.group.name}`));
@@ -79,7 +91,7 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   const table = new Table({
     head: ["#", "Name", "Tokens", "Cost", "Chats"].map((h) => chalk.cyan(h)),
     style: { head: [], border: [] },
-    colWidths: [5, 20, 16, 12, 8],
+    colWidths: [5, 20, 10, 12, 8],
   });
 
   for (const entry of data.rankings) {
@@ -91,7 +103,7 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
     table.push([
       `${marker}${rankColor(String(entry.rank))}`,
       name,
-      entry.totalTokens.toLocaleString(),
+      formatTokens(entry.totalTokens),
       `$${entry.costUSD.toFixed(2)}`,
       String(entry.chatCount),
     ]);

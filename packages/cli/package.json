@@ -1,16 +1,18 @@
 {
   "name": "ccclub",
-  "version": "0.2.13",
+  "version": "0.2.14",
   "type": "module",
   "description": "See how much Claude Code you and your friends are using",
   "bin": {
     "ccclub": "dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "scripts"
   ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean",
+    "postinstall": "node scripts/postinstall.cjs",
     "dev": "tsx src/index.ts",
     "test": "vitest run"
   },

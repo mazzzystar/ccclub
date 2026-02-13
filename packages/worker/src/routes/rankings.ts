@@ -136,7 +136,7 @@ app.get("/rank/:code", async (c) => {
   const code = c.req.param("code").toUpperCase();
   const period = parsePeriod(c.req.query("period"));
 
-  const group = await c.env.KV.get<GroupRecord>(`group:${code}`, "json");
+  const group = await c.env.KV.get<GroupRecord>(`group:${code}`, { type: "json", cacheTtl: 60 });
   if (!group) {
     return c.json({ error: "group not found" }, 404);
   }

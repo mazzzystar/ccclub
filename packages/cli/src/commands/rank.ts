@@ -59,7 +59,7 @@ export async function rankCommand(options: { period?: string; group?: string; gl
       if (i < codes.length - 1) console.log("");
     }
 
-    console.log(chalk.dim("\n  Tokens = input + output (cache excluded). Use --cache to include cache tokens."));
+    console.log(chalk.dim("\n  Tokens = input + output ") + chalk.yellow("(cache excluded)") + chalk.dim(". Use ") + chalk.white("--cache") + chalk.dim(" to include cache tokens."));
   } catch (err) {
     spinner.fail(`Error: ${err instanceof Error ? err.message : err}`);
   }
@@ -96,17 +96,38 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
 
   for (const entry of data.rankings) {
     const isMe = entry.userId === config.userId;
-    const marker = isMe ? chalk.green("→") : " ";
-    const name = isMe ? chalk.green.bold(entry.displayName) : entry.displayName;
-    const rankColor = entry.rank <= 3 ? chalk.yellow : chalk.white;
     const tokens = showCache ? entry.totalTokens : entry.inputTokens + entry.outputTokens;
+    const marker = isMe ? chalk.green("→") : " ";
+
+    // Color by column role: rank = medal, name = identity, data = secondary
+    let rankC: (s: string) => string;
+    let nameC: (s: string) => string;
+    let dataC: (s: string) => string;
+
+    if (isMe) {
+      rankC = chalk.green.bold;
+      nameC = chalk.green.bold;
+      dataC = chalk.green;
+    } else if (entry.rank === 1) {
+      rankC = chalk.yellow.bold;
+      nameC = chalk.yellow;
+      dataC = chalk.white;
+    } else if (entry.rank <= 3) {
+      rankC = chalk.yellow;
+      nameC = chalk.white;
+      dataC = chalk.white;
+    } else {
+      rankC = chalk.dim;
+      nameC = chalk.white;
+      dataC = chalk.dim;
+    }
 
     table.push([
-      `${marker}${rankColor(String(entry.rank))}`,
-      name,
-      formatTokens(tokens),
-      `$${entry.costUSD.toFixed(2)}`,
-      String(entry.chatCount),
+      `${marker}${rankC(String(entry.rank))}`,
+      nameC(entry.displayName),
+      dataC(formatTokens(tokens)),
+      dataC(`$${entry.costUSD.toFixed(2)}`),
+      dataC(String(entry.chatCount)),
     ]);
   }
 

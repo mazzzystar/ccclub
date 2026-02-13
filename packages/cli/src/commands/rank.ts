@@ -3,9 +3,13 @@ import Table from "cli-table3";
 import ora from "ora";
 import type { RankingPeriod, RankResponse } from "@ccclub/shared";
 import { requireConfig } from "../config.js";
+import { doSync } from "./sync.js";
 
 export async function rankCommand(options: { period?: string; group?: string; global?: boolean }): Promise<void> {
   const config = await requireConfig();
+
+  // Quick sync before showing rankings
+  await doSync(false, true);
 
   const isGlobal = options.global === true;
   const period = (options.period || "daily") as RankingPeriod;
@@ -47,7 +51,7 @@ export async function rankCommand(options: { period?: string; group?: string; gl
       if (i < codes.length - 1) console.log("");
     }
 
-    console.log(chalk.dim("\n  Data syncs automatically ") + chalk.white("every hour") + chalk.dim(". Run ") + chalk.white("ccclub sync") + chalk.dim(" to update now."));
+    console.log(chalk.dim("\n  Data syncs automatically when each Claude Code session ends."));
   } catch (err) {
     spinner.fail(`Error: ${err instanceof Error ? err.message : err}`);
   }

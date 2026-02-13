@@ -3,7 +3,7 @@ import { stdin, stdout } from "node:process";
 import chalk from "chalk";
 import ora from "ora";
 import { loadConfig, saveConfig, generateDeviceToken, getApiUrl, getDefaultDisplayName } from "../config.js";
-import { installHeartbeat } from "../heartbeat.js";
+import { installHook } from "../hook.js";
 import { doSync } from "./sync.js";
 import type { JoinResponse } from "@ccclub/shared";
 
@@ -66,7 +66,7 @@ export async function joinCommand(inviteCode: string): Promise<void> {
       displayName,
       groups: [data.groupCode],
     });
-    await installHeartbeat();
+    await installHook();
   }
 
   spinner.succeed(`Joined "${data.groupName}"!`);

@@ -6,6 +6,7 @@ import { rankCommand } from "./commands/rank.js";
 import { profileCommand } from "./commands/profile.js";
 import { showDataCommand } from "./commands/show-data.js";
 import { createGroupCommand } from "./commands/group.js";
+import { hookCommand } from "./commands/hook.js";
 import { ensureGlobalInstall } from "./global-install.js";
 
 const program = new Command();
@@ -13,7 +14,7 @@ const program = new Command();
 program
   .name("ccclub")
   .description("CCClub - Compare Claude Code usage with friends")
-  .version("0.1.13");
+  .version("0.2.0");
 
 // Auto-install globally on any command (silent if already installed)
 program.hook("postAction", () => ensureGlobalInstall());
@@ -61,5 +62,10 @@ program
   .command("show-data")
   .description("Show exactly what data CCClub uploads (privacy audit)")
   .action(showDataCommand);
+
+program
+  .command("hook")
+  .description("Set up Claude Code hook for auto-sync on session end")
+  .action(hookCommand);
 
 program.parse();

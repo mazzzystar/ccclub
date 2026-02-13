@@ -3,7 +3,7 @@ import { stdin, stdout } from "node:process";
 import chalk from "chalk";
 import ora from "ora";
 import { loadConfig, saveConfig, generateDeviceToken, getApiUrl, getDefaultDisplayName } from "../config.js";
-import { installHeartbeat } from "../heartbeat.js";
+import { installHook } from "../hook.js";
 import { doSync } from "./sync.js";
 import type { InitResponse } from "@ccclub/shared";
 
@@ -58,8 +58,8 @@ export async function initCommand(): Promise<void> {
       groups: [data.groupCode],
     });
 
-    // Install heartbeat (silent, best-effort)
-    const heartbeatOk = await installHeartbeat();
+    // Install Claude Code hook (silent, best-effort)
+    const hookOk = await installHook();
     spinner.succeed("CCClub initialized!");
 
     console.log("");
@@ -67,10 +67,10 @@ export async function initCommand(): Promise<void> {
     console.log(chalk.cyan.bold(`\n    ${data.groupCode}\n`));
     console.log(chalk.dim("  Share with friends: ") + chalk.white(`npx ccclub join ${data.groupCode}`));
 
-    if (heartbeatOk) {
-      console.log(chalk.dim("  Auto-sync: on (every hour)"));
+    if (hookOk) {
+      console.log(chalk.dim("  Auto-sync: on (via Claude Code hook)"));
     } else {
-      console.log(chalk.dim('  Tip: run "ccclub sync" periodically to update data'));
+      console.log(chalk.dim('  Tip: run "ccclub hook" to set up auto-sync'));
     }
 
     // First sync

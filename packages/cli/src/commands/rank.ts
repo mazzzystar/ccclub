@@ -178,7 +178,7 @@ interface ActivityResponse {
   }>;
 }
 
-const SPARK_CHARS = "▁▂▃▄▅▆▇█";
+const SPARK_CHARS = "▁▂▃▄▅▆▇";
 
 async function printActivity(apiUrl: string, code: string, range: string): Promise<void> {
   try {
@@ -221,6 +221,7 @@ async function printActivity(apiUrl: string, code: string, range: string): Promi
       const user = active[i];
       const buckets = allBuckets[i];
       const spark = buckets.map((v) => {
+        if (v === 0) return " ";
         const idx = Math.min(Math.floor((v / globalMax) * SPARK_CHARS.length), SPARK_CHARS.length - 1);
         return SPARK_CHARS[idx];
       }).join("");
@@ -242,6 +243,30 @@ async function printActivity(apiUrl: string, code: string, range: string): Promi
       const pad = " ".repeat(Math.max(0, maxWidth - displayWidth));
       console.log(`  ${chalk.dim(name + pad)} ${spark}  ${chalk.dim("$" + total.toFixed(2))}`);
     }
+
+    // Time axis labels
+    const axisArr: string[] = new Array(bucketCount).fill(" ");
+    if (range === "24h") {
+      for (let b = 0; b < bucketCount; b += 12) {
+        const t = new Date(startMs + b * bucketMs);
+        const label = `${t.getHours()}h`;
+        for (let c = 0; c < label.length && b + c < bucketCount; c++) axisArr[b + c] = label[c];
+      }
+    } else if (range === "7d") {
+      const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      for (let b = 0; b < bucketCount; b += 4) {
+        const t = new Date(startMs + b * bucketMs);
+        const label = dayNames[t.getDay()];
+        for (let c = 0; c < label.length && b + c < bucketCount; c++) axisArr[b + c] = label[c];
+      }
+    } else {
+      for (let b = 0; b < bucketCount; b += 7) {
+        const t = new Date(startMs + b * bucketMs);
+        const label = `${t.getMonth() + 1}/${t.getDate()}`;
+        for (let c = 0; c < label.length && b + c < bucketCount; c++) axisArr[b + c] = label[c];
+      }
+    }
+    console.log(chalk.dim("  " + " ".repeat(12) + " " + axisArr.join("")));
   } catch {
     // Silently skip if activity fetch fails
   }

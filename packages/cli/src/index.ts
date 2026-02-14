@@ -7,12 +7,17 @@ import { profileCommand } from "./commands/profile.js";
 import { showDataCommand } from "./commands/show-data.js";
 import { createGroupCommand } from "./commands/group.js";
 import { hookCommand } from "./commands/hook.js";
+import { startUpdateCheck } from "./update-check.js";
+
+const VERSION = "0.2.32";
+startUpdateCheck(VERSION);
+
 const program = new Command();
 
 program
   .name("ccclub")
   .description("CCClub - Compare Claude Code usage with friends")
-  .version("0.2.31");
+  .version(VERSION);
 
 program
   .command("init")

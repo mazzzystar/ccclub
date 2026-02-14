@@ -5,6 +5,7 @@ import type { RankingPeriod, RankResponse } from "@ccclub/shared";
 import { requireConfig } from "../config.js";
 import { doSync, needsFullSync } from "./sync.js";
 import { installHook, isHookInstalled } from "../hook.js";
+import { getUpdateResult } from "../update-check.js";
 
 export async function rankCommand(options: { period?: string; group?: string; global?: boolean; cache?: boolean }): Promise<void> {
   const config = await requireConfig();
@@ -64,6 +65,11 @@ export async function rankCommand(options: { period?: string; group?: string; gl
     }
 
     console.log(chalk.dim("\n  Tokens = input + output ") + chalk.yellow("(cache excluded)") + chalk.dim(". Use ") + chalk.white("--cache") + chalk.dim(" to include cache tokens."));
+
+    const update = await getUpdateResult();
+    if (update) {
+      console.log(chalk.yellow("\n  Update available") + chalk.dim(`: ${update.current} → ${update.latest}  Run `) + chalk.cyan("npm i -g ccclub@latest"));
+    }
   } catch (err) {
     spinner.fail(`Error: ${err instanceof Error ? err.message : err}`);
   }

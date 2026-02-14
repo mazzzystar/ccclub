@@ -20,6 +20,14 @@ export async function rankCommand(options: { period?: string; group?: string; gl
     await doSync(true, true);
   }
 
+  const validPeriods = ["daily", "weekly", "monthly", "all-time"];
+  if (options.period === true || (typeof options.period === "string" && !validPeriods.includes(options.period))) {
+    const got = options.period === true ? "(missing)" : `"${options.period}"`;
+    console.log(chalk.red(`\n  Invalid period: ${got}`));
+    console.log(chalk.dim("  Usage: ") + chalk.white("ccclub -p daily|weekly|monthly|all-time"));
+    return;
+  }
+
   const isGlobal = options.global === true;
   const period = (options.period || "daily") as RankingPeriod;
 

@@ -9,7 +9,7 @@ import { createGroupCommand } from "./commands/group.js";
 import { hookCommand } from "./commands/hook.js";
 import { startUpdateCheck } from "./update-check.js";
 
-const VERSION = "0.2.43";
+const VERSION = "0.2.44";
 startUpdateCheck(VERSION);
 
 const program = new Command();
@@ -40,7 +40,7 @@ program
 program
   .command("rank", { isDefault: true, hidden: true })
   .description("Show leaderboard")
-  .option("-p, --period <period>", "daily | weekly | monthly | all-time", "daily")
+  .option("-p, --period [period]", "daily | weekly | monthly | all-time", "daily")
   .option("-g, --group <code>", "Group invite code")
   .option("--global", "Show global public ranking")
   .option("--cache", "Include cache tokens in count")

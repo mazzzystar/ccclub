@@ -66,13 +66,19 @@ app.get("/rank/global", async (c) => {
   const startMs = start.getTime();
   const endMs = end.getTime();
 
+  // Monthly range for ROI calculation
+  const { start: monthStart, end: monthEnd } = getDateRange("monthly", tz);
+  const monthStartMs = monthStart.getTime();
+  const monthEndMs = monthEnd.getTime();
+  const isMonthly = period === "monthly";
+
   // Fetch all usage data and user groups in parallel
   const [usageResults, groupsResults] = await Promise.all([
     Promise.all(publicUsers.map((id) => c.env.KV.get<UsageData>(`usage:${id}`, "json"))),
     Promise.all(publicUsers.map((id) => c.env.KV.get<string[]>(`user_groups:${id}`, "json"))),
   ]);
 
-  // Fetch first group for each user (for display name) in parallel
+  // Fetch first group for each user (for display name + plan) in parallel
   const firstGroupCodes = groupsResults.map((g) => g?.[0]);
   const uniqueCodes = [...new Set(firstGroupCodes.filter(Boolean))] as string[];
   const groupMap = new Map<string, GroupRecord>();
@@ -83,14 +89,13 @@ app.get("/rank/global", async (c) => {
     }),
   );
 
-  const entries: RankingEntry[] = [];
-
+  // Resolve display info and check if any user has a plan
+  const userInfos: Array<{ displayName: string; avatar: string; plan?: string }> = [];
   for (let idx = 0; idx < publicUsers.length; idx++) {
     const userId = publicUsers[idx];
-    const usage = usageResults[idx];
-
     let displayName = userId.slice(0, 8);
     let avatar = "";
+    let plan: string | undefined;
     const firstCode = firstGroupCodes[idx];
     if (firstCode) {
       const group = groupMap.get(firstCode);
@@ -98,8 +103,19 @@ app.get("/rank/global", async (c) => {
       if (member) {
         displayName = member.displayName;
         avatar = member.avatar || "";
+        plan = member.plan;
       }
     }
+    userInfos.push({ displayName, avatar, plan });
+  }
+  const hasPlan = userInfos.some((u) => u.plan);
+
+  const entries: RankingEntry[] = [];
+
+  for (let idx = 0; idx < publicUsers.length; idx++) {
+    const userId = publicUsers[idx];
+    const usage = usageResults[idx];
+    const info = userInfos[idx];
 
     if (!usage) continue;
 
@@ -109,6 +125,7 @@ app.get("/rank/global", async (c) => {
     let costUSD = 0;
     let entryCount = 0;
     let chatCount = 0;
+    let monthlyCost = 0;
     const models = new Set<string>();
 
     for (const block of usage.blocks) {
@@ -122,14 +139,17 @@ app.get("/rank/global", async (c) => {
         chatCount += block.chatCount || 0;
         for (const m of block.models) models.add(m);
       }
+      if (hasPlan && !isMonthly && blockTime >= monthStartMs && blockTime < monthEndMs) {
+        monthlyCost += block.costUSD;
+      }
     }
 
     if (totalTokens > 0 || entryCount > 0) {
-      entries.push({
+      const entry: RankingEntry = {
         rank: 0,
         userId,
-        displayName,
-        avatar,
+        displayName: info.displayName,
+        avatar: info.avatar,
         totalTokens,
         inputTokens,
         outputTokens,
@@ -137,7 +157,12 @@ app.get("/rank/global", async (c) => {
         models: Array.from(models),
         entryCount,
         chatCount,
-      });
+      };
+      if (info.plan) entry.plan = info.plan;
+      if (hasPlan) {
+        entry.monthlyCostUSD = Math.round((isMonthly ? costUSD : monthlyCost) * 10000) / 10000;
+      }
+      entries.push(entry);
     }
   }
 
@@ -168,11 +193,18 @@ app.get("/rank/:code", async (c) => {
   const startMs = start.getTime();
   const endMs = end.getTime();
 
+  // Monthly range for ROI calculation
+  const { start: monthStart, end: monthEnd } = getDateRange("monthly", tz);
+  const monthStartMs = monthStart.getTime();
+  const monthEndMs = monthEnd.getTime();
+  const isMonthly = period === "monthly";
+
   // Fetch usage for all members in parallel
   const usageResults = await Promise.all(
     group.members.map((m) => c.env.KV.get<UsageData>(`usage:${m.userId}`, "json")),
   );
 
+  const hasPlan = group.members.some((m) => m.plan);
   const entries: RankingEntry[] = [];
 
   for (let idx = 0; idx < group.members.length; idx++) {
@@ -185,6 +217,7 @@ app.get("/rank/:code", async (c) => {
     let costUSD = 0;
     let entryCount = 0;
     let chatCount = 0;
+    let monthlyCost = 0;
     const models = new Set<string>();
 
     if (usage) {
@@ -199,10 +232,13 @@ app.get("/rank/:code", async (c) => {
           chatCount += block.chatCount || 0;
           for (const m of block.models) models.add(m);
         }
+        if (hasPlan && !isMonthly && blockTime >= monthStartMs && blockTime < monthEndMs) {
+          monthlyCost += block.costUSD;
+        }
       }
     }
 
-    entries.push({
+    const entry: RankingEntry = {
       rank: 0,
       userId: member.userId,
       displayName: member.displayName,
@@ -214,7 +250,12 @@ app.get("/rank/:code", async (c) => {
       models: Array.from(models),
       entryCount,
       chatCount,
-    });
+    };
+    if (member.plan) entry.plan = member.plan;
+    if (hasPlan) {
+      entry.monthlyCostUSD = Math.round((isMonthly ? costUSD : monthlyCost) * 10000) / 10000;
+    }
+    entries.push(entry);
   }
 
   entries.sort((a, b) => b.costUSD - a.costUSD);

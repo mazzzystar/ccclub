@@ -53,6 +53,7 @@ export interface UserRecord {
   displayName: string;
   avatar: string;                    // URL or "" (empty = default)
   visibility: "public" | "private";  // default "private"
+  plan?: string;                     // "pro" | "max100" | "max200" | "api"
   createdAt: string;
 }
 
@@ -69,6 +70,7 @@ export interface GroupMember {
   userId: string;
   displayName: string;
   avatar: string;
+  plan?: string;
   joinedAt: string;
 }
 
@@ -84,10 +86,12 @@ export interface RankingEntry {
   userId: string;
   displayName: string;
   avatar: string;
+  plan?: string;
   totalTokens: number;
   inputTokens: number;
   outputTokens: number;
   costUSD: number;
+  monthlyCostUSD?: number;
   models: string[];
   entryCount: number;
   chatCount: number;
@@ -131,12 +135,14 @@ export interface ProfileUpdateRequest {
   displayName?: string;
   avatar?: string;
   visibility?: "public" | "private";
+  plan?: string;
 }
 
 export interface ProfileResponse {
   displayName: string;
   avatar: string;
   visibility: "public" | "private";
+  plan?: string;
 }
 
 // API: GET /api/rank/:code

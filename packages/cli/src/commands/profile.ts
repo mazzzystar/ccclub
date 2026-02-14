@@ -1,6 +1,7 @@
 import chalk from "chalk";
 import ora from "ora";
 import type { ProfileResponse } from "@ccclub/shared";
+import { PLAN_LABELS } from "@ccclub/shared";
 import { requireConfig, saveConfig } from "../config.js";
 
 export async function profileCommand(options: {
@@ -8,10 +9,11 @@ export async function profileCommand(options: {
   avatar?: string;
   public?: boolean;
   private?: boolean;
+  plan?: string;
 }): Promise<void> {
   const config = await requireConfig();
 
-  const hasUpdate = options.name !== undefined || options.avatar !== undefined || options.public || options.private;
+  const hasUpdate = options.name !== undefined || options.avatar !== undefined || options.public || options.private || options.plan !== undefined;
 
   if (!hasUpdate) {
     // Show current profile
@@ -32,6 +34,7 @@ export async function profileCommand(options: {
       console.log(`  Name:       ${profile.displayName}`);
       console.log(`  Avatar:     ${profile.avatar || chalk.dim("(default)")}`);
       console.log(`  Visibility: ${profile.visibility === "public" ? chalk.green("public") : chalk.dim("private")}`);
+      console.log(`  Plan:       ${profile.plan ? PLAN_LABELS[profile.plan as keyof typeof PLAN_LABELS] || profile.plan : chalk.dim("(not set)")}`);
       console.log();
     } catch (err) {
       spinner.fail(`Error: ${err instanceof Error ? err.message : err}`);
@@ -45,6 +48,7 @@ export async function profileCommand(options: {
   if (options.avatar !== undefined) body.avatar = options.avatar;
   if (options.public) body.visibility = "public";
   if (options.private) body.visibility = "private";
+  if (options.plan !== undefined) body.plan = options.plan;
 
   const spinner = ora("Updating profile...").start();
   try {
@@ -76,6 +80,7 @@ export async function profileCommand(options: {
     console.log(`  Name:       ${profile.displayName}`);
     console.log(`  Avatar:     ${profile.avatar || chalk.dim("(default)")}`);
     console.log(`  Visibility: ${profile.visibility === "public" ? chalk.green("public") : chalk.dim("private")}`);
+    console.log(`  Plan:       ${profile.plan ? PLAN_LABELS[profile.plan as keyof typeof PLAN_LABELS] || profile.plan : chalk.dim("(not set)")}`);
     console.log();
   } catch (err) {
     spinner.fail(`Error: ${err instanceof Error ? err.message : err}`);

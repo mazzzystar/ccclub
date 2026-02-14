@@ -2,6 +2,7 @@ import chalk from "chalk";
 import Table from "cli-table3";
 import ora from "ora";
 import type { RankingPeriod, RankResponse } from "@ccclub/shared";
+import { PLAN_PRICES, PLAN_LABELS } from "@ccclub/shared";
 import { requireConfig } from "../config.js";
 import { doSync, needsFullSync } from "./sync.js";
 import { installHook, isHookInstalled } from "../hook.js";
@@ -102,10 +103,21 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   console.log(chalk.bold(`\n  ${data.group.name}`));
   console.log(chalk.dim(`  ${period.toUpperCase()} · ${data.start.slice(0, 10)} → ${data.end.slice(0, 10)} · ${data.group.memberCount} members\n`));
 
+  const hasPlan = data.rankings.some((r) => r.plan);
+
+  const head = ["#", "Name", "Tokens", "Cost"];
+  const widths = [5, 20, 10, 12];
+  if (hasPlan) {
+    head.push("Plan · ROI");
+    widths.push(16);
+  }
+  head.push("Chats");
+  widths.push(8);
+
   const table = new Table({
-    head: ["#", "Name", "Tokens", "Cost", "Chats"].map((h) => chalk.cyan(h)),
+    head: head.map((h) => chalk.cyan(h)),
     style: { head: [], border: [] },
-    colWidths: [5, 20, 10, 12, 8],
+    colWidths: widths,
   });
 
   for (const entry of data.rankings) {
@@ -118,13 +130,31 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
     const c = isMe ? chalk.green : entry.rank === 1 ? chalk.yellow : id;
     const nameC = isMe ? chalk.green.bold : entry.rank === 1 ? chalk.yellow.bold : id;
 
-    table.push([
+    const row: string[] = [
       `${marker}${c(String(entry.rank))}`,
       nameC(entry.displayName),
       c(formatTokens(tokens)),
       c(`$${entry.costUSD.toFixed(2)}`),
-      c(String(entry.chatCount)),
-    ]);
+    ];
+
+    if (hasPlan) {
+      if (entry.plan && entry.plan !== "api") {
+        const price = PLAN_PRICES[entry.plan as keyof typeof PLAN_PRICES];
+        const label = PLAN_LABELS[entry.plan as keyof typeof PLAN_LABELS] || entry.plan;
+        const monthly = entry.monthlyCostUSD || 0;
+        const roi = price > 0 ? Math.round((monthly / price) * 100) : 0;
+        const roiStr = `${roi}%`;
+        const roiC = roi >= 100 ? chalk.green.bold(roiStr) : roi >= 50 ? chalk.yellow(roiStr) : chalk.dim(roiStr);
+        row.push(`${c(label)} ${roiC}`);
+      } else if (entry.plan === "api") {
+        row.push(c("API"));
+      } else {
+        row.push(chalk.dim("—"));
+      }
+    }
+
+    row.push(c(String(entry.chatCount)));
+    table.push(row);
   }
 
   console.log(table.toString());

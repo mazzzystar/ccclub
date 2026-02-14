@@ -115,6 +115,15 @@ function dashboardHTML(code: string) {
     }
     .tokens { font-variant-numeric: tabular-nums; font-size: 14px; }
     .cost { color: #8a8480; font-variant-numeric: tabular-nums; font-size: 14px; }
+    .plan-cell { font-size: 13px; color: #8a8480; white-space: nowrap; }
+    .plan-badge {
+      display: inline-block; padding: 2px 7px; border-radius: 4px;
+      background: rgba(255,255,255,0.05); font-size: 12px; color: #a8a4a0;
+    }
+    .roi { font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 500; }
+    .roi.high { color: #5aad7d; }
+    .roi.mid { color: #d4a03e; }
+    .roi.low { color: #6b6560; }
     .calls { color: #6b6560; font-size: 14px; }
 
     /* Activity chart */
@@ -175,7 +184,7 @@ function dashboardHTML(code: string) {
 
     @media (max-width: 600px) {
       .wrap { padding: 32px 16px; }
-      th:nth-child(5), td:nth-child(5) { display: none; }
+      th:nth-last-child(1), td:nth-last-child(1) { display: none; }
     }
   </style>
 </head>
@@ -314,7 +323,12 @@ function dashboardHTML(code: string) {
 
           var maxCost = 0;
           data.rankings.forEach(function(r) { if (r.costUSD > maxCost) maxCost = r.costUSD; });
-          var h = '<table><thead><tr><th>#</th><th>Name</th><th>Tokens</th><th>Cost</th><th>Chats</th></tr></thead><tbody>';
+          var hasPlan = data.rankings.some(function(r) { return r.plan; });
+          var PLAN_PRICES = { pro: 20, max100: 100, max200: 200, api: 0 };
+          var PLAN_LABELS = { pro: "Pro $20", max100: "Max $100", max200: "Max $200", api: "API" };
+          var h = '<table><thead><tr><th>#</th><th>Name</th><th>Tokens</th><th>Cost</th>';
+          if (hasPlan) h += '<th>Plan</th><th>ROI</th>';
+          h += '<th>Chats</th></tr></thead><tbody>';
 
           data.rankings.forEach(function(r) {
             var pct = maxCost > 0 ? (r.costUSD / maxCost * 100) : 0;
@@ -325,8 +339,23 @@ function dashboardHTML(code: string) {
                 '<div><div class="name-text">' + esc(r.displayName) + '</div>' +
                 '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +
               '<td class="tokens">' + formatTokens(showCache ? r.totalTokens : (r.inputTokens + r.outputTokens)) + '</td>' +
-              '<td class="cost">$' + r.costUSD.toFixed(2) + '</td>' +
-              '<td class="calls">' + (r.chatCount || 0) + '</td></tr>';
+              '<td class="cost">$' + r.costUSD.toFixed(2) + '</td>';
+            if (hasPlan) {
+              if (r.plan && r.plan !== "api") {
+                var price = PLAN_PRICES[r.plan] || 0;
+                var label = PLAN_LABELS[r.plan] || r.plan;
+                var monthly = r.monthlyCostUSD || 0;
+                var roi = price > 0 ? Math.round(monthly / price * 100) : 0;
+                var roiClass = roi >= 100 ? "roi high" : roi >= 50 ? "roi mid" : "roi low";
+                h += '<td class="plan-cell"><span class="plan-badge">' + esc(label) + '</span></td>';
+                h += '<td class="' + roiClass + '">' + roi + '%</td>';
+              } else if (r.plan === "api") {
+                h += '<td class="plan-cell"><span class="plan-badge">API</span></td><td class="roi low">\u2014</td>';
+              } else {
+                h += '<td class="plan-cell"></td><td class="roi low">\u2014</td>';
+              }
+            }
+            h += '<td class="calls">' + (r.chatCount || 0) + '</td></tr>';
           });
           h += '</tbody></table>';
           document.getElementById("content").innerHTML = h;

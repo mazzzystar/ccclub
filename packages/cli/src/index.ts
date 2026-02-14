@@ -9,7 +9,7 @@ import { createGroupCommand } from "./commands/group.js";
 import { hookCommand } from "./commands/hook.js";
 import { startUpdateCheck } from "./update-check.js";
 
-const VERSION = "0.2.35";
+const VERSION = "0.2.36";
 startUpdateCheck(VERSION);
 
 const program = new Command();
@@ -57,6 +57,7 @@ program
   .option("--avatar <url>", "Set avatar URL (empty string to reset)")
   .option("--public", "Set profile visibility to public")
   .option("--private", "Set profile visibility to private")
+  .option("--plan <plan>", "Set subscription plan (pro, max100, max200, api, or empty to clear)")
   .action(profileCommand);
 
 program

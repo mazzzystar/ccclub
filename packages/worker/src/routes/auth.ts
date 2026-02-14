@@ -196,6 +196,10 @@ app.post("/profile", async (c) => {
   if (body.visibility !== undefined && body.visibility !== "public" && body.visibility !== "private") {
     return c.json({ error: "visibility must be 'public' or 'private'" }, 400);
   }
+  const validPlans = ["pro", "max100", "max200", "api", ""];
+  if (body.plan !== undefined && !validPlans.includes(body.plan)) {
+    return c.json({ error: "plan must be one of: pro, max100, max200, api (or empty to clear)" }, 400);
+  }
 
   const oldVisibility = user.visibility || "private";
   let changed = false;
@@ -207,6 +211,13 @@ app.post("/profile", async (c) => {
   if (body.avatar !== undefined && body.avatar !== user.avatar) {
     user.avatar = body.avatar;
     changed = true;
+  }
+  if (body.plan !== undefined) {
+    const newPlan = body.plan || undefined;
+    if (newPlan !== user.plan) {
+      user.plan = newPlan;
+      changed = true;
+    }
   }
   if (body.visibility !== undefined && body.visibility !== oldVisibility) {
     user.visibility = body.visibility;
@@ -225,6 +236,7 @@ app.post("/profile", async (c) => {
       if (member) {
         member.displayName = user.displayName;
         member.avatar = user.avatar;
+        member.plan = user.plan;
         await c.env.KV.put(`group:${code}`, JSON.stringify(group));
       }
     }
@@ -246,6 +258,7 @@ app.post("/profile", async (c) => {
     displayName: user.displayName,
     avatar: user.avatar,
     visibility: user.visibility || "private",
+    plan: user.plan,
   });
 });
 
@@ -265,6 +278,7 @@ app.get("/profile", async (c) => {
     displayName: user.displayName,
     avatar: user.avatar || "",
     visibility: user.visibility || "private",
+    plan: user.plan,
   });
 });
 

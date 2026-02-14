@@ -14,6 +14,23 @@ export const CCCLUB_CONFIG_DIR = ".ccclub";
 // Invite code length
 export const INVITE_CODE_LENGTH = 6;
 
+// Subscription plan types and monthly prices (USD)
+export type PlanType = "pro" | "max100" | "max200" | "api";
+
+export const PLAN_PRICES: Record<PlanType, number> = {
+  pro: 20,
+  max100: 100,
+  max200: 200,
+  api: 0,
+};
+
+export const PLAN_LABELS: Record<PlanType, string> = {
+  pro: "Pro $20",
+  max100: "Max $100",
+  max200: "Max $200",
+  api: "API",
+};
+
 // Pricing per million tokens (source: Anthropic pricing page)
 type ModelPricing = { input: number; output: number; cacheCreation: number; cacheRead: number };
 

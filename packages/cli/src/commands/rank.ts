@@ -221,7 +221,6 @@ async function printActivity(apiUrl: string, code: string, range: string): Promi
       const user = active[i];
       const buckets = allBuckets[i];
       const spark = buckets.map((v) => {
-        if (v === 0) return " ";
         const idx = Math.min(Math.floor((v / globalMax) * SPARK_CHARS.length), SPARK_CHARS.length - 1);
         return SPARK_CHARS[idx];
       }).join("");

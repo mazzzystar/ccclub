@@ -32,7 +32,7 @@ export interface UsageEntry {
   costUSD: number;
 }
 
-// Aggregated 1-hour block for upload
+// Aggregated 30-minute block for upload
 export interface UsageBlock {
   blockStart: string;
   blockEnd: string;

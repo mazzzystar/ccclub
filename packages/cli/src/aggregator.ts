@@ -1,9 +1,10 @@
 import { BLOCK_DURATION_MS, calculateCost } from "@ccclub/shared";
 import type { UsageEntry, UsageBlock } from "@ccclub/shared";
 
-function floorToHour(date: Date): Date {
+function floorToBlock(date: Date): Date {
   const floored = new Date(date);
-  floored.setUTCMinutes(0, 0, 0);
+  const min = floored.getUTCMinutes();
+  floored.setUTCMinutes(min - (min % 30), 0, 0);
   return floored;
 }
 
@@ -14,7 +15,7 @@ export function aggregateToBlocks(entries: UsageEntry[], humanTurns: string[] = 
   const humanTurnMs = humanTurns.map((t) => new Date(t).getTime());
 
   const blocks: UsageBlock[] = [];
-  let blockStart = floorToHour(new Date(entries[0].timestamp));
+  let blockStart = floorToBlock(new Date(entries[0].timestamp));
   let blockEnd = new Date(blockStart.getTime() + BLOCK_DURATION_MS);
   let currentBlock: UsageEntry[] = [];
   let humanIdx = 0;

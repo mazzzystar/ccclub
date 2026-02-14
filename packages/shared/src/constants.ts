@@ -1,6 +1,6 @@
-// 1-hour block window in milliseconds
-export const BLOCK_DURATION_HOURS = 1;
-export const BLOCK_DURATION_MS = BLOCK_DURATION_HOURS * 60 * 60 * 1000;
+// 30-minute block window in milliseconds
+export const BLOCK_DURATION_MIN = 30;
+export const BLOCK_DURATION_MS = BLOCK_DURATION_MIN * 60 * 1000;
 
 // Worker URL (override with CCCLUB_API_URL env var)
 export const DEFAULT_API_URL = "https://ccclub.dev";

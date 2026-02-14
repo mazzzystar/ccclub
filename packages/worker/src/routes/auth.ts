@@ -26,6 +26,15 @@ function generateInviteCode(): string {
   return code;
 }
 
+async function generateUniqueInviteCode(kv: KVNamespace, maxRetries = 5): Promise<string> {
+  for (let i = 0; i < maxRetries; i++) {
+    const code = generateInviteCode();
+    const existing = await kv.get(`group:${code}`);
+    if (!existing) return code;
+  }
+  throw new Error("failed to generate unique invite code");
+}
+
 // POST /api/init - Create user + auto-create group
 app.post("/init", async (c) => {
   const body = await c.req.json<InitRequest>();
@@ -54,7 +63,7 @@ app.post("/init", async (c) => {
   }
 
   const userId = generateId();
-  const inviteCode = generateInviteCode();
+  const inviteCode = await generateUniqueInviteCode(c.env.KV);
   const now = new Date().toISOString();
   const groupName = `${displayName}'s club`;
 
@@ -145,7 +154,7 @@ app.post("/group/create", async (c) => {
     return c.json({ error: "name too long (max 100)" }, 400);
   }
 
-  const inviteCode = generateInviteCode();
+  const inviteCode = await generateUniqueInviteCode(c.env.KV);
   const now = new Date().toISOString();
 
   const groupRecord: GroupRecord = {

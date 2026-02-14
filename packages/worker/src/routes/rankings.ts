@@ -159,7 +159,7 @@ app.get("/rank/:code", async (c) => {
   const period = parsePeriod(c.req.query("period"));
   const tz = parseInt(c.req.query("tz") || "0", 10) || 0;
 
-  const group = await c.env.KV.get<GroupRecord>(`group:${code}`, { type: "json", cacheTtl: 60 });
+  const group = await c.env.KV.get<GroupRecord>(`group:${code}`, "json");
   if (!group) {
     return c.json({ error: "group not found" }, 404);
   }
@@ -291,7 +291,7 @@ app.get("/activity/:code", async (c) => {
       memberMap.set(uid, { displayName: uid.slice(0, 8), avatar: "" });
     }
   } else {
-    const group = await c.env.KV.get<GroupRecord>(`group:${code}`, { type: "json", cacheTtl: 60 });
+    const group = await c.env.KV.get<GroupRecord>(`group:${code}`, "json");
     if (!group) return c.json({ error: "group not found" }, 404);
     for (const m of group.members) {
       memberIds.push(m.userId);

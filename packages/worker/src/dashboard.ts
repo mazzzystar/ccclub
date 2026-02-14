@@ -431,18 +431,6 @@ function dashboardHTML(code: string) {
                " " + cur.x.toFixed(1) + "," + cur.y.toFixed(1);
         }
         paths += '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>';
-        // Add hover circles at data points
-        pts.forEach(function(pt, pi) {
-          var val = us.points[pi].v;
-          var t = us.points[pi].t;
-          var dt = new Date(t);
-          var timeLabel = range === "24h"
-            ? dt.getHours().toString().padStart(2, "0") + ":00"
-            : (dt.getMonth() + 1) + "/" + dt.getDate();
-          paths += '<circle cx="' + pt.x.toFixed(1) + '" cy="' + pt.y.toFixed(1) + '" r="8" fill="transparent" stroke="none"' +
-            ' data-name="' + esc(us.name) + '" data-time="' + timeLabel + '" data-cost="$' + val.toFixed(2) + '" data-color="' + color + '"' +
-            ' class="chart-hover-dot" style="cursor:pointer"/>';
-        });
       });
 
       // Time axis labels
@@ -466,8 +454,16 @@ function dashboardHTML(code: string) {
       var costLabel = globalMax >= 1 ? "$" + globalMax.toFixed(0) : "$" + globalMax.toFixed(2);
       labels += '<text x="' + (W - 2) + '" y="' + (PAD_T + 10) + '" fill="#5a5550" font-size="10" text-anchor="end">' + costLabel + '</text>';
 
+      // Crosshair line + dot markers (hidden by default) + hover overlay
+      var overlay = '<line id="chart-crosshair" x1="0" y1="' + PAD_T + '" x2="0" y2="' + (PAD_T + plotH) + '" stroke="#5a5550" stroke-width="1" stroke-dasharray="3,3" opacity="0"/>';
+      userSeries.forEach(function(us, idx) {
+        var color = CHART_COLORS[idx % CHART_COLORS.length];
+        overlay += '<circle id="chart-dot-' + idx + '" cx="0" cy="0" r="3.5" fill="' + color + '" stroke="#1a1816" stroke-width="1.5" opacity="0"/>';
+      });
+      overlay += '<rect x="' + PAD_L + '" y="' + PAD_T + '" width="' + plotW + '" height="' + plotH + '" fill="transparent" id="chart-overlay" style="cursor:crosshair"/>';
+
       var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">' +
-        labels + paths + '</svg>';
+        labels + paths + overlay + '</svg>';
 
       // Legend
       var legend = '<div class="chart-legend">';
@@ -480,44 +476,65 @@ function dashboardHTML(code: string) {
 
       el.innerHTML = svg + '<div class="chart-tooltip" id="chart-tooltip"></div>' + legend;
 
-      // Wire up hover events
+      // Crosshair hover logic
       var tooltip = document.getElementById("chart-tooltip");
-      var dots = el.querySelectorAll(".chart-hover-dot");
-      dots.forEach(function(dot) {
-        dot.addEventListener("mouseenter", function(e) {
-          var d = e.target;
-          var name = d.getAttribute("data-name");
-          var time = d.getAttribute("data-time");
-          var cost = d.getAttribute("data-cost");
-          var color = d.getAttribute("data-color");
-          tooltip.innerHTML = '<span style="color:' + color + '">' + name + '</span> · ' + time + ' · <b>' + cost + '</b>';
-          // Position tooltip near the dot
-          var svgEl = el.querySelector("svg");
-          var svgRect = svgEl.getBoundingClientRect();
-          var elRect = el.getBoundingClientRect();
-          var cx = parseFloat(d.getAttribute("cx"));
-          var cy = parseFloat(d.getAttribute("cy"));
-          var scaleX = svgRect.width / 560;
-          var scaleY = svgRect.height / 200;
-          var left = (svgRect.left - elRect.left) + cx * scaleX;
-          var top = (svgRect.top - elRect.top) + cy * scaleY - 36;
-          tooltip.style.left = left + "px";
-          tooltip.style.top = top + "px";
-          tooltip.style.transform = "translateX(-50%)";
-          tooltip.classList.add("visible");
-          // Highlight dot
-          d.setAttribute("r", "4");
-          d.setAttribute("fill", color);
-          d.setAttribute("stroke", color);
-          d.setAttribute("opacity", "1");
+      var crosshair = document.getElementById("chart-crosshair");
+      var overlayRect = document.getElementById("chart-overlay");
+      var svgEl = el.querySelector("svg");
+
+      overlayRect.addEventListener("mousemove", function(e) {
+        var svgRect = svgEl.getBoundingClientRect();
+        var mouseX = (e.clientX - svgRect.left) / svgRect.width * W;
+        // Find nearest bucket index
+        var bucketIdx = Math.round((mouseX - PAD_L) / plotW * (bucketCount - 1));
+        bucketIdx = Math.max(0, Math.min(bucketCount - 1, bucketIdx));
+        // X position of this bucket
+        var bx = PAD_L + ((bucketIdx + 0.5) * bucketMs / durationMs) * plotW;
+        // Show crosshair
+        crosshair.setAttribute("x1", bx.toFixed(1));
+        crosshair.setAttribute("x2", bx.toFixed(1));
+        crosshair.setAttribute("opacity", "1");
+        // Time label
+        var bt = new Date(startMs + (bucketIdx + 0.5) * bucketMs);
+        var timeLabel = range === "24h"
+          ? bt.getHours().toString().padStart(2, "0") + ":00"
+          : (bt.getMonth() + 1) + "/" + bt.getDate();
+        // Position dots and build tooltip content
+        var tipLines = '<div style="color:#5a5550;margin-bottom:2px">' + timeLabel + '</div>';
+        var hasData = false;
+        userSeries.forEach(function(us, idx) {
+          var pt = us.points[bucketIdx];
+          var color = CHART_COLORS[idx % CHART_COLORS.length];
+          var dot = document.getElementById("chart-dot-" + idx);
+          var py = PAD_T + plotH - (pt.v / globalMax) * plotH;
+          dot.setAttribute("cx", bx.toFixed(1));
+          dot.setAttribute("cy", py.toFixed(1));
+          dot.setAttribute("opacity", pt.v > 0 ? "1" : "0");
+          if (pt.v > 0) {
+            hasData = true;
+            tipLines += '<div><span style="color:' + color + '">' + esc(us.name) + '</span> <b>$' + pt.v.toFixed(2) + '</b></div>';
+          }
         });
-        dot.addEventListener("mouseleave", function(e) {
-          tooltip.classList.remove("visible");
-          var d = e.target;
-          d.setAttribute("r", "8");
-          d.setAttribute("fill", "transparent");
-          d.setAttribute("stroke", "none");
+        if (!hasData) {
+          tipLines += '<div style="color:#5a5550">No activity</div>';
+        }
+        tooltip.innerHTML = tipLines;
+        // Position tooltip
+        var elRect = el.getBoundingClientRect();
+        var scaleX = svgRect.width / W;
+        var left = (svgRect.left - elRect.left) + bx * scaleX;
+        tooltip.style.left = left + "px";
+        tooltip.style.top = "0px";
+        tooltip.style.transform = "translateX(-50%)";
+        tooltip.classList.add("visible");
+      });
+
+      overlayRect.addEventListener("mouseleave", function() {
+        crosshair.setAttribute("opacity", "0");
+        userSeries.forEach(function(us, idx) {
+          document.getElementById("chart-dot-" + idx).setAttribute("opacity", "0");
         });
+        tooltip.classList.remove("visible");
       });
     }
 

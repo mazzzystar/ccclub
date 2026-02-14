@@ -108,8 +108,8 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   const head = ["#", "Name", "Tokens", "Cost"];
   const widths = [5, 20, 10, 12];
   if (hasPlan) {
-    head.push("ROI");
-    widths.push(13);
+    head.push("Monthly ROI");
+    widths.push(15);
   }
   head.push("Chats");
   widths.push(8);
@@ -158,6 +158,14 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
 
   console.log(table.toString());
   console.log(chalk.dim(`  Dashboard: ${config.apiUrl}/g/${code}`));
+
+  // Hint if the group has plan users but current user hasn't set one
+  if (hasPlan) {
+    const me = data.rankings.find((r) => r.userId === config.userId);
+    if (me && !me.plan) {
+      console.log(chalk.dim("  Set your plan: ") + chalk.white("ccclub profile --plan pro|max100|max200|api"));
+    }
+  }
 }
 
 interface ActivityResponse {

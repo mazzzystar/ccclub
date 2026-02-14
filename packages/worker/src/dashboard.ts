@@ -323,7 +323,7 @@ function dashboardHTML(code: string) {
           var hasPlan = data.rankings.some(function(r) { return r.plan; });
           var PLAN_PRICES = { pro: 20, max100: 100, max200: 200, api: 0 };
           var h = '<table><thead><tr><th>#</th><th>Name</th><th>Tokens</th><th>Cost</th>';
-          if (hasPlan) h += '<th>ROI</th>';
+          if (hasPlan) h += '<th>Monthly ROI</th>';
           h += '<th>Chats</th></tr></thead><tbody>';
 
           data.rankings.forEach(function(r) {

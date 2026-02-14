@@ -42,13 +42,25 @@ export async function profileCommand(options: {
     return;
   }
 
+  // Validate plan
+  const validPlans = ["pro", "max100", "max200", "api"];
+  if (options.plan !== undefined) {
+    const p = options.plan.toLowerCase();
+    if (p && p !== "none" && !validPlans.includes(p)) {
+      console.log(chalk.red(`\n  Invalid plan: "${options.plan}"`));
+      console.log(chalk.dim("  Valid options: ") + chalk.white("pro") + chalk.dim(" ($20), ") + chalk.white("max100") + chalk.dim(" ($100), ") + chalk.white("max200") + chalk.dim(" ($200), ") + chalk.white("api"));
+      console.log(chalk.dim("  To clear: ") + chalk.white('ccclub profile --plan none'));
+      return;
+    }
+  }
+
   // Build update payload
   const body: Record<string, string> = {};
   if (options.name !== undefined) body.displayName = options.name;
   if (options.avatar !== undefined) body.avatar = options.avatar;
   if (options.public) body.visibility = "public";
   if (options.private) body.visibility = "private";
-  if (options.plan !== undefined) body.plan = options.plan;
+  if (options.plan !== undefined) body.plan = options.plan === "none" ? "" : options.plan;
 
   const spinner = ora("Updating profile...").start();
   try {

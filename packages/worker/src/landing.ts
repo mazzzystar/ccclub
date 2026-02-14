@@ -308,6 +308,8 @@ function landingHTML() {
 
     <div class="footer">
       <a href="https://github.com/mazzzystar/ccclub">GitHub</a>
+      &nbsp;\u00b7&nbsp;
+      <a href="https://discord.gg/6QbGWJUVHq">Discord</a>
       &nbsp;\u00b7&nbsp; MIT License
     </div>
   </div>

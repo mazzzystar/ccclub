@@ -195,7 +195,8 @@ async function printActivity(apiUrl: string, code: string, range: string): Promi
     const bucketCount = range === "24h" ? 48 : range === "7d" ? 28 : 30;
     const bucketMs = (endMs - startMs) / bucketCount;
 
-    // Build all buckets first, then normalize against a single global max
+    // Build all buckets with sqrt-compressed global normalization
+    // Any non-zero activity shows at least ▂; ▁ = true zero baseline
     const allBuckets: number[][] = [];
     for (const user of active) {
       const buckets = new Array(bucketCount).fill(0) as number[];
@@ -206,14 +207,11 @@ async function printActivity(apiUrl: string, code: string, range: string): Promi
       allBuckets.push(buckets);
     }
 
-    // Global max across all users so sparklines are comparable
     let globalMax = 0;
     for (const buckets of allBuckets) {
-      for (const v of buckets) {
-        if (v > globalMax) globalMax = v;
-      }
+      for (const v of buckets) { if (v > globalMax) globalMax = v; }
     }
-    if (globalMax === 0) globalMax = 1; // avoid division by zero
+    if (globalMax === 0) globalMax = 1;
 
     console.log(chalk.dim(`\n  Activity (${range})`));
 
@@ -221,7 +219,10 @@ async function printActivity(apiUrl: string, code: string, range: string): Promi
       const user = active[i];
       const buckets = allBuckets[i];
       const spark = buckets.map((v) => {
-        const idx = Math.min(Math.floor((v / globalMax) * SPARK_CHARS.length), SPARK_CHARS.length - 1);
+        if (v === 0) return SPARK_CHARS[0]; // ▁ for true zero
+        // sqrt compression + minimum visible floor (▂)
+        const normalized = Math.sqrt(v / globalMax);
+        const idx = 1 + Math.min(Math.floor(normalized * (SPARK_CHARS.length - 1)), SPARK_CHARS.length - 2);
         return SPARK_CHARS[idx];
       }).join("");
       const total = user.blocks.reduce((s, b) => s + b.cost, 0);

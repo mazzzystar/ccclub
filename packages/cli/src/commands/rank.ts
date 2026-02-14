@@ -182,8 +182,22 @@ async function printActivity(apiUrl: string, code: string, range: string): Promi
         return SPARK_CHARS[idx];
       }).join("");
       const total = user.blocks.reduce((s, b) => s + b.cost, 0);
-      const name = user.displayName.padEnd(12).slice(0, 12);
-      console.log(`  ${chalk.dim(name)} ${spark}  ${chalk.dim("$" + total.toFixed(2))}`);
+      const displayWidth = [...user.displayName].reduce((w, ch) => w + (ch.charCodeAt(0) > 0x7f ? 2 : 1), 0);
+      const maxWidth = 12;
+      let name = user.displayName;
+      if (displayWidth > maxWidth) {
+        let w = 0;
+        let cut = 0;
+        for (const ch of name) {
+          const cw = ch.charCodeAt(0) > 0x7f ? 2 : 1;
+          if (w + cw > maxWidth) break;
+          w += cw;
+          cut++;
+        }
+        name = [...name].slice(0, cut).join("");
+      }
+      const pad = " ".repeat(Math.max(0, maxWidth - displayWidth));
+      console.log(`  ${chalk.dim(name + pad)} ${spark}  ${chalk.dim("$" + total.toFixed(2))}`);
     }
   } catch {
     // Silently skip if activity fetch fails

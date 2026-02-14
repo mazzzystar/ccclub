@@ -2,7 +2,7 @@ import chalk from "chalk";
 import Table from "cli-table3";
 import ora from "ora";
 import type { RankingPeriod, RankResponse } from "@ccclub/shared";
-import { PLAN_PRICES, PLAN_LABELS } from "@ccclub/shared";
+import { PLAN_PRICES } from "@ccclub/shared";
 import { requireConfig } from "../config.js";
 import { doSync, needsFullSync } from "./sync.js";
 import { installHook, isHookInstalled } from "../hook.js";
@@ -108,8 +108,8 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   const head = ["#", "Name", "Tokens", "Cost"];
   const widths = [5, 20, 10, 12];
   if (hasPlan) {
-    head.push("Plan · ROI");
-    widths.push(16);
+    head.push("ROI");
+    widths.push(13);
   }
   head.push("Chats");
   widths.push(8);
@@ -140,14 +140,13 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
     if (hasPlan) {
       if (entry.plan && entry.plan !== "api") {
         const price = PLAN_PRICES[entry.plan as keyof typeof PLAN_PRICES];
-        const label = PLAN_LABELS[entry.plan as keyof typeof PLAN_LABELS] || entry.plan;
         const monthly = entry.monthlyCostUSD || 0;
         const roi = price > 0 ? Math.round((monthly / price) * 100) : 0;
-        const roiStr = `${roi}%`;
+        const roiStr = `$${price}/${roi}%`;
         const roiC = roi >= 100 ? chalk.green.bold(roiStr) : roi >= 50 ? chalk.yellow(roiStr) : chalk.dim(roiStr);
-        row.push(`${c(label)} ${roiC}`);
+        row.push(roiC);
       } else if (entry.plan === "api") {
-        row.push(c("API"));
+        row.push(chalk.dim("API"));
       } else {
         row.push(chalk.dim("—"));
       }

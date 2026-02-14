@@ -379,7 +379,7 @@ function dashboardHTML(code: string) {
       // Bucket blocks into time intervals to show activity intensity
       var W = 560, H = 200, PAD_L = 0, PAD_R = 0, PAD_T = 8, PAD_B = 20;
       var plotW = W - PAD_L - PAD_R, plotH = H - PAD_T - PAD_B;
-      var bucketCount = range === "24h" ? 8 : range === "7d" ? 28 : 30;
+      var bucketCount = range === "24h" ? 24 : range === "7d" ? 28 : 30;
       var bucketMs = durationMs / bucketCount;
 
       var globalMax = 0;

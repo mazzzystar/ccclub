@@ -149,7 +149,7 @@ async function printActivity(apiUrl: string, code: string, range: string): Promi
 
     const startMs = new Date(data.start).getTime();
     const endMs = new Date(data.end).getTime();
-    const bucketCount = range === "24h" ? 8 : range === "7d" ? 28 : 30;
+    const bucketCount = range === "24h" ? 24 : range === "7d" ? 28 : 30;
     const bucketMs = (endMs - startMs) / bucketCount;
 
     // Build all buckets first, then normalize against a single global max

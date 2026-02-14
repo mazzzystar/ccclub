@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import chalk from "chalk";
 import ora from "ora";
-import { requireConfig, getLastSyncPath, getLastSyncTimePath } from "../config.js";
+import { requireConfig, loadConfig, getLastSyncPath, getLastSyncTimePath } from "../config.js";
 import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
 import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
@@ -31,24 +31,31 @@ const THROTTLE_MS = 5 * 60 * 1000;
 
 export async function syncCommand(options: { silent?: boolean; full?: boolean }): Promise<void> {
   // When called silently (from hook), skip if last sync was < 5 minutes ago
+  const timePath = getLastSyncTimePath();
   if (options.silent && !options.full) {
-    const timePath = getLastSyncTimePath();
     if (existsSync(timePath)) {
       try {
         const ts = parseInt(readFileSync(timePath, "utf-8").trim(), 10);
         if (Date.now() - ts < THROTTLE_MS) return;
       } catch { /* proceed with sync */ }
     }
-    // Write timestamp NOW, before sync attempt.
-    // Prevents rapid retries if doSync fails, exits, or finds nothing new.
+    // Write timestamp NOW to prevent concurrent hook invocations from also syncing
     try { writeFileSync(timePath, String(Date.now())); } catch { /* dir may not exist yet */ }
   }
 
-  await doSync(options.full || false, options.silent);
+  try {
+    await doSync(options.full || false, options.silent);
+  } catch {
+    // If sync failed, clear throttle so next Stop event retries sooner
+    if (options.silent) {
+      try { writeFileSync(timePath, "0"); } catch { /* ignore */ }
+    }
+  }
 }
 
 export async function doSync(firstSync = false, silent = false): Promise<void> {
-  const config = await requireConfig();
+  const config = silent ? await loadConfig() : await requireConfig();
+  if (!config) return; // Not initialized — nothing to sync
 
   // Auto full-sync when block format version changes (e.g. chatCount added)
   if (!firstSync && needsFullSync()) {
@@ -104,8 +111,9 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
     });
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      if (spinner) spinner.fail(`Sync failed: ${(err as { error: string }).error}`);
+      const errBody = await res.json().catch(() => ({ error: res.statusText }));
+      if (spinner) spinner.fail(`Sync failed: ${(errBody as { error: string }).error}`);
+      if (silent) throw new Error(`sync failed: ${res.status}`);
       return;
     }
 
@@ -126,5 +134,6 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
     }
   } catch (err) {
     if (spinner) spinner.fail(`Sync error: ${err instanceof Error ? err.message : err}`);
+    if (silent) throw err; // Re-throw so hook caller can reset throttle
   }
 }

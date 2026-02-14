@@ -56,6 +56,10 @@ export async function rankCommand(options: { period?: string; group?: string; gl
 
       printGroup(data, code, period, config, options.cache);
 
+      // Fetch and render activity sparklines
+      const range = period === "weekly" ? "7d" : period === "monthly" || period === "all-time" ? "30d" : "24h";
+      await printActivity(config.apiUrl, code, range);
+
       if (i < codes.length - 1) console.log("");
     }
 
@@ -119,4 +123,69 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
 
   console.log(table.toString());
   console.log(chalk.dim(`  Dashboard: ${config.apiUrl}/g/${code}`));
+}
+
+interface ActivityResponse {
+  range: string;
+  start: string;
+  end: string;
+  series: Array<{
+    displayName: string;
+    blocks: Array<{ t: string; cost: number }>;
+  }>;
+}
+
+const SPARK_CHARS = "▁▂▃▄▅▆▇█";
+
+async function printActivity(apiUrl: string, code: string, range: string): Promise<void> {
+  try {
+    const tz = -new Date().getTimezoneOffset();
+    const res = await fetch(`${apiUrl}/api/activity/${code}?range=${range}&tz=${tz}`, { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return;
+
+    const data = (await res.json()) as ActivityResponse;
+    const active = data.series.filter((s) => s.blocks.length > 0);
+    if (active.length === 0) return;
+
+    const startMs = new Date(data.start).getTime();
+    const endMs = new Date(data.end).getTime();
+    const bucketCount = range === "24h" ? 24 : range === "7d" ? 28 : 30;
+    const bucketMs = (endMs - startMs) / bucketCount;
+
+    // Build all buckets first, then normalize against a single global max
+    const allBuckets: number[][] = [];
+    for (const user of active) {
+      const buckets = new Array(bucketCount).fill(0) as number[];
+      for (const bl of user.blocks) {
+        const idx = Math.min(Math.floor((new Date(bl.t).getTime() - startMs) / bucketMs), bucketCount - 1);
+        if (idx >= 0) buckets[idx] += bl.cost;
+      }
+      allBuckets.push(buckets);
+    }
+
+    // Global max across all users so sparklines are comparable
+    let globalMax = 0;
+    for (const buckets of allBuckets) {
+      for (const v of buckets) {
+        if (v > globalMax) globalMax = v;
+      }
+    }
+    if (globalMax === 0) globalMax = 1; // avoid division by zero
+
+    console.log(chalk.dim(`\n  Activity (${range})`));
+
+    for (let i = 0; i < active.length; i++) {
+      const user = active[i];
+      const buckets = allBuckets[i];
+      const spark = buckets.map((v) => {
+        const idx = Math.min(Math.floor((v / globalMax) * SPARK_CHARS.length), SPARK_CHARS.length - 1);
+        return SPARK_CHARS[idx];
+      }).join("");
+      const total = user.blocks.reduce((s, b) => s + b.cost, 0);
+      const name = user.displayName.padEnd(12).slice(0, 12);
+      console.log(`  ${chalk.dim(name)} ${spark}  ${chalk.dim("$" + total.toFixed(2))}`);
+    }
+  } catch {
+    // Silently skip if activity fetch fails
+  }
 }

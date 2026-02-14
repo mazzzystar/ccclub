@@ -117,6 +117,30 @@ function dashboardHTML(code: string) {
     .cost { color: #8a8480; font-variant-numeric: tabular-nums; font-size: 14px; }
     .calls { color: #6b6560; font-size: 14px; }
 
+    /* Activity chart */
+    .chart-section { margin-top: 32px; }
+    .chart-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .chart-title { font-size: 15px; font-weight: 500; color: #e8e4de; }
+    .chart-canvas {
+      background: #13110f; border-radius: 8px; padding: 16px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .chart-canvas svg { width: 100%; display: block; }
+    .chart-legend {
+      display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px;
+      padding: 0 4px;
+    }
+    .chart-legend-item {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 12px; color: #8a8480;
+    }
+    .chart-legend-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+
     /* Empty */
     .empty { text-align: center; color: #5a5550; padding: 64px 0; font-size: 14px; line-height: 1.8; }
 
@@ -164,6 +188,13 @@ function dashboardHTML(code: string) {
     </div>
 
     <div id="content"></div>
+
+    <div class="chart-section">
+      <div class="chart-header">
+        <span class="chart-title">Activity</span>
+      </div>
+      <div class="chart-canvas" id="chart"></div>
+    </div>
 
     ${isGlobal ? html`` : html`
     <div class="invite">
@@ -249,6 +280,7 @@ function dashboardHTML(code: string) {
         btn.classList.add("active");
         period = btn.dataset.period;
         load();
+        loadChart();
       });
     });
 
@@ -308,8 +340,129 @@ function dashboardHTML(code: string) {
       var d = document.createElement("div"); d.textContent = s; return d.innerHTML;
     }
 
+    // Activity chart
+    var CHART_COLORS = ["#d4935e","#5aad7d","#4a8aaa","#d4a03e","#9a5aaa","#c45c5c","#8aaa5a","#c46a7a"];
+
+    function periodToRange(p) {
+      if (p === "weekly") return "7d";
+      if (p === "monthly" || p === "all-time") return "30d";
+      return "24h";
+    }
+
+    function loadChart() {
+      var apiPath = IS_GLOBAL ? "/api/activity/global" : "/api/activity/" + encodeURIComponent(CODE);
+      var tz = -new Date().getTimezoneOffset();
+      var range = periodToRange(period);
+      fetch(apiPath + "?range=" + range + "&tz=" + tz)
+        .then(function(res) {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.json();
+        })
+        .then(function(data) { renderChart(data); })
+        .catch(function() {
+          document.getElementById("chart").innerHTML = '<div style="color:#5a5550;text-align:center;padding:24px;font-size:13px">Failed to load activity</div>';
+        });
+    }
+
+    function renderChart(data) {
+      var el = document.getElementById("chart");
+      var startMs = new Date(data.start).getTime();
+      var endMs = new Date(data.end).getTime();
+      var durationMs = endMs - startMs;
+      var range = data.range;
+
+      if (!data.series || data.series.length === 0) {
+        el.innerHTML = '<div style="color:#5a5550;text-align:center;padding:24px;font-size:13px">No activity in this period</div>';
+        return;
+      }
+
+      // Bucket blocks into time intervals to show activity intensity
+      var W = 560, H = 200, PAD_L = 0, PAD_R = 0, PAD_T = 8, PAD_B = 20;
+      var plotW = W - PAD_L - PAD_R, plotH = H - PAD_T - PAD_B;
+      var bucketCount = range === "24h" ? 24 : range === "7d" ? 28 : 30;
+      var bucketMs = durationMs / bucketCount;
+
+      var globalMax = 0;
+      var userSeries = data.series.map(function(user) {
+        var buckets = new Array(bucketCount).fill(0);
+        user.blocks.forEach(function(bl) {
+          var idx = Math.min(Math.floor((new Date(bl.t).getTime() - startMs) / bucketMs), bucketCount - 1);
+          if (idx >= 0) buckets[idx] += bl.cost;
+        });
+        for (var b = 0; b < buckets.length; b++) {
+          if (buckets[b] > globalMax) globalMax = buckets[b];
+        }
+        var total = user.blocks.reduce(function(s, bl) { return s + bl.cost; }, 0);
+        // Convert buckets to points
+        var points = buckets.map(function(v, i) {
+          return { t: startMs + (i + 0.5) * bucketMs, v: v };
+        });
+        return { name: user.displayName, total: total, points: points };
+      });
+
+      if (globalMax === 0) globalMax = 1;
+
+      // Build SVG paths with smooth cubic bezier curves
+      var paths = "";
+      userSeries.forEach(function(us, idx) {
+        var color = CHART_COLORS[idx % CHART_COLORS.length];
+        var pts = us.points.map(function(pt) {
+          return {
+            x: PAD_L + ((pt.t - startMs) / durationMs) * plotW,
+            y: PAD_T + plotH - (pt.v / globalMax) * plotH
+          };
+        });
+        if (pts.length < 2) return;
+        var d = "M" + pts[0].x.toFixed(1) + "," + pts[0].y.toFixed(1);
+        for (var j = 1; j < pts.length; j++) {
+          var prev = pts[j - 1], cur = pts[j];
+          var cpx = (prev.x + cur.x) / 2;
+          d += " C" + cpx.toFixed(1) + "," + prev.y.toFixed(1) +
+               " " + cpx.toFixed(1) + "," + cur.y.toFixed(1) +
+               " " + cur.x.toFixed(1) + "," + cur.y.toFixed(1);
+        }
+        paths += '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>';
+      });
+
+      // Time axis labels
+      var labels = "";
+      var labelCount = range === "24h" ? 6 : range === "7d" ? 7 : 6;
+      for (var i = 0; i <= labelCount; i++) {
+        var t = startMs + (durationMs * i / labelCount);
+        var dt = new Date(t);
+        var label;
+        if (range === "24h") {
+          label = dt.getHours().toString().padStart(2, "0") + ":00";
+        } else {
+          label = (dt.getMonth() + 1) + "/" + dt.getDate();
+        }
+        var lx = PAD_L + (i / labelCount) * plotW;
+        labels += '<text x="' + lx.toFixed(1) + '" y="' + (H - 2) + '" fill="#5a5550" font-size="10" text-anchor="middle">' + label + '</text>';
+        labels += '<line x1="' + lx.toFixed(1) + '" y1="' + PAD_T + '" x2="' + lx.toFixed(1) + '" y2="' + (PAD_T + plotH) + '" stroke="#2e2c2a" stroke-width="1"/>';
+      }
+
+      // Cost axis label (peak per bucket)
+      var costLabel = globalMax >= 1 ? "$" + globalMax.toFixed(0) : "$" + globalMax.toFixed(2);
+      labels += '<text x="' + (W - 2) + '" y="' + (PAD_T + 10) + '" fill="#5a5550" font-size="10" text-anchor="end">' + costLabel + '</text>';
+
+      var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">' +
+        labels + paths + '</svg>';
+
+      // Legend
+      var legend = '<div class="chart-legend">';
+      userSeries.forEach(function(us, idx) {
+        var color = CHART_COLORS[idx % CHART_COLORS.length];
+        legend += '<div class="chart-legend-item"><span class="chart-legend-dot" style="background:' + color + '"></span>' +
+          esc(us.name) + ' $' + us.total.toFixed(2) + '</div>';
+      });
+      legend += '</div>';
+
+      el.innerHTML = svg + legend;
+    }
+
     load();
-    setInterval(load, 5 * 60 * 1000);
+    loadChart();
+    setInterval(function() { load(); loadChart(); }, 5 * 60 * 1000);
   </script>
 </body>
 </html>`;

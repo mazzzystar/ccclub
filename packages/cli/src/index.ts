@@ -12,7 +12,7 @@ const program = new Command();
 program
   .name("ccclub")
   .description("CCClub - Compare Claude Code usage with friends")
-  .version("0.2.26");
+  .version("0.2.27");
 
 program
   .command("init")

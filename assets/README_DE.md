@@ -9,13 +9,13 @@ Finde heraus, wie viel Claude Code deine Freunde verbrauchen.
 ## Erste Schritte
 
 ```bash
-npm i -g ccclub && ccclub init
+npx ccclub init
 ```
 
 Gib deinen Namen ein und du bekommst einen 6-stelligen Einladungscode. Teile ihn mit Freunden:
 
 ```bash
-npm i -g ccclub && ccclub join R4NK7D
+npx ccclub join R4NK7D
 ```
 
 Fertig. Die Nutzung wird automatisch jede Stunde synchronisiert. Keine Konfiguration, keine Registrierung, kein Account.

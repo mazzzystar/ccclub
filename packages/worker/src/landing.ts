@@ -222,8 +222,8 @@ function landingHTML() {
     </div>
 
     <div class="cta">
-      <div class="cta-cmd mono" onclick="navigator.clipboard.writeText('npm i -g ccclub && ccclub init');this.querySelector('.copy-msg').style.opacity=1;setTimeout(()=>this.querySelector('.copy-msg').style.opacity=0,2000)">
-        <span class="dollar">$</span>npm i -g ccclub && ccclub init
+      <div class="cta-cmd mono" onclick="navigator.clipboard.writeText('npx ccclub init');this.querySelector('.copy-msg').style.opacity=1;setTimeout(()=>this.querySelector('.copy-msg').style.opacity=0,2000)">
+        <span class="dollar">$</span>npx ccclub init
         <span class="copy-msg" style="position:absolute;right:-60px;top:50%;transform:translateY(-50%);font-size:12px;color:#5aad7d;opacity:0;transition:opacity .2s">Copied</span>
       </div>
       <div class="cta-hint">One command to start. After that just use <code class="mono">ccclub</code> directly.</div>
@@ -238,14 +238,14 @@ function landingHTML() {
           <div class="step-num">1</div>
           <div class="step-content">
             <h3>Initialize</h3>
-            <p>Run <code class="mono">npm i -g ccclub && ccclub init</code> and enter your name. You get a 6-letter invite code.</p>
+            <p>Run <code class="mono">npx ccclub init</code> and enter your name. You get a 6-letter invite code.</p>
           </div>
         </div>
         <div class="step">
           <div class="step-num">2</div>
           <div class="step-content">
             <h3>Invite</h3>
-            <p>Friends run <code class="mono">npm i -g ccclub && ccclub join CODE</code>. No account needed.</p>
+            <p>Friends run <code class="mono">npx ccclub join CODE</code>. No account needed.</p>
           </div>
         </div>
         <div class="step">

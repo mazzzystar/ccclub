@@ -230,11 +230,11 @@ function dashboardHTML(code: string) {
     });
 
     var inviteEl = document.getElementById("invite-code-display");
-    if (inviteEl) inviteEl.textContent = "npm i -g ccclub && ccclub join " + CODE;
+    if (inviteEl) inviteEl.textContent = "npx ccclub join " + CODE;
     var copyBtn = document.getElementById("copy-btn");
     if (copyBtn) {
       copyBtn.addEventListener("click", function() {
-        navigator.clipboard.writeText("npm i -g ccclub && ccclub join " + CODE);
+        navigator.clipboard.writeText("npx ccclub join " + CODE);
         this.textContent = "Copied!";
         var btn = this;
         setTimeout(function() { btn.textContent = "Copy"; }, 2000);

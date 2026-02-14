@@ -9,13 +9,13 @@ Descubre cuánto Claude Code están quemando tus amigos.
 ## Empezar
 
 ```bash
-npm i -g ccclub && ccclub init
+npx ccclub init
 ```
 
 Introduce tu nombre y recibirás un código de invitación de 6 caracteres. Compártelo con tus amigos:
 
 ```bash
-npm i -g ccclub && ccclub join R4NK7D
+npx ccclub join R4NK7D
 ```
 
 Listo. El uso se sincroniza automáticamente cada hora. Sin configuración, sin registro, sin cuenta.

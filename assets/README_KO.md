@@ -9,13 +9,13 @@
 ## 시작하기
 
 ```bash
-npm i -g ccclub && ccclub init
+npx ccclub init
 ```
 
 이름을 입력하면 6자리 초대 코드가 발급됩니다. 친구에게 공유하세요:
 
 ```bash
-npm i -g ccclub && ccclub join R4NK7D
+npx ccclub join R4NK7D
 ```
 
 끝입니다. 사용량은 매시간 자동 동기화됩니다. 설정 없음, 가입 없음, 계정 없음.

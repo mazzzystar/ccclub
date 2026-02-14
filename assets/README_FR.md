@@ -9,13 +9,13 @@ Découvrez combien de Claude Code vos amis consomment.
 ## Pour commencer
 
 ```bash
-npm i -g ccclub && ccclub init
+npx ccclub init
 ```
 
 Entrez votre nom et vous obtiendrez un code d'invitation à 6 caractères. Partagez-le avec vos amis :
 
 ```bash
-npm i -g ccclub && ccclub join R4NK7D
+npx ccclub join R4NK7D
 ```
 
 C'est tout. L'utilisation se synchronise automatiquement toutes les heures. Pas de configuration, pas d'inscription, pas de compte.

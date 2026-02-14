@@ -9,16 +9,16 @@ Know how much Claude Code your friends are burning through.
 ## Get Started
 
 ```bash
-npm i -g ccclub && ccclub init
+npx ccclub init
 ```
 
 It asks your name, gives you a 6-letter code. Send it to friends:
 
 ```bash
-npm i -g ccclub && ccclub join R4NK7D
+npx ccclub join R4NK7D
 ```
 
-Done. Usage syncs automatically via Claude Code hook (installed during `npm i -g`). No config, no signup, no account.
+Done. Usage syncs automatically via Claude Code hook. No config, no signup, no account.
 
 Once a friend joins, check the leaderboard:
 

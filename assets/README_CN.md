@@ -9,13 +9,13 @@
 ## 开始
 
 ```bash
-npm i -g ccclub && ccclub init
+npx ccclub init
 ```
 
 输入你的名字，拿到一个 6 位邀请码。发给朋友：
 
 ```bash
-npm i -g ccclub && ccclub join R4NK7D
+npx ccclub join R4NK7D
 ```
 
 完事。用量每小时自动同步，不用配置，不用注册，不用建号。

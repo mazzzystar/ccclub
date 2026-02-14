@@ -9,13 +9,13 @@
 ## はじめに
 
 ```bash
-npm i -g ccclub && ccclub init
+npx ccclub init
 ```
 
 名前を入力すると、6文字の招待コードが発行されます。友達に共有しましょう:
 
 ```bash
-npm i -g ccclub && ccclub join R4NK7D
+npx ccclub join R4NK7D
 ```
 
 以上です。使用量は1時間ごとに自動同期されます。設定不要、登録不要、アカウント不要。

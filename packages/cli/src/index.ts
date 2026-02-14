@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import { initCommand } from "./commands/init.js";
 import { joinCommand } from "./commands/join.js";
 import { syncCommand } from "./commands/sync.js";
@@ -9,34 +9,17 @@ import { createGroupCommand } from "./commands/group.js";
 import { hookCommand } from "./commands/hook.js";
 import { startUpdateCheck } from "./update-check.js";
 
-const VERSION = "0.2.44";
+const VERSION = "0.2.45";
 startUpdateCheck(VERSION);
 
 const program = new Command();
 
 program
   .name("ccclub")
-  .description("CCClub - Compare Claude Code usage with friends")
+  .description("Compare Claude Code usage with friends")
   .version(VERSION);
 
-program
-  .command("init")
-  .description("Initialize CCClub (one-time setup)")
-  .action(initCommand);
-
-program
-  .command("join")
-  .description("Join a friend's group")
-  .argument("<invite-code>", "6-character invite code")
-  .action(joinCommand);
-
-program
-  .command("sync")
-  .description("Sync local usage data to server")
-  .option("-s, --silent", "No output (used by auto-sync hook)")
-  .option("-f, --full", "Force full re-sync of all data")
-  .action(syncCommand);
-
+// Default command — just running `ccclub` shows the leaderboard
 program
   .command("rank", { isDefault: true, hidden: true })
   .description("Show leaderboard")
@@ -46,33 +29,64 @@ program
   .option("--cache", "Include cache tokens in count")
   .action(rankCommand);
 
+// --- Setup (one-time) ---
+
 program
-  .command("-p weekly|monthly|all-time", { hidden: false })
-  .description("Switch period (default: daily)");
+  .command("init")
+  .description("Create a group and start tracking (first-time setup)")
+  .action(initCommand);
+
+program
+  .command("join")
+  .description("Join a group with a 6-letter invite code")
+  .argument("<invite-code>", "6-character invite code")
+  .action(joinCommand);
+
+// --- Regular use ---
+
+program
+  .command("sync")
+  .description("Upload usage data (runs automatically after each chat)")
+  .addOption(new Option("-s, --silent").hideHelp())
+  .option("-f, --force", "Force full re-sync of all data")
+  .addOption(new Option("--full", "Same as --force").hideHelp())
+  .action((options: { silent?: boolean; full?: boolean; force?: boolean }) =>
+    syncCommand({ ...options, full: options.full || options.force }),
+  );
 
 program
   .command("profile")
-  .description("View or update your profile")
+  .description("View or update name, avatar, plan, visibility")
   .option("-n, --name <name>", "Set display name")
-  .option("--avatar <url>", "Set avatar URL (empty string to reset)")
-  .option("--public", "Set profile visibility to public")
-  .option("--private", "Set profile visibility to private")
-  .option("--plan <plan>", "Set plan: pro ($20), max100 ($100), max200 ($200), api, or none to clear")
+  .option("--avatar <url>", "Set avatar URL (empty to reset)")
+  .option("--public", "Make profile visible in global ranking")
+  .option("--private", "Hide from global ranking")
+  .option("--plan <plan>", "pro ($20) | max100 ($100) | max200 ($200) | api | none")
   .action(profileCommand);
 
 program
   .command("create")
-  .description("Create a new group")
+  .description("Create an additional group")
   .action(createGroupCommand);
 
 program
   .command("show-data")
-  .description("Show exactly what data CCClub uploads (privacy audit)")
+  .description("Preview exactly what gets uploaded (privacy check)")
   .action(showDataCommand);
 
+// Internal — auto-installed, users don't need to run this
 program
-  .command("hook")
-  .description("Set up Claude Code hook for auto-sync on session end")
+  .command("hook", { hidden: true })
+  .description("Set up auto-sync hook")
   .action(hookCommand);
+
+program.addHelpText("after", `
+Examples:
+  $ ccclub                 Show today's leaderboard (default)
+  $ ccclub -p weekly       Switch period: weekly | monthly | all-time
+  $ ccclub --global        Global public leaderboard
+  $ ccclub --cache         Include cache tokens in total
+  $ ccclub sync --force    Force full re-sync of all data
+`);
 
 program.parse();

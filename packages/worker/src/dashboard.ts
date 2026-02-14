@@ -140,6 +140,15 @@ function dashboardHTML(code: string) {
     .chart-legend-dot {
       width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
     }
+    .chart-canvas { position: relative; }
+    .chart-tooltip {
+      position: absolute; pointer-events: none; opacity: 0;
+      background: #1e1c1a; border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 6px; padding: 6px 10px; font-size: 12px;
+      color: #e8e4de; white-space: nowrap; z-index: 10;
+      transition: opacity 0.15s;
+    }
+    .chart-tooltip.visible { opacity: 1; }
 
     /* Empty */
     .empty { text-align: center; color: #5a5550; padding: 64px 0; font-size: 14px; line-height: 1.8; }
@@ -422,6 +431,18 @@ function dashboardHTML(code: string) {
                " " + cur.x.toFixed(1) + "," + cur.y.toFixed(1);
         }
         paths += '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>';
+        // Add hover circles at data points
+        pts.forEach(function(pt, pi) {
+          var val = us.points[pi].v;
+          var t = us.points[pi].t;
+          var dt = new Date(t);
+          var timeLabel = range === "24h"
+            ? dt.getHours().toString().padStart(2, "0") + ":00"
+            : (dt.getMonth() + 1) + "/" + dt.getDate();
+          paths += '<circle cx="' + pt.x.toFixed(1) + '" cy="' + pt.y.toFixed(1) + '" r="8" fill="transparent" stroke="none"' +
+            ' data-name="' + esc(us.name) + '" data-time="' + timeLabel + '" data-cost="$' + val.toFixed(2) + '" data-color="' + color + '"' +
+            ' class="chart-hover-dot" style="cursor:pointer"/>';
+        });
       });
 
       // Time axis labels
@@ -457,7 +478,47 @@ function dashboardHTML(code: string) {
       });
       legend += '</div>';
 
-      el.innerHTML = svg + legend;
+      el.innerHTML = svg + '<div class="chart-tooltip" id="chart-tooltip"></div>' + legend;
+
+      // Wire up hover events
+      var tooltip = document.getElementById("chart-tooltip");
+      var dots = el.querySelectorAll(".chart-hover-dot");
+      dots.forEach(function(dot) {
+        dot.addEventListener("mouseenter", function(e) {
+          var d = e.target;
+          var name = d.getAttribute("data-name");
+          var time = d.getAttribute("data-time");
+          var cost = d.getAttribute("data-cost");
+          var color = d.getAttribute("data-color");
+          tooltip.innerHTML = '<span style="color:' + color + '">' + name + '</span> · ' + time + ' · <b>' + cost + '</b>';
+          // Position tooltip near the dot
+          var svgEl = el.querySelector("svg");
+          var svgRect = svgEl.getBoundingClientRect();
+          var elRect = el.getBoundingClientRect();
+          var cx = parseFloat(d.getAttribute("cx"));
+          var cy = parseFloat(d.getAttribute("cy"));
+          var scaleX = svgRect.width / 560;
+          var scaleY = svgRect.height / 200;
+          var left = (svgRect.left - elRect.left) + cx * scaleX;
+          var top = (svgRect.top - elRect.top) + cy * scaleY - 36;
+          tooltip.style.left = left + "px";
+          tooltip.style.top = top + "px";
+          tooltip.style.transform = "translateX(-50%)";
+          tooltip.classList.add("visible");
+          // Highlight dot
+          d.setAttribute("r", "4");
+          d.setAttribute("fill", color);
+          d.setAttribute("stroke", color);
+          d.setAttribute("opacity", "1");
+        });
+        dot.addEventListener("mouseleave", function(e) {
+          tooltip.classList.remove("visible");
+          var d = e.target;
+          d.setAttribute("r", "8");
+          d.setAttribute("fill", "transparent");
+          d.setAttribute("stroke", "none");
+        });
+      });
     }
 
     load();

@@ -9,16 +9,16 @@ Know how much Claude Code your friends are burning through.
 ## Get Started
 
 ```bash
-npx ccclub init
+npm i -g ccclub && ccclub init
 ```
 
 It asks your name, gives you a 6-letter code. Send it to friends:
 
 ```bash
-npx ccclub join R4NK7D
+npm i -g ccclub && ccclub join R4NK7D
 ```
 
-Done. Usage syncs automatically via Claude Code hook. No config, no signup, no account.
+Done. Usage syncs automatically via Claude Code hook (installed during `npm i -g`). No config, no signup, no account.
 
 Once a friend joins, check the leaderboard:
 
@@ -29,10 +29,10 @@ ccclub
 ## What Happens
 
 ```
-~/.claude/projects/*.jsonl → aggregate into 5h blocks → upload → view together
+~/.claude/projects/*.jsonl → aggregate into 1h blocks → upload → view together
 ```
 
-CCClub reads the JSONL logs Claude Code already writes locally, bundles them into 5-hour summaries (token counts + cost), and uploads those numbers. **No prompts, no code, no file paths, no project names** — just counters. Run `ccclub show-data` to audit exactly what gets sent.
+CCClub reads the JSONL logs Claude Code already writes locally, bundles them into 1-hour summaries (token counts + cost), and uploads those numbers. **No prompts, no code, no file paths, no project names** — just counters. Run `ccclub show-data` to audit exactly what gets sent.
 
 ## Commands
 
@@ -85,7 +85,7 @@ Uploads **only** this:
 ```json
 {
   "blockStart": "2025-02-13T00:00:00Z",
-  "blockEnd": "2025-02-13T05:00:00Z",
+  "blockEnd": "2025-02-13T01:00:00Z",
   "inputTokens": 48210,
   "outputTokens": 12050,
   "cacheCreationTokens": 0,
@@ -104,7 +104,7 @@ You are **private by default** — visible only in groups you've joined. Global 
 ```
 packages/
   shared/     Types + constants
-  cli/        npx ccclub — Commander.js CLI
+  cli/        ccclub — Commander.js CLI
   worker/     Cloudflare Worker — Hono API + KV + dashboard
 ```
 
@@ -118,7 +118,7 @@ pnpm build
 pnpm dev:worker                    # localhost:8787
 
 # In another terminal
-CCCLUB_API_URL=http://localhost:8787 npx ccclub init
+CCCLUB_API_URL=http://localhost:8787 ccclub init
 ```
 
 ## License

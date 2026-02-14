@@ -9,13 +9,13 @@ Descubre cuánto Claude Code están quemando tus amigos.
 ## Empezar
 
 ```bash
-npx ccclub init
+npm i -g ccclub && ccclub init
 ```
 
 Introduce tu nombre y recibirás un código de invitación de 6 caracteres. Compártelo con tus amigos:
 
 ```bash
-npx ccclub join R4NK7D
+npm i -g ccclub && ccclub join R4NK7D
 ```
 
 Listo. El uso se sincroniza automáticamente cada hora. Sin configuración, sin registro, sin cuenta.
@@ -29,10 +29,10 @@ ccclub
 ## Cómo funciona
 
 ```
-~/.claude/projects/*.jsonl → agregar en bloques de 5h → subir → ver juntos
+~/.claude/projects/*.jsonl → agregar en bloques de 1h → subir → ver juntos
 ```
 
-CCClub lee los logs JSONL que Claude Code escribe localmente, los agrupa en resúmenes de 5 horas (cantidad de tokens + costo) y sube esos números. **Sin prompts, sin código, sin rutas de archivos, sin nombres de proyecto** — solo contadores. Ejecuta `ccclub show-data` para verificar exactamente qué se envía.
+CCClub lee los logs JSONL que Claude Code escribe localmente, los agrupa en resúmenes de 1 hora (cantidad de tokens + costo) y sube esos números. **Sin prompts, sin código, sin rutas de archivos, sin nombres de proyecto** — solo contadores. Ejecuta `ccclub show-data` para verificar exactamente qué se envía.
 
 ## Comandos
 
@@ -84,7 +84,7 @@ Se suben **únicamente** estos datos:
 ```json
 {
   "blockStart": "2025-02-13T00:00:00Z",
-  "blockEnd": "2025-02-13T05:00:00Z",
+  "blockEnd": "2025-02-13T01:00:00Z",
   "inputTokens": 48210,
   "outputTokens": 12050,
   "cacheCreationTokens": 0,

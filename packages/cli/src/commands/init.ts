@@ -78,7 +78,7 @@ export async function initCommand(): Promise<void> {
     console.log("");
     console.log(chalk.bold("  Your invite code:"));
     console.log(chalk.cyan.bold(`\n    ${data.groupCode}\n`));
-    console.log(chalk.dim("  Share with friends: ") + chalk.white(`npx ccclub join ${data.groupCode}`));
+    console.log(chalk.dim("  Share with friends: ") + chalk.white(`npm i -g ccclub && ccclub join ${data.groupCode}`));
 
     if (hookOk) {
       console.log(chalk.dim("  Auto-sync: on (via Claude Code hook)"));

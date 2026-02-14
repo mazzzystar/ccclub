@@ -9,13 +9,13 @@ Finde heraus, wie viel Claude Code deine Freunde verbrauchen.
 ## Erste Schritte
 
 ```bash
-npx ccclub init
+npm i -g ccclub && ccclub init
 ```
 
 Gib deinen Namen ein und du bekommst einen 6-stelligen Einladungscode. Teile ihn mit Freunden:
 
 ```bash
-npx ccclub join R4NK7D
+npm i -g ccclub && ccclub join R4NK7D
 ```
 
 Fertig. Die Nutzung wird automatisch jede Stunde synchronisiert. Keine Konfiguration, keine Registrierung, kein Account.
@@ -29,10 +29,10 @@ ccclub
 ## So funktioniert es
 
 ```
-~/.claude/projects/*.jsonl → in 5h-Blöcke aggregieren → hochladen → gemeinsam ansehen
+~/.claude/projects/*.jsonl → in 1h-Blöcke aggregieren → hochladen → gemeinsam ansehen
 ```
 
-CCClub liest die JSONL-Logs, die Claude Code lokal schreibt, fasst sie in 5-Stunden-Zusammenfassungen (Token-Anzahl + Kosten) zusammen und lädt diese Zahlen hoch. **Keine Prompts, kein Code, keine Dateipfade, keine Projektnamen** — nur Zähler. Mit `ccclub show-data` kannst du genau prüfen, was gesendet wird.
+CCClub liest die JSONL-Logs, die Claude Code lokal schreibt, fasst sie in 1-Stunden-Zusammenfassungen (Token-Anzahl + Kosten) zusammen und lädt diese Zahlen hoch. **Keine Prompts, kein Code, keine Dateipfade, keine Projektnamen** — nur Zähler. Mit `ccclub show-data` kannst du genau prüfen, was gesendet wird.
 
 ## Befehle
 
@@ -84,7 +84,7 @@ Es werden **ausschließlich** diese Daten hochgeladen:
 ```json
 {
   "blockStart": "2025-02-13T00:00:00Z",
-  "blockEnd": "2025-02-13T05:00:00Z",
+  "blockEnd": "2025-02-13T01:00:00Z",
   "inputTokens": 48210,
   "outputTokens": 12050,
   "cacheCreationTokens": 0,

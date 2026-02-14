@@ -9,13 +9,13 @@
 ## 开始
 
 ```bash
-npx ccclub init
+npm i -g ccclub && ccclub init
 ```
 
 输入你的名字，拿到一个 6 位邀请码。发给朋友：
 
 ```bash
-npx ccclub join R4NK7D
+npm i -g ccclub && ccclub join R4NK7D
 ```
 
 完事。用量每小时自动同步，不用配置，不用注册，不用建号。
@@ -29,10 +29,10 @@ ccclub
 ## 原理
 
 ```
-~/.claude/projects/*.jsonl → 聚合成 5 小时块 → 上传 → 一起看
+~/.claude/projects/*.jsonl → 聚合成 1 小时块 → 上传 → 一起看
 ```
 
-Claude Code 在本地写 JSONL 日志，CCClub 把它们打包成 5 小时的摘要（token 数 + 费用），上传这些数字。**不含提示词、不含代码、不含文件路径、不含项目名** — 只有计数器。运行 `ccclub show-data` 可以在同步前审查上传内容。
+Claude Code 在本地写 JSONL 日志，CCClub 把它们打包成 1 小时的摘要（token 数 + 费用），上传这些数字。**不含提示词、不含代码、不含文件路径、不含项目名** — 只有计数器。运行 `ccclub show-data` 可以在同步前审查上传内容。
 
 ## 命令
 
@@ -84,7 +84,7 @@ https://ccclub.dev/g/R4NK7D
 ```json
 {
   "blockStart": "2025-02-13T00:00:00Z",
-  "blockEnd": "2025-02-13T05:00:00Z",
+  "blockEnd": "2025-02-13T01:00:00Z",
   "inputTokens": 48210,
   "outputTokens": 12050,
   "cacheCreationTokens": 0,
@@ -103,7 +103,7 @@ https://ccclub.dev/g/R4NK7D
 ```
 packages/
   shared/     类型 + 常量
-  cli/        npx ccclub — Commander.js CLI
+  cli/        ccclub — Commander.js CLI
   worker/     Cloudflare Worker — Hono API + KV + 看板
 ```
 
@@ -117,7 +117,7 @@ pnpm build
 pnpm dev:worker                    # localhost:8787
 
 # 另开终端
-CCCLUB_API_URL=http://localhost:8787 npx ccclub init
+CCCLUB_API_URL=http://localhost:8787 ccclub init
 ```
 
 ## 许可证

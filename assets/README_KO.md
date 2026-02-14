@@ -9,13 +9,13 @@
 ## 시작하기
 
 ```bash
-npx ccclub init
+npm i -g ccclub && ccclub init
 ```
 
 이름을 입력하면 6자리 초대 코드가 발급됩니다. 친구에게 공유하세요:
 
 ```bash
-npx ccclub join R4NK7D
+npm i -g ccclub && ccclub join R4NK7D
 ```
 
 끝입니다. 사용량은 매시간 자동 동기화됩니다. 설정 없음, 가입 없음, 계정 없음.
@@ -29,10 +29,10 @@ ccclub
 ## 작동 방식
 
 ```
-~/.claude/projects/*.jsonl → 5시간 블록으로 집계 → 업로드 → 함께 보기
+~/.claude/projects/*.jsonl → 1시간 블록으로 집계 → 업로드 → 함께 보기
 ```
 
-CCClub은 Claude Code가 로컬에 기록하는 JSONL 로그를 읽어 5시간 단위 요약(토큰 수 + 비용)으로 묶어 업로드합니다. **프롬프트, 코드, 파일 경로, 프로젝트 이름은 포함되지 않습니다** — 카운터만 전송합니다. `ccclub show-data`로 전송 내용을 확인할 수 있습니다.
+CCClub은 Claude Code가 로컬에 기록하는 JSONL 로그를 읽어 1시간 단위 요약(토큰 수 + 비용)으로 묶어 업로드합니다. **프롬프트, 코드, 파일 경로, 프로젝트 이름은 포함되지 않습니다** — 카운터만 전송합니다. `ccclub show-data`로 전송 내용을 확인할 수 있습니다.
 
 ## 명령어
 
@@ -84,7 +84,7 @@ https://ccclub.dev/g/R4NK7D
 ```json
 {
   "blockStart": "2025-02-13T00:00:00Z",
-  "blockEnd": "2025-02-13T05:00:00Z",
+  "blockEnd": "2025-02-13T01:00:00Z",
   "inputTokens": 48210,
   "outputTokens": 12050,
   "cacheCreationTokens": 0,

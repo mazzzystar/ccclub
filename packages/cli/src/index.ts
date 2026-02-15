@@ -9,7 +9,7 @@ import { createGroupCommand } from "./commands/group.js";
 import { hookCommand } from "./commands/hook.js";
 import { startUpdateCheck } from "./update-check.js";
 
-const VERSION = "0.2.46";
+const VERSION = "0.2.47";
 startUpdateCheck(VERSION);
 
 const program = new Command();
@@ -17,7 +17,7 @@ const program = new Command();
 program
   .name("ccclub")
   .description("Compare Claude Code usage with friends")
-  .version(VERSION);
+  .version(VERSION, "-v, -V, --version");
 
 // Default command — just running `ccclub` shows the leaderboard
 program

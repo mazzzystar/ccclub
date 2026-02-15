@@ -36,11 +36,12 @@ export function startUpdateCheck(currentVersion: string): void {
       });
       if (!res.ok) return null;
       const data = (await res.json()) as { version: string };
-      // Save check timestamp
-      try { writeFileSync(CHECK_FILE, String(Date.now())); } catch { /* ignore */ }
       if (data.version !== currentVersion) {
+        // Don't save timestamp — keep notifying until user updates
         return { latest: data.version, current: currentVersion };
       }
+      // Up-to-date: throttle next check for 12 hours
+      try { writeFileSync(CHECK_FILE, String(Date.now())); } catch { /* ignore */ }
       return null;
     } catch {
       return null;

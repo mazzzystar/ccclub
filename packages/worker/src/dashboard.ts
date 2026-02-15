@@ -192,6 +192,7 @@ function dashboardHTML(code: string) {
     @media (max-width: 600px) {
       .wrap { padding: 32px 16px; }
       th:nth-last-child(1), td:nth-last-child(1) { display: none; }
+      .hide-mobile { display: none; }
     }
   </style>
 </head>
@@ -227,7 +228,7 @@ function dashboardHTML(code: string) {
         <div class="invite-label">Invite friends to join</div>
         <div class="invite-code" id="invite-code-display"></div>
       </div>
-      <button class="copy-btn" id="copy-btn">Copy command</button>
+      <button class="copy-btn" id="copy-btn">Copy<span class="hide-mobile"> command</span></button>
     </div>`}
 
     <div class="meta" id="refresh-info"></div>

@@ -30,16 +30,18 @@ function getDateRange(period: RankingPeriod, tzOffsetMin = 0): { start: Date; en
       return { start: new Date(s.getTime() - tzOffsetMin * 60_000), end: new Date(s.getTime() - tzOffsetMin * 60_000 + 86_400_000) };
     }
     case "weekly": {
+      // Rolling 7-day window (today minus 6 days through end of today)
       const s = new Date(nowLocal);
-      s.setUTCDate(s.getUTCDate() - s.getUTCDay());
       s.setUTCHours(0, 0, 0, 0);
-      const startUtc = s.getTime() - tzOffsetMin * 60_000;
-      return { start: new Date(startUtc), end: new Date(startUtc + 7 * 86_400_000) };
+      const todayUtc = s.getTime() - tzOffsetMin * 60_000;
+      return { start: new Date(todayUtc - 6 * 86_400_000), end: new Date(todayUtc + 86_400_000) };
     }
     case "monthly": {
-      const s = new Date(Date.UTC(nowLocal.getUTCFullYear(), nowLocal.getUTCMonth(), 1));
-      const e = new Date(Date.UTC(nowLocal.getUTCFullYear(), nowLocal.getUTCMonth() + 1, 1));
-      return { start: new Date(s.getTime() - tzOffsetMin * 60_000), end: new Date(e.getTime() - tzOffsetMin * 60_000) };
+      // Rolling 30-day window (today minus 29 days through end of today)
+      const s = new Date(nowLocal);
+      s.setUTCHours(0, 0, 0, 0);
+      const todayUtc = s.getTime() - tzOffsetMin * 60_000;
+      return { start: new Date(todayUtc - 29 * 86_400_000), end: new Date(todayUtc + 86_400_000) };
     }
     case "all-time":
       return { start: new Date("2020-01-01"), end: new Date("2099-12-31") };

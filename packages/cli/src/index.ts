@@ -9,7 +9,7 @@ import { createGroupCommand } from "./commands/group.js";
 import { hookCommand } from "./commands/hook.js";
 import { startUpdateCheck } from "./update-check.js";
 
-const VERSION = "0.2.47";
+const VERSION = "0.2.49";
 startUpdateCheck(VERSION);
 
 const program = new Command();
@@ -23,7 +23,8 @@ program
 program
   .command("rank", { isDefault: true, hidden: true })
   .description("Show leaderboard")
-  .option("-p, --period [period]", "daily | weekly | monthly | all-time", "daily")
+  .option("-d, --days <days>", "Time window: 7 | 30 | all")
+  .addOption(new Option("-p, --period [period]").hideHelp())
   .option("-g, --group <code>", "Group invite code")
   .option("--global", "Show global public ranking")
   .option("--cache", "Include cache tokens in count")
@@ -83,7 +84,9 @@ program
 program.addHelpText("after", `
 Examples:
   $ ccclub                 Show today's leaderboard (default)
-  $ ccclub -p weekly       Switch period: weekly | monthly | all-time
+  $ ccclub -d 7            Last 7 days
+  $ ccclub -d 30           Last 30 days
+  $ ccclub -d all          All time
   $ ccclub --global        Global public leaderboard
   $ ccclub --cache         Include cache tokens in total
   $ ccclub sync --force    Force full re-sync of all data

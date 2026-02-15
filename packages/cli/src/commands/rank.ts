@@ -8,7 +8,7 @@ import { doSync, needsFullSync } from "./sync.js";
 import { installHook, isHookInstalled } from "../hook.js";
 import { getUpdateResult } from "../update-check.js";
 
-export async function rankCommand(options: { period?: string; group?: string; global?: boolean; cache?: boolean }): Promise<void> {
+export async function rankCommand(options: { days?: string; period?: string; group?: string; global?: boolean; cache?: boolean }): Promise<void> {
   const config = await requireConfig();
 
   // Ensure hook is installed (silent, one-time for existing users)
@@ -20,16 +20,29 @@ export async function rankCommand(options: { period?: string; group?: string; gl
     await doSync(true, true);
   }
 
-  const validPeriods = ["daily", "weekly", "monthly", "all-time"];
-  if (options.period === true || (typeof options.period === "string" && !validPeriods.includes(options.period))) {
-    const got = options.period === true ? "(missing)" : `"${options.period}"`;
-    console.log(chalk.red(`\n  Invalid period: ${got}`));
-    console.log(chalk.dim("  Usage: ") + chalk.white("ccclub -p daily|weekly|monthly|all-time"));
-    return;
+  // Resolve period from -d or -p flags
+  let period: RankingPeriod = "daily";
+  if (options.days) {
+    const DAYS_MAP: Record<string, RankingPeriod> = { "7": "weekly", "30": "monthly", "all": "all-time" };
+    const mapped = DAYS_MAP[options.days];
+    if (!mapped) {
+      console.log(chalk.red(`\n  Invalid value: -d ${options.days}`));
+      console.log(chalk.dim("  Usage: ") + chalk.white("ccclub -d 7 | 30 | all"));
+      return;
+    }
+    period = mapped;
+  } else if (options.period) {
+    const validPeriods = ["daily", "weekly", "monthly", "all-time"];
+    if (options.period === true || (typeof options.period === "string" && !validPeriods.includes(options.period))) {
+      const got = options.period === true ? "(missing)" : `"${options.period}"`;
+      console.log(chalk.red(`\n  Invalid period: ${got}`));
+      console.log(chalk.dim("  Usage: ") + chalk.white("ccclub -d 7 | 30 | all"));
+      return;
+    }
+    period = options.period as RankingPeriod;
   }
 
   const isGlobal = options.global === true;
-  const period = (options.period || "daily") as RankingPeriod;
 
   // Determine which groups to show
   let codes: string[];
@@ -109,7 +122,8 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   }
 
   console.log(chalk.bold(`\n  ${data.group.name}`));
-  console.log(chalk.dim(`  ${period.toUpperCase()} · ${data.start.slice(0, 10)} → ${data.end.slice(0, 10)} · ${data.group.memberCount} members\n`));
+  const periodLabel: Record<string, string> = { daily: "TODAY", weekly: "7 DAYS", monthly: "30 DAYS", "all-time": "ALL TIME" };
+  console.log(chalk.dim(`  ${periodLabel[period] || period.toUpperCase()} · ${data.start.slice(0, 10)} → ${data.end.slice(0, 10)} · ${data.group.memberCount} members\n`));
 
   const hasPlan = data.rankings.some((r) => r.plan);
 

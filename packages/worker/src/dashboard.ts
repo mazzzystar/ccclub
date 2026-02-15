@@ -203,8 +203,8 @@ function dashboardHTML(code: string) {
 
     <div class="periods">
       <button class="active" data-period="daily">Today</button>
-      <button data-period="weekly">This Week</button>
-      <button data-period="monthly">This Month</button>
+      <button data-period="weekly">7d</button>
+      <button data-period="monthly">30d</button>
       <button data-period="all-time">All Time</button>
       ${isGlobal ? html`` : html`<button data-nav="global">Global</button>`}
       <div class="toggle-wrap">

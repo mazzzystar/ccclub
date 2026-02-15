@@ -45,12 +45,10 @@ ccclub sync                        # Manual sync (also runs on session end)
 ccclub                             # See usage for today
 ```
 
-More time windows:
+More options:
 
 ```bash
-ccclub -d 7                        # Last 7 days
-ccclub -d 30                       # Last 30 days
-ccclub -d all                      # All time
+ccclub -d 7                        # Time window: 7 / 30 / all
 ccclub --cache                     # Include cache tokens in count
 ccclub --global                    # Everyone who opted in
 ccclub -g R4NK7D                   # Specific group

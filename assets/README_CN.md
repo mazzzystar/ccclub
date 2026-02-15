@@ -45,12 +45,10 @@ ccclub sync                        # 手动同步（会话结束也会自动跑�
 ccclub                             # 看今天的用量
 ```
 
-更多时间范围：
+更多选项：
 
 ```bash
-ccclub -d 7                        # 最近 7 天
-ccclub -d 30                       # 最近 30 天
-ccclub -d all                      # 全部
+ccclub -d 7                        # 时间窗口：7 / 30 / all
 ccclub --global                    # 所有公开用户
 ccclub -g R4NK7D                   # 指定小组
 ```

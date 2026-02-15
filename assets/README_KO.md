@@ -45,12 +45,10 @@ ccclub sync                        # 수동 동기화 (세션 종료 시 자동 
 ccclub                             # 오늘의 사용량 확인
 ```
 
-기간 지정:
+추가 옵션:
 
 ```bash
-ccclub -d 7                        # 최근 7일
-ccclub -d 30                       # 최근 30일
-ccclub -d all                      # 전체 기간
+ccclub -d 7                        # 기간 선택: 7 / 30 / all
 ccclub --global                    # 공개 사용자 전체
 ccclub -g R4NK7D                   # 특정 그룹
 ```

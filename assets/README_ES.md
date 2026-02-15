@@ -45,12 +45,10 @@ ccclub sync                        # Sincronización manual (también al finaliz
 ccclub                             # Ver el uso de hoy
 ```
 
-Más períodos:
+Más opciones:
 
 ```bash
-ccclub -d 7                        # Últimos 7 días
-ccclub -d 30                       # Últimos 30 días
-ccclub -d all                      # Todo el tiempo
+ccclub -d 7                        # Ventana de tiempo: 7 / 30 / all
 ccclub --global                    # Todos los usuarios públicos
 ccclub -g R4NK7D                   # Grupo específico
 ```

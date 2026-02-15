@@ -45,12 +45,10 @@ ccclub sync                        # 手動同期（セッション終了時に�
 ccclub                             # 今日の使用量を表示
 ```
 
-期間指定:
+追加オプション:
 
 ```bash
-ccclub -d 7                        # 過去7日間
-ccclub -d 30                       # 過去30日間
-ccclub -d all                      # 全期間
+ccclub -d 7                        # 期間選択: 7 / 30 / all
 ccclub --global                    # 公開ユーザー全員
 ccclub -g R4NK7D                   # 特定のグループ
 ```

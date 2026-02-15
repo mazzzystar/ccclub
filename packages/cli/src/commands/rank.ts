@@ -119,8 +119,8 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
     head.push("Monthly ROI");
     widths.push(15);
   }
-  head.push("Chats");
-  widths.push(8);
+  head.push("Chats", "$/Chat");
+  widths.push(8, 9);
 
   const table = new Table({
     head: head.map((h) => chalk.cyan(h)),
@@ -161,6 +161,7 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
     }
 
     row.push(c(String(entry.chatCount)));
+    row.push(entry.chatCount > 0 ? c(`$${(entry.costUSD / entry.chatCount).toFixed(2)}`) : chalk.dim("—"));
     table.push(row);
   }
 

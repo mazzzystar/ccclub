@@ -45,12 +45,12 @@ ccclub sync                        # Manual sync (also runs on session end)
 ccclub                             # See usage for today
 ```
 
-More time periods:
+More time windows:
 
 ```bash
-ccclub -p weekly                   # This week
-ccclub -p monthly                  # This month
-ccclub -p all-time                 # All time
+ccclub -d 7                        # Last 7 days
+ccclub -d 30                       # Last 30 days
+ccclub -d all                      # All time
 ccclub --cache                     # Include cache tokens in count
 ccclub --global                    # Everyone who opted in
 ccclub -g R4NK7D                   # Specific group
@@ -76,7 +76,7 @@ Every group gets a live page:
 https://ccclub.dev/g/R4NK7D
 ```
 
-Period switcher (daily / weekly / monthly / all-time), avatars, auto-refresh every 5 minutes. There's also a global page at `/g/global` for public users.
+Period switcher (today / 7d / 30d / all time), avatars, auto-refresh every 5 minutes. There's also a global page at `/g/global` for public users.
 
 ## Privacy
 

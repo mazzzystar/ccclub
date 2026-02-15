@@ -48,9 +48,9 @@ ccclub                             # 今日の使用量を表示
 期間指定:
 
 ```bash
-ccclub -p weekly                   # 今週
-ccclub -p monthly                  # 今月
-ccclub -p all-time                 # 全期間
+ccclub -d 7                        # 過去7日間
+ccclub -d 30                       # 過去30日間
+ccclub -d all                      # 全期間
 ccclub --global                    # 公開ユーザー全員
 ccclub -g R4NK7D                   # 特定のグループ
 ```
@@ -75,7 +75,7 @@ ccclub show-data                   # アップロード内容を確認
 https://ccclub.dev/g/R4NK7D
 ```
 
-期間切替（日次/週次/月次/全期間）、アバター、5分ごとの自動更新。公開ユーザーのグローバルページは `/g/global` にあります。
+期間切替（today/7d/30d/all time）、アバター、5分ごとの自動更新。公開ユーザーのグローバルページは `/g/global` にあります。
 
 ## プライバシー
 

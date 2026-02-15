@@ -48,9 +48,9 @@ ccclub                             # 看今天的用量
 更多时间范围：
 
 ```bash
-ccclub -p weekly                   # 本周
-ccclub -p monthly                  # 本月
-ccclub -p all-time                 # 全部
+ccclub -d 7                        # 最近 7 天
+ccclub -d 30                       # 最近 30 天
+ccclub -d all                      # 全部
 ccclub --global                    # 所有公开用户
 ccclub -g R4NK7D                   # 指定小组
 ```
@@ -75,7 +75,7 @@ ccclub show-data                   # 看具体上传了什么
 https://ccclub.dev/g/R4NK7D
 ```
 
-可切换日/周/月/全部，有头像，每 5 分钟自动刷新。公开用户的全球页面在 `/g/global`。
+可切换 today/7d/30d/all time，有头像，每 5 分钟自动刷新。公开用户的全球页面在 `/g/global`。
 
 ## 隐私
 

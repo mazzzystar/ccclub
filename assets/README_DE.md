@@ -48,9 +48,9 @@ ccclub                             # Heutige Nutzung anzeigen
 Weitere Zeiträume:
 
 ```bash
-ccclub -p weekly                   # Diese Woche
-ccclub -p monthly                  # Dieser Monat
-ccclub -p all-time                 # Gesamter Zeitraum
+ccclub -d 7                        # Letzte 7 Tage
+ccclub -d 30                       # Letzte 30 Tage
+ccclub -d all                      # Gesamter Zeitraum
 ccclub --global                    # Alle öffentlichen Nutzer
 ccclub -g R4NK7D                   # Bestimmte Gruppe
 ```
@@ -75,7 +75,7 @@ Jede Gruppe hat eine Live-Seite:
 https://ccclub.dev/g/R4NK7D
 ```
 
-Zeitraum-Umschalter (täglich/wöchentlich/monatlich/gesamt), Avatare, automatische Aktualisierung alle 5 Minuten. Die globale Seite für öffentliche Nutzer ist unter `/g/global` erreichbar.
+Zeitraum-Umschalter (today/7d/30d/all time), Avatare, automatische Aktualisierung alle 5 Minuten. Die globale Seite für öffentliche Nutzer ist unter `/g/global` erreichbar.
 
 ## Datenschutz
 

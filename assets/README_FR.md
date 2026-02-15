@@ -48,9 +48,9 @@ ccclub                             # Voir l'utilisation du jour
 Autres périodes :
 
 ```bash
-ccclub -p weekly                   # Cette semaine
-ccclub -p monthly                  # Ce mois
-ccclub -p all-time                 # Depuis le début
+ccclub -d 7                        # 7 derniers jours
+ccclub -d 30                       # 30 derniers jours
+ccclub -d all                      # Depuis le début
 ccclub --global                    # Tous les utilisateurs publics
 ccclub -g R4NK7D                   # Groupe spécifique
 ```
@@ -75,7 +75,7 @@ Chaque groupe a sa page en direct :
 https://ccclub.dev/g/R4NK7D
 ```
 
-Sélecteur de période (jour/semaine/mois/tout), avatars, rafraîchissement automatique toutes les 5 minutes. La page globale des utilisateurs publics est accessible à `/g/global`.
+Sélecteur de période (today/7d/30d/all time), avatars, rafraîchissement automatique toutes les 5 minutes. La page globale des utilisateurs publics est accessible à `/g/global`.
 
 ## Confidentialité
 

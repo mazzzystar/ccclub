@@ -48,9 +48,9 @@ ccclub                             # 오늘의 사용량 확인
 기간 지정:
 
 ```bash
-ccclub -p weekly                   # 이번 주
-ccclub -p monthly                  # 이번 달
-ccclub -p all-time                 # 전체 기간
+ccclub -d 7                        # 최근 7일
+ccclub -d 30                       # 최근 30일
+ccclub -d all                      # 전체 기간
 ccclub --global                    # 공개 사용자 전체
 ccclub -g R4NK7D                   # 특정 그룹
 ```
@@ -75,7 +75,7 @@ ccclub show-data                   # 업로드 내용 확인
 https://ccclub.dev/g/R4NK7D
 ```
 
-기간 전환(일간/주간/월간/전체), 아바타, 5분마다 자동 새로고침. 공개 사용자의 글로벌 페이지는 `/g/global`에 있습니다.
+기간 전환(today/7d/30d/all time), 아바타, 5분마다 자동 새로고침. 공개 사용자의 글로벌 페이지는 `/g/global`에 있습니다.
 
 ## 개인정보
 

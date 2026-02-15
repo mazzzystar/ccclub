@@ -127,8 +127,8 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
 
   const hasPlan = data.rankings.some((r) => r.plan);
 
-  const head = ["#", "Name", "Tokens", "Cost"];
-  const widths = [5, 20, 10, 12];
+  const head = ["#", "Name", "Cost", "Tokens"];
+  const widths = [5, 20, 12, 10];
   if (hasPlan) {
     head.push("Monthly ROI");
     widths.push(15);
@@ -155,8 +155,8 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
     const row: string[] = [
       `${marker}${c(String(entry.rank))}`,
       nameC(entry.displayName),
-      c(formatTokens(tokens)),
       c(`$${entry.costUSD.toFixed(2)}`),
+      c(formatTokens(tokens)),
     ];
 
     if (hasPlan) {

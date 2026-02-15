@@ -334,7 +334,7 @@ function dashboardHTML(code: string) {
           data.rankings.forEach(function(r) { if (r.costUSD > maxCost) maxCost = r.costUSD; });
           var hasPlan = data.rankings.some(function(r) { return r.plan; });
           var PLAN_PRICES = { pro: 20, max100: 100, max200: 200, api: 0 };
-          var h = '<table><thead><tr><th>#</th><th>Name</th><th>Tokens</th><th>Cost</th>';
+          var h = '<table><thead><tr><th>#</th><th>Name</th><th>Cost</th><th>Tokens</th>';
           if (hasPlan) h += '<th>Monthly ROI</th>';
           h += '<th>Chats</th><th>$/Chat</th></tr></thead><tbody>';
 
@@ -346,8 +346,8 @@ function dashboardHTML(code: string) {
               '<td><div class="name-cell">' + avatarHTML(r.userId, r.displayName, r.avatar) +
                 '<div><div class="name-text">' + esc(r.displayName) + '</div>' +
                 '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +
-              '<td class="tokens">' + formatTokens(showCache ? r.totalTokens : (r.inputTokens + r.outputTokens)) + '</td>' +
-              '<td class="cost">$' + r.costUSD.toFixed(2) + '</td>';
+              '<td class="cost">$' + r.costUSD.toFixed(2) + '</td>' +
+              '<td class="tokens">' + formatTokens(showCache ? r.totalTokens : (r.inputTokens + r.outputTokens)) + '</td>';
             if (hasPlan) {
               if (r.plan && r.plan !== "api") {
                 var price = PLAN_PRICES[r.plan] || 0;

@@ -123,8 +123,8 @@ function dashboardHTML(code: string) {
       height: 3px; background: #d4935e; border-radius: 2px; margin-top: 6px;
       opacity: 0.5; transition: width 0.3s;
     }
-    .tokens { font-variant-numeric: tabular-nums; font-size: 14px; }
-    .cost { color: #8a8480; font-variant-numeric: tabular-nums; font-size: 14px; }
+    .tokens { color: #8a8480; font-variant-numeric: tabular-nums; font-size: 14px; }
+    .cost { font-variant-numeric: tabular-nums; font-size: 14px; }
     .roi { font-variant-numeric: tabular-nums; font-size: 13px; white-space: nowrap; }
     .roi .price { color: #6b6560; }
     .roi .pct { font-weight: 500; }

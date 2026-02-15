@@ -9,7 +9,7 @@ import { createGroupCommand } from "./commands/group.js";
 import { hookCommand } from "./commands/hook.js";
 import { startUpdateCheck } from "./update-check.js";
 
-const VERSION = "0.2.50";
+const VERSION = "0.2.51";
 startUpdateCheck(VERSION);
 
 const program = new Command();
@@ -84,9 +84,7 @@ program
 program.addHelpText("after", `
 Examples:
   $ ccclub                 Show today's leaderboard (default)
-  $ ccclub -d 7            Last 7 days
-  $ ccclub -d 30           Last 30 days
-  $ ccclub -d all          All time
+  $ ccclub -d 7            Time window: 7 / 30 / all
   $ ccclub --global        Global public leaderboard
   $ ccclub --cache         Include cache tokens in total
   $ ccclub sync --force    Force full re-sync of all data

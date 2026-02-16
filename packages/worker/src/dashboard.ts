@@ -35,7 +35,7 @@ function dashboardHTML(code: string) {
 
   <meta name="theme-color" content="#1a1816" />
   <link rel="canonical" href="https://ccclub.dev/g/${code}" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
+  <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAADYklEQVR42u1WPW8cVRQ9577Z2Q+v1yQOizfIQWAhmkQCoShiEyREBRKIIjSBgoIfwD+goo+ERIo0SZGGBhEBlgJCyBSmiEQRKQ1IToUgsY1j73zs7My7l2K8znptkY0TSxS8YuZpNO+ce889577H+U4bhzkEhzz+8wQkRYTkoRCIiKrGUZznuXPyhAlEJEnSMKy8evrlY+2jW1sRhU+MoEQ/eeqlxRtXFhcv//jTtfPvvxX1EpFxQB7MpiJM0v7X1y91z73e763Wppsb6+tnux9u3t8KgsDMHisDkkXhZ2Zaz80f12JLnMuT5KnW9Px8ZzDIxwoePAouRAhAdfuLV19qQqFBVW3vqkkJhMi9RVEhxHSjQgJmI6ESkH29GkyIng50djo8/0ann+n3N9f6mdVJjCMeKAMSWa7z7fqXn55ceKECYvnm3Aef3fJqGGHgzmNCmwrhCAJOGGf68dvHF94M+39n2Xq/e6b5brcdpYWT3SJhYokI9HL1hkYgASBk50ioAx8IDdTCd44Vars0GbXmvxEQ8ECh9ma7MRu65bV0tVBHeDMhvJgBItjHMJywBoT3dvHU7IUTDQB/JK2Pfl1bjgq3bRGWKMP6jtaAD6+BEFFh52brF040NC8GmX+26T5ZaGUG0oYx2kjM9mjtmoBXm6s6IxR0QvM6V5WQtFJx4oHytD0eNT7URSTUQNsWgaTfMbgRZRoEaDvRD/cXJ7Kp7fsXhwpvw5dTlm1n1D52kHZthJmVthkKZAaDlV4als8mPXAE0JGIhADhnJgv06MaRAihCM3MhqwyyYEjwEbhhTCzwoxEXNjAY6OXM3Q+h+YQ4f0UaZzGcUJXyfMcpKpubkbOyZhOuwi8oRnI0np/6W4/qAXVUNIBvljZmgp55cZf9/4sasfC2tPV27eTb35ZDVBc/PyaqU7NHA2qM1evXv/9tzu1Wm1sD46faARyQ0343lyjXXM/3E1u9QbTFRf1i+efqb9ztp1m/quf723GeT0MelHc7b5y5rXTd1ZWvvt2KQjc3uvFPgQg1NArVM1qThqO3uDILNe470k06y5wVIMTiaMkyzIXBK3W1L7daA8BaQDNHAFQYWrbW1ZIERig+qCziUhZau91oma344lipFmWLzVTP75eVVX/v5s+1vgHGY2ZpABYi+QAAAAASUVORK5CYII=" />
 
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-RG2RD9V66M"></script>

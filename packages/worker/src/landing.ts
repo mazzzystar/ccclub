@@ -59,7 +59,7 @@ function landingHTML() {
     .wrap { max-width: 680px; margin: 0 auto; padding: 0 24px; }
 
     /* Hero */
-    .hero { padding: 100px 0 64px; text-align: center; }
+    .hero { padding: 64px 0 40px; text-align: center; }
     .hero h1 {
       font-size: 32px; font-weight: 700; letter-spacing: -0.5px;
       line-height: 1.15; margin-bottom: 20px; color: #f0ece6;
@@ -189,7 +189,7 @@ function landingHTML() {
     .footer a { color: #6b6560; }
 
     @media (max-width: 600px) {
-      .hero { padding: 64px 0 40px; }
+      .hero { padding: 48px 0 32px; }
       .hero h1 { font-size: 24px; }
       .cmd-row { flex-direction: column; gap: 2px; }
     }

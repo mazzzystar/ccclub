@@ -58,6 +58,14 @@ function dashboardHTML(code: string) {
 
     .wrap { max-width: 640px; margin: 0 auto; padding: 48px 24px; }
 
+    /* Back link */
+    .back-link {
+      display: inline-block; margin-bottom: 20px;
+      color: #6b6560; font-size: 13px; text-decoration: none;
+      transition: color 0.15s;
+    }
+    .back-link:hover { color: #c8c4be; }
+
     /* Header */
     h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.5px; color: #f0ece6; }
     .subtitle { color: #6b6560; font-size: 13px; margin-top: 4px; }
@@ -198,6 +206,7 @@ function dashboardHTML(code: string) {
 </head>
 <body>
   <div class="wrap">
+    <a href="/" class="back-link">\u2190 Home</a>
     <h1 id="title"></h1>
     <div class="subtitle" id="date-range"></div>
 

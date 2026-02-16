@@ -30,7 +30,7 @@ function landingHTML() {
 
   <meta name="theme-color" content="#1a1816" />
   <link rel="canonical" href="https://ccclub.dev/" />
-  <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAADYklEQVR42u1WPW8cVRQ9577Z2Q+v1yQOizfIQWAhmkQCoShiEyREBRKIIjSBgoIfwD+goo+ERIo0SZGGBhEBlgJCyBSmiEQRKQ1IToUgsY1j73zs7My7l2K8znptkY0TSxS8YuZpNO+ce889577H+U4bhzkEhzz+8wQkRYTkoRCIiKrGUZznuXPyhAlEJEnSMKy8evrlY+2jW1sRhU+MoEQ/eeqlxRtXFhcv//jTtfPvvxX1EpFxQB7MpiJM0v7X1y91z73e763Wppsb6+tnux9u3t8KgsDMHisDkkXhZ2Zaz80f12JLnMuT5KnW9Px8ZzDIxwoePAouRAhAdfuLV19qQqFBVW3vqkkJhMi9RVEhxHSjQgJmI6ESkH29GkyIng50djo8/0ann+n3N9f6mdVJjCMeKAMSWa7z7fqXn55ceKECYvnm3Aef3fJqGGHgzmNCmwrhCAJOGGf68dvHF94M+39n2Xq/e6b5brcdpYWT3SJhYokI9HL1hkYgASBk50ioAx8IDdTCd44Vars0GbXmvxEQ8ECh9ma7MRu65bV0tVBHeDMhvJgBItjHMJywBoT3dvHU7IUTDQB/JK2Pfl1bjgq3bRGWKMP6jtaAD6+BEFFh52brF040NC8GmX+26T5ZaGUG0oYx2kjM9mjtmoBXm6s6IxR0QvM6V5WQtFJx4oHytD0eNT7URSTUQNsWgaTfMbgRZRoEaDvRD/cXJ7Kp7fsXhwpvw5dTlm1n1D52kHZthJmVthkKZAaDlV4als8mPXAE0JGIhADhnJgv06MaRAihCM3MhqwyyYEjwEbhhTCzwoxEXNjAY6OXM3Q+h+YQ4f0UaZzGcUJXyfMcpKpubkbOyZhOuwi8oRnI0np/6W4/qAXVUNIBvljZmgp55cZf9/4sasfC2tPV27eTb35ZDVBc/PyaqU7NHA2qM1evXv/9tzu1Wm1sD46faARyQ0343lyjXXM/3E1u9QbTFRf1i+efqb9ztp1m/quf723GeT0MelHc7b5y5rXTd1ZWvvt2KQjc3uvFPgQg1NArVM1qThqO3uDILNe470k06y5wVIMTiaMkyzIXBK3W1L7daA8BaQDNHAFQYWrbW1ZIERig+qCziUhZau91oma344lipFmWLzVTP75eVVX/v5s+1vgHGY2ZpABYi+QAAAAASUVORK5CYII=" />
+  <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADvUlEQVR42u2Xz2tcVRTHP+fcl8nMpJPYRidJJVZaxIUVxB8UEwviSkFxUTdVcONf4D/gyn1B6MZNu+jGjVTUQBWRdhEEdaN0o5CuRNsmjZmZNzNv3rv3uHhvppk4Sc1YWxHf6vHgnvM933O+33ueLC7Ujfv4KPf5+W8CEBFUFRG59wBUlRACcSsmTVOc03sHQFVptzuUShM889xTPFg/RKPRQlT+eQD95MeffJyVS+dYWfmQr76+wKk3XqbVbKM6OpXcLRmqCu1OwsWLZ1k6eZJu8ybl2gE2NzZYXnqLrd8bRFGEmd19BkSELPPMzNQ48shhQtZAnSNtt3lgusbi4jy9XjpyKKPxk+ZVA4Rw+7sPfkC3qGAEwh4cjwVABVJvtFoZKlCrTiACZsZwkQIoe4kx2n+voZMEZmslTr04Tzcxvvh2nW5iVMZoaLRf2pNeYLFe4aP3nuDY0RIAq9/N8eb7P+J9v+phDv6WD6iAkzyQUyFOAu+8cphjj07SvZWQ3OqydKLGa0t1Wp2MP/mOjMlA/1wzDXiDaqREgIqwcHCC0MuInGAmhMyzcDAaOWw7ZfeXAAjggSwYL9WrzJYcq+sdbmYeJ4K3HIgXwwo1BG97VGL7ZEDAe+PM8VlOH6kCxi+dad7+fp3VVgc3FN2AndO/PZTs2Qcd1fNWZrwwW+H0kSohzeglgYenHO8erdEzEB3wu6M62b+kR9JvxvykwwQCglPBfGCu7Cip5HnFQIv0VpyUUVTbntB0t7YFAzErKMzt1ltetWBgAlYEHtFnkTEZ6IeSXZAV6bcxLoNXQQZ+v3P4bTwfkJFRzLbNX/ExFJILhRYHDMiYRqRF0O25VQQRwznB/O26g+UWjSqqgpkVDNjgqt4XAAU2M49iBDMyyyuKM6PnYbOZISXBpxBSQVXYakMnbhPHbcRNkKYpiBBCYGurVaxmdmcA3uBApFze6HLlesJEOWKyJHR6cHatwVRJOHfpN2786inPlig/VOLq1ZhPv1knIuPMBxewEJiaOUQ0OcP585/w80/XKJfLg/bccSMSIDUoq/D6fJV6Wfnyeocfmj1qE45WN+PRuQqvLtfpJp6Pr9xgK06plCIarZjlpac58fyzXFtb4/PPLhNFbtcNedeVTCSXYjMLBDPKTqm6XIpOhCQNxF2PCNQqDufyWXCqxHGbpJvgoojp6Sn2ug5GMyC51MQMV0gtYLk3bBtILYwoBBtKotuGMfiA7fcy6t9gBmQ2rOL+WzAj+NFBQwhDa9r//4b/agB/ADsMnZqgLabGAAAAAElFTkSuQmCC" />
 
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-RG2RD9V66M"></script>
@@ -60,14 +60,15 @@ function landingHTML() {
 
     /* Brand */
     .brand {
-      display: inline-flex; align-items: center; gap: 8px;
-      margin-bottom: 20px;
+      display: flex; align-items: center; gap: 8px;
+      padding-top: 24px; text-decoration: none;
     }
     .brand img { border-radius: 6px; }
     .brand span {
       font-size: 16px; font-weight: 600; color: #9b9590;
       letter-spacing: -0.3px;
     }
+    .brand:hover span { color: #c8c4be; }
 
     /* Hero */
     .hero { padding: 64px 0 40px; text-align: center; }
@@ -209,8 +210,8 @@ function landingHTML() {
 <body>
 
   <div class="wrap">
+    <a href="/" class="brand"><img src="https://raw.githubusercontent.com/mazzzystar/ccclub/main/assets/icon.png" alt="ccclub" width="28" height="28" /><span>ccclub</span></a>
     <div class="hero">
-      <div class="brand"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAIAAAAn5KxJAAAG1klEQVR42u1ZXYhcZxl+n/c7Z2Z2Znd2k7LZ7MZYaWy0NSgE/MNqU8ReJCWIWrCIFxWhiFoLXnmh5MILrTeCUCxFvVQqpVGrF1XU6IUtpZhgVdJIrNgVbZrd7Oz8nvN93+PFOTNzZnZ+TpJpJLjf1bIzc77ne7/3fd7neQ8Oru6Tm2Gp3CRrF+gu0F2g/29Agxu8nzEqIt4TACDOe+FsgaL7PCLXl0d9TVW3tuoiUiwVo07k6arVeQqEnB3Q8fggO4Iy6ssAarX68RN3f/KBk2sH9r1++cpPf/ria+e2o8XQdMPa1fb9psg09Yw5f6qhZBa9HooocqcO7713tWA7se1YF/m4bW9fkMeOLi8BsRBCFUivhAiQIHs5OE5TkeM/uyqgKtKyPLp37mNvmnPNjlEJVIwiNLBtf3gluG+13LDeGCR1k0rtbtjMyidydF5C8poInZydHecOzYdBAaIqCioy9eresVRIKwkQkEoBRYVp0qFvqLrXi6H+CRWZhXqCiBKpFeNwHRgAvbhkwgahUJDGLElD9jgTWUXlmQgrTDOJOgFiPwQkKJAhSYZ0D6atGjt5nNlpAMdaAeTwsZO83ahePEDbQIIxJcpuCSEZgyALIg0lMNhGMUb5XXULTbbj+BMjcwHstm30f5o02i7uwTY66EJ4bUDTpGHW42dSgt0NUzshIqRJkcJzsN+AvVQYclPIOXqadvV9jhmSjOkmaZ9MYg6f2ZaZa0X/RjCQzjlB5iH8SU9DDwkHK2DICHFMFV0FzDwyL81SjP4s2dFk6J3ZpsmuqzNpjg5cPZAfrk4sElIkTt3CCIHmmKhPtc6T4klQlAKv4kW8COAFBmJjF8eOA4eQxIfQi3d+aunrZNcWGvytGTk3bL/pCcGFbWuM8Z4vvlyDZghJhATAdsP/9dVmpVysXan9+aXzQOicT8lLhJ4e+Mcr65cubYRhyGsbklHEiZSNnt1qn15vaCl0npa0nrFjUDQv19zT/6oVIXMFfeb5S+vrCJcKceyd89Z5732wvPDUmddfurhZMAjD8Ps/eNo5WyqHsW07b52P1UB18buP/6jZbE2d6owfO/YQq/5ho31HtXxoIVQjamACnK/j4T/+55WWKwJqtNayz/1p83137Nl3YE6LakpqCoWf/XrzK0+cVzVCFovFi3//54ULF4/d8/756rIJi0FYItyj33z8e088Wa1WvPfXO8hVRexFrPvIvvJdy+VQ8Zetzun12qaXcqDJNMQotlv2loXw5F2rd95aia0/c27z2RdeC0MNTVpAqrq1tX34bbcdP3Hs4MH9Gxu1Xz77u+efO7dUnfd5HMY4oFlrCBECDeud9xASWgk0hGRnNqqwjvVmnPT/wGChHAxRfGBMs9VuNlvJI0ulYqUy51wenBOBcsDUivb+Ij3TlpSlT4iodiuKHAkAQPJiJHk3MvXGc8i8jHZITKUnBtpihuvZ5fmBwdgYH2etu4YXAdPNHTnad7MnN6/mrUP+2W9eoDtZjdM2yDnpvMaRjNwkaxfoLtBdoDNa/wV8KVyzYL0IUAAAAABJRU5ErkJggg==" alt="ccclub" width="28" height="28" /><span>ccclub</span></div>
       <h1>Claude Code leaderboard among friends.</h1>
       <p class="tagline">Share a code, see how your friends are doing. Just for fun.</p>
       <div class="hero-links">

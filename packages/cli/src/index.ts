@@ -9,7 +9,7 @@ import { createGroupCommand } from "./commands/group.js";
 import { hookCommand } from "./commands/hook.js";
 import { startUpdateCheck } from "./update-check.js";
 
-const VERSION = "0.2.53";
+const VERSION = "0.2.54";
 startUpdateCheck(VERSION);
 
 const program = new Command();

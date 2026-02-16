@@ -100,35 +100,24 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
 
     if (spinner) spinner.text = `Uploading ${blocksToSync.length} blocks...`;
 
-    // Upload in batches of 400 to stay within server limit (500)
-    const BATCH_SIZE = 400;
-    let totalSynced = 0;
-    for (let i = 0; i < blocksToSync.length; i += BATCH_SIZE) {
-      const batch = blocksToSync.slice(i, i + BATCH_SIZE);
-      if (spinner && blocksToSync.length > BATCH_SIZE) {
-        spinner.text = `Uploading blocks ${i + 1}–${i + batch.length} of ${blocksToSync.length}...`;
-      }
-      const res = await fetch(`${config.apiUrl}/api/sync`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${config.token}`,
-        },
-        body: JSON.stringify({ blocks: batch }),
-        signal: AbortSignal.timeout(30_000),
-      });
+    const res = await fetch(`${config.apiUrl}/api/sync`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.token}`,
+      },
+      body: JSON.stringify({ blocks: blocksToSync }),
+      signal: AbortSignal.timeout(60_000),
+    });
 
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({ error: res.statusText }));
-        if (spinner) spinner.fail(`Sync failed: ${(errBody as { error: string }).error}`);
-        if (silent) throw new Error(`sync failed: ${res.status}`);
-        return;
-      }
-      const batchData = (await res.json()) as SyncResponse;
-      totalSynced += batchData.synced;
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({ error: res.statusText }));
+      if (spinner) spinner.fail(`Sync failed: ${(errBody as { error: string }).error}`);
+      if (silent) throw new Error(`sync failed: ${res.status}`);
+      return;
     }
 
-    const data = { synced: totalSynced } as SyncResponse;
+    const data = (await res.json()) as SyncResponse;
 
     // Save last sync timestamp and format version
     const latest = blocksToSync[blocksToSync.length - 1];

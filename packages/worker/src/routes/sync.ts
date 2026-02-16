@@ -23,8 +23,8 @@ app.post("/sync", async (c) => {
   }
 
   // Cap blocks per request to prevent abuse
-  if (blocks.length > 500) {
-    return c.json({ error: "too many blocks (max 500)" }, 400);
+  if (blocks.length > 50_000) {
+    return c.json({ error: "too many blocks (max 50000)" }, 400);
   }
 
   // Validate block fields

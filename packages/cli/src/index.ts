@@ -34,7 +34,7 @@ program
 
 program
   .command("init")
-  .description("Create a group and start tracking (first-time setup)")
+  .description("Create a group and get started (first-time setup)")
   .action(initCommand);
 
 program

@@ -21,17 +21,17 @@ function dashboardHTML(code: string) {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CCClub \u2014 Rankings</title>
+  <title>CCClub \u2014 Leaderboard</title>
   <meta name="description" content="Live Claude Code usage leaderboard" />
 
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="CCClub \u2014 Rankings" />
-  <meta property="og:description" content="Live Claude Code usage leaderboard. See who's burning the most tokens." />
+  <meta property="og:title" content="CCClub \u2014 Leaderboard" />
+  <meta property="og:description" content="Claude Code leaderboard among friends. See how you're all doing." />
   <meta property="og:url" content="https://ccclub.dev/g/${code}" />
 
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="CCClub \u2014 Rankings" />
-  <meta name="twitter:description" content="Live Claude Code usage leaderboard. See who's burning the most tokens." />
+  <meta name="twitter:title" content="CCClub \u2014 Leaderboard" />
+  <meta name="twitter:description" content="Claude Code leaderboard among friends. See how you're all doing." />
 
   <meta name="theme-color" content="#1a1816" />
   <link rel="canonical" href="https://ccclub.dev/g/${code}" />

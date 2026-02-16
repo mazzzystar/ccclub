@@ -14,19 +14,19 @@ function landingHTML() {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ccclub \u2014 Know how much Claude Code your friends are burning through</title>
-  <meta name="description" content="Track and compare Claude Code usage with friends. Create a group, share a code, see the leaderboard together." />
+  <title>ccclub \u2014 Claude Code leaderboard among friends</title>
+  <meta name="description" content="See how your friends are doing with Claude Code. Share a code, check the leaderboard. No signup, no config." />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://ccclub.dev/" />
-  <meta property="og:title" content="ccclub — Compare Claude Code usage with friends" />
-  <meta property="og:description" content="Create a group, share a 6-letter code, compare usage. No signup, no config." />
+  <meta property="og:title" content="ccclub — Claude Code leaderboard among friends" />
+  <meta property="og:description" content="Share a code, see how your friends are doing. Just for fun." />
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="ccclub — Compare Claude Code usage with friends" />
-  <meta name="twitter:description" content="Create a group, share a 6-letter code, compare usage. No signup, no config." />
+  <meta name="twitter:title" content="ccclub — Claude Code leaderboard among friends" />
+  <meta name="twitter:description" content="Share a code, see how your friends are doing. Just for fun." />
 
   <meta name="theme-color" content="#1a1816" />
   <link rel="canonical" href="https://ccclub.dev/" />
@@ -61,12 +61,12 @@ function landingHTML() {
     /* Hero */
     .hero { padding: 100px 0 64px; text-align: center; }
     .hero h1 {
-      font-size: 42px; font-weight: 700; letter-spacing: -1.5px;
+      font-size: 32px; font-weight: 700; letter-spacing: -0.5px;
       line-height: 1.15; margin-bottom: 20px; color: #f0ece6;
     }
     .hero .tagline {
       font-size: 18px; color: #9b9590; line-height: 1.6;
-      max-width: 440px; margin: 0 auto; font-weight: 400;
+      max-width: 560px; margin: 0 auto; font-weight: 400;
     }
     .hero-links {
       display: flex; gap: 16px; justify-content: center; margin-top: 20px;
@@ -190,7 +190,7 @@ function landingHTML() {
 
     @media (max-width: 600px) {
       .hero { padding: 64px 0 40px; }
-      .hero h1 { font-size: 30px; }
+      .hero h1 { font-size: 24px; }
       .cmd-row { flex-direction: column; gap: 2px; }
     }
   </style>
@@ -263,7 +263,7 @@ function landingHTML() {
           <div class="step-num">3</div>
           <div class="step-content">
             <h3>See the leaderboard</h3>
-            <p>Usage syncs automatically after each session. Run <code class="mono">ccclub</code> or open the web dashboard to see who's on top.</p>
+            <p>Usage syncs automatically after each session. Run <code class="mono">ccclub</code> or open the web dashboard to see the leaderboard.</p>
           </div>
         </div>
       </div>

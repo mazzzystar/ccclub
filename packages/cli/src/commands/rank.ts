@@ -59,7 +59,7 @@ export async function rankCommand(options: { days?: string; period?: string; gro
     return;
   }
 
-  const spinner = ora("Fetching rankings...").start();
+  const spinner = ora("Loading leaderboard...").start();
 
   try {
     for (let i = 0; i < codes.length; i++) {

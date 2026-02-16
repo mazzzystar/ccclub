@@ -103,6 +103,7 @@ function landingHTML() {
     .terminal-body .dim { color: #5a5550; }
     .terminal-body .accent { color: #d4935e; }
     .terminal-body .gold { color: #d4a03e; }
+    .terminal-body .me { color: #5aad7d; }
 
     /* CTA */
     .cta { padding: 16px 0 80px; text-align: center; }
@@ -219,13 +220,14 @@ function landingHTML() {
         </div>
         <div class="terminal-body"><span class="prompt">$</span> <span class="cmd">ccclub</span>
 
-  <span class="accent">Ada's club</span>
-  <span class="dim">DAILY \u00b7 2025-02-13 \u2192 2025-02-14 \u00b7 3 members</span>
+  <span class="accent">mazzystar's club</span>
+  <span class="dim">7 DAYS \u00b7 2026-02-09 \u2192 2026-02-16 \u00b7 4 members</span>
 
-  <span class="dim">#   Name              Tokens          Cost     Calls</span>
-  <span class="gold">\u21921   Ada              481,200        $7.22       142</span>
-   2   Bob              203,800        $3.06        87
-   <span class="dim">3   Carol             98,500        $1.48        53</span>
+  <span class="dim">#   Name               Cost    Tokens   Chats   $/Chat</span>
+  <span class="gold">\u21921   ventuss         $638.96     8.2M     347    $1.84</span>
+   2   BryantChen      $515.58     6.6M     280    $1.84
+  <span class="me">\u21923   mazzystar       $286.27     3.7M     195    $1.47</span>
+   <span class="dim">4   Ash              $12.72    163.5K      18    $0.71</span>
 
   <span class="dim">Dashboard: https://ccclub.dev/g/R4NK7D</span></div>
       </div>

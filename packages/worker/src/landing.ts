@@ -30,7 +30,7 @@ function landingHTML() {
 
   <meta name="theme-color" content="#1a1816" />
   <link rel="canonical" href="https://ccclub.dev/" />
-  <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADvUlEQVR42u2Xz2tcVRTHP+fcl8nMpJPYRidJJVZaxIUVxB8UEwviSkFxUTdVcONf4D/gyn1B6MZNu+jGjVTUQBWRdhEEdaN0o5CuRNsmjZmZNzNv3rv3uHhvppk4Sc1YWxHf6vHgnvM933O+33ueLC7Ujfv4KPf5+W8CEBFUFRG59wBUlRACcSsmTVOc03sHQFVptzuUShM889xTPFg/RKPRQlT+eQD95MeffJyVS+dYWfmQr76+wKk3XqbVbKM6OpXcLRmqCu1OwsWLZ1k6eZJu8ybl2gE2NzZYXnqLrd8bRFGEmd19BkSELPPMzNQ48shhQtZAnSNtt3lgusbi4jy9XjpyKKPxk+ZVA4Rw+7sPfkC3qGAEwh4cjwVABVJvtFoZKlCrTiACZsZwkQIoe4kx2n+voZMEZmslTr04Tzcxvvh2nW5iVMZoaLRf2pNeYLFe4aP3nuDY0RIAq9/N8eb7P+J9v+phDv6WD6iAkzyQUyFOAu+8cphjj07SvZWQ3OqydKLGa0t1Wp2MP/mOjMlA/1wzDXiDaqREgIqwcHCC0MuInGAmhMyzcDAaOWw7ZfeXAAjggSwYL9WrzJYcq+sdbmYeJ4K3HIgXwwo1BG97VGL7ZEDAe+PM8VlOH6kCxi+dad7+fp3VVgc3FN2AndO/PZTs2Qcd1fNWZrwwW+H0kSohzeglgYenHO8erdEzEB3wu6M62b+kR9JvxvykwwQCglPBfGCu7Cip5HnFQIv0VpyUUVTbntB0t7YFAzErKMzt1ltetWBgAlYEHtFnkTEZ6IeSXZAV6bcxLoNXQQZ+v3P4bTwfkJFRzLbNX/ExFJILhRYHDMiYRqRF0O25VQQRwznB/O26g+UWjSqqgpkVDNjgqt4XAAU2M49iBDMyyyuKM6PnYbOZISXBpxBSQVXYakMnbhPHbcRNkKYpiBBCYGurVaxmdmcA3uBApFze6HLlesJEOWKyJHR6cHatwVRJOHfpN2786inPlig/VOLq1ZhPv1knIuPMBxewEJiaOUQ0OcP585/w80/XKJfLg/bccSMSIDUoq/D6fJV6Wfnyeocfmj1qE45WN+PRuQqvLtfpJp6Pr9xgK06plCIarZjlpac58fyzXFtb4/PPLhNFbtcNedeVTCSXYjMLBDPKTqm6XIpOhCQNxF2PCNQqDufyWXCqxHGbpJvgoojp6Sn2ug5GMyC51MQMV0gtYLk3bBtILYwoBBtKotuGMfiA7fcy6t9gBmQ2rOL+WzAj+NFBQwhDa9r//4b/agB/ADsMnZqgLabGAAAAAElFTkSuQmCC" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
 
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-RG2RD9V66M"></script>
@@ -71,7 +71,7 @@ function landingHTML() {
     .brand:hover span { color: #c8c4be; }
 
     /* Hero */
-    .hero { padding: 64px 0 40px; text-align: center; }
+    .hero { padding: 40px 0; text-align: center; }
     .hero h1 {
       font-size: 32px; font-weight: 700; letter-spacing: -0.5px;
       line-height: 1.15; margin-bottom: 20px; color: #f0ece6;
@@ -201,7 +201,7 @@ function landingHTML() {
     .footer a { color: #6b6560; }
 
     @media (max-width: 600px) {
-      .hero { padding: 48px 0 32px; }
+      .hero { padding: 32px 0; }
       .hero h1 { font-size: 24px; }
       .cmd-row { flex-direction: column; gap: 2px; }
     }

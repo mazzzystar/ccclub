@@ -2,7 +2,7 @@
 
 # ccclub.dev
 
-Know how much Claude Code your friends are burning through.
+A multiplayer leaderboard for Claude Code.
 
 <img src="assets/demo.png" alt="ccclub" width="80%" />
 
@@ -26,13 +26,9 @@ Once a friend joins, check the leaderboard:
 ccclub
 ```
 
-## What Happens
+## What gets uploaded
 
-```
-~/.claude/projects/*.jsonl → aggregate into 1h blocks → upload → view together
-```
-
-CCClub reads the JSONL logs Claude Code already writes locally, bundles them into 1-hour summaries (token counts + cost), and uploads those numbers. **No prompts, no code, no file paths, no project names** — just counters. Run `ccclub show-data` to audit exactly what gets sent.
+CCClub reads the local usage logs (`~/.claude/projects/`) that Claude Code already writes, bundles them into hourly summaries (token counts + cost), and uploads those numbers. **No prompts, no code, no file paths, no project names** — just counters. Run `ccclub show-data` to audit exactly what gets sent.
 
 ## Commands
 

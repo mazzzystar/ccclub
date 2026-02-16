@@ -2,7 +2,7 @@
 
 # ccclub.dev
 
-친구들이 Claude Code를 얼마나 쓰고 있는지 확인하세요.
+Claude Code 멀티플레이어 리더보드.
 
 <img src="./demo.png" alt="ccclub" width="80%" />
 
@@ -26,11 +26,7 @@ npx ccclub join YHAW6P
 ccclub
 ```
 
-## 작동 방식
-
-```
-~/.claude/projects/*.jsonl → 1시간 블록으로 집계 → 업로드 → 함께 보기
-```
+## 업로드되는 데이터
 
 CCClub은 Claude Code가 로컬에 기록하는 JSONL 로그를 읽어 1시간 단위 요약(토큰 수 + 비용)으로 묶어 업로드합니다. **프롬프트, 코드, 파일 경로, 프로젝트 이름은 포함되지 않습니다** — 카운터만 전송합니다. `ccclub show-data`로 전송 내용을 확인할 수 있습니다.
 

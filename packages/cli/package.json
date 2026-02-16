@@ -2,7 +2,7 @@
   "name": "ccclub",
   "version": "0.2.54",
   "type": "module",
-  "description": "See how much Claude Code you and your friends are using",
+  "description": "A multiplayer leaderboard for Claude Code",
   "bin": {
     "ccclub": "dist/index.js"
   },

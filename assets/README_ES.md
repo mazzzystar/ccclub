@@ -2,7 +2,7 @@
 
 # ccclub.dev
 
-Descubre cuánto Claude Code están quemando tus amigos.
+Un leaderboard multijugador para Claude Code.
 
 <img src="./demo.png" alt="ccclub" width="80%" />
 
@@ -26,13 +26,9 @@ Cuando un amigo se una, revisa el ranking:
 ccclub
 ```
 
-## Cómo funciona
+## Datos que se suben
 
-```
-~/.claude/projects/*.jsonl → agregar en bloques de 1h → subir → ver juntos
-```
-
-CCClub lee los logs JSONL que Claude Code escribe localmente, los agrupa en resúmenes de 1 hora (cantidad de tokens + costo) y sube esos números. **Sin prompts, sin código, sin rutas de archivos, sin nombres de proyecto** — solo contadores. Ejecuta `ccclub show-data` para verificar exactamente qué se envía.
+CCClub lee los logs de uso locales (`~/.claude/projects/`) que Claude Code ya escribe, los agrupa en resúmenes por hora (cantidad de tokens + costo) y sube solo esos números. **Sin prompts, sin código, sin rutas de archivos, sin nombres de proyecto** — solo contadores. Ejecuta `ccclub show-data` para verificar exactamente qué se envía.
 
 ## Comandos
 

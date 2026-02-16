@@ -16,7 +16,7 @@ const program = new Command();
 
 program
   .name("ccclub")
-  .description("Compare Claude Code usage with friends")
+  .description("A multiplayer leaderboard for Claude Code")
   .version(VERSION, "-v, -V, --version");
 
 // Default command — just running `ccclub` shows the leaderboard

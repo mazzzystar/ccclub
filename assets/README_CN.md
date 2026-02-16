@@ -2,7 +2,7 @@
 
 # ccclub.dev
 
-看看朋友们用 Claude Code 烧了多少 token。
+Claude Code 多人排行榜。
 
 <img src="./demo.png" alt="ccclub" width="80%" />
 
@@ -26,13 +26,9 @@ npx ccclub join YHAW6P
 ccclub
 ```
 
-## 原理
+## 上传了什么
 
-```
-~/.claude/projects/*.jsonl → 聚合成 1 小时块 → 上传 → 一起看
-```
-
-Claude Code 在本地写 JSONL 日志，CCClub 把它们打包成 1 小时的摘要（token 数 + 费用），上传这些数字。**不含提示词、不含代码、不含文件路径、不含项目名** — 只有计数器。运行 `ccclub show-data` 可以在同步前审查上传内容。
+CCClub 读取 Claude Code 在本地写入的使用日志 (`~/.claude/projects/`)，打包成每小时的摘要（token 数 + 费用），只上传这些数字。**不含提示词、不含代码、不含文件路径、不含项目名** — 只有计数器。运行 `ccclub show-data` 可以审查上传内容。
 
 ## 命令
 

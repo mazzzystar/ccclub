@@ -2,7 +2,7 @@
 
 # ccclub.dev
 
-Finde heraus, wie viel Claude Code deine Freunde verbrauchen.
+Ein Multiplayer-Leaderboard für Claude Code.
 
 <img src="./demo.png" alt="ccclub" width="80%" />
 
@@ -26,13 +26,9 @@ Sobald ein Freund beitritt, sieh dir das Ranking an:
 ccclub
 ```
 
-## So funktioniert es
+## Was wird hochgeladen
 
-```
-~/.claude/projects/*.jsonl → in 1h-Blöcke aggregieren → hochladen → gemeinsam ansehen
-```
-
-CCClub liest die JSONL-Logs, die Claude Code lokal schreibt, fasst sie in 1-Stunden-Zusammenfassungen (Token-Anzahl + Kosten) zusammen und lädt diese Zahlen hoch. **Keine Prompts, kein Code, keine Dateipfade, keine Projektnamen** — nur Zähler. Mit `ccclub show-data` kannst du genau prüfen, was gesendet wird.
+CCClub liest die lokalen Nutzungslogs (`~/.claude/projects/`), die Claude Code bereits schreibt, fasst sie in stündliche Zusammenfassungen (Token-Anzahl + Kosten) zusammen und lädt nur diese Zahlen hoch. **Keine Prompts, kein Code, keine Dateipfade, keine Projektnamen** — nur Zähler. Mit `ccclub show-data` kannst du genau prüfen, was gesendet wird.
 
 ## Befehle
 

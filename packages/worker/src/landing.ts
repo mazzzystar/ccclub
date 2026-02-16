@@ -104,6 +104,14 @@ function landingHTML() {
     .terminal-body .accent { color: #d4935e; }
     .terminal-body .gold { color: #d4a03e; }
     .terminal-body .me { color: #5aad7d; }
+    .rank-tbl { border-collapse: collapse; font: inherit; line-height: inherit; display: inline-table; vertical-align: top; }
+    .rank-tbl td { padding: 0; text-align: right; padding-left: 4ch; }
+    .rank-tbl td:first-child { text-align: right; padding-left: 0; width: 2.5ch; }
+    .rank-tbl td:nth-child(2) { text-align: left; padding-left: 1.5ch; min-width: 10ch; }
+    .rank-tbl tr.gold td { color: #d4a03e; }
+    .rank-tbl tr.me td { color: #5aad7d; }
+    .rank-tbl tr.dim td { color: #5a5550; }
+    .rank-tbl thead td { color: #5a5550; }
 
     /* CTA */
     .cta { padding: 16px 0 80px; text-align: center; }
@@ -153,20 +161,11 @@ function landingHTML() {
       font-size: 13px; color: #c8c4be;
     }
 
-    /* Privacy */
-    .privacy-grid {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 32px;
-      margin-bottom: 20px;
+    /* How-detail */
+    .how-detail {
+      margin-top: 24px; color: #6b6560; font-size: 14px; line-height: 1.7;
     }
-    .privacy-list { list-style: none; }
-    .privacy-list li {
-      font-size: 14px; line-height: 2; color: #8a8480;
-      display: flex; align-items: center; gap: 8px;
-    }
-    .privacy-list .icon-yes { color: #5aad7d; font-size: 13px; }
-    .privacy-list .icon-no { color: #c45c5c; font-size: 13px; }
-    .privacy-note { color: #6b6560; font-size: 14px; line-height: 1.6; }
-    .privacy-note code {
+    .how-detail code {
       background: #242220; padding: 1px 6px; border-radius: 4px;
       font-size: 13px; color: #c8c4be;
     }
@@ -192,7 +191,6 @@ function landingHTML() {
     @media (max-width: 600px) {
       .hero { padding: 64px 0 40px; }
       .hero h1 { font-size: 30px; }
-      .privacy-grid { grid-template-columns: 1fr; gap: 16px; }
       .cmd-row { flex-direction: column; gap: 2px; }
     }
   </style>
@@ -221,13 +219,14 @@ function landingHTML() {
         <div class="terminal-body"><span class="prompt">$</span> <span class="cmd">ccclub</span>
 
   <span class="accent">mazzystar's club</span>
-  <span class="dim">7 DAYS \u00b7 2026-02-09 \u2192 2026-02-16 \u00b7 4 members</span>
+  <span class="dim">TODAY \u00b7 2026-02-16 \u2192 2026-02-17 \u00b7 4 members</span>
 
-  <span class="dim">#   Name               Cost    Tokens   Chats   $/Chat</span>
-  <span class="gold">\u21921   ventuss         $638.96     8.2M     347    $1.84</span>
-   2   BryantChen      $515.58     6.6M     280    $1.84
-  <span class="me">\u21923   mazzystar       $286.27     3.7M     195    $1.47</span>
-   <span class="dim">4   Ash              $12.72    163.5K      18    $0.71</span>
+  <table class="rank-tbl"><thead><tr class="dim"><td>#</td><td>Name</td><td>Cost</td><td>Tokens</td><td>Chats</td><td>$/Chat</td></tr></thead><tbody>
+  <tr class="gold"><td>1</td><td>BryantChen</td><td>$132.68</td><td>226K</td><td>273</td><td>$0.49</td></tr>
+  <tr class="me"><td>\u21922</td><td>mazzystar</td><td>$9.76</td><td>2.3K</td><td>29</td><td>$0.34</td></tr>
+  <tr><td>3</td><td>ventuss</td><td>$5.42</td><td>8.5K</td><td>12</td><td>$0.45</td></tr>
+  <tr class="dim"><td>4</td><td>Ash</td><td>$1.08</td><td>1.6K</td><td>3</td><td>$0.36</td></tr>
+  </tbody></table>
 
   <span class="dim">Dashboard: https://ccclub.dev/g/R4NK7D</span></div>
       </div>
@@ -264,33 +263,14 @@ function landingHTML() {
           <div class="step-num">3</div>
           <div class="step-content">
             <h3>Compare</h3>
-            <p>Usage syncs automatically. Run <code class="mono">ccclub</code> or open the web dashboard.</p>
+            <p>Usage syncs automatically after each Claude Code session. Run <code class="mono">ccclub</code> or open the web dashboard anytime.</p>
           </div>
         </div>
       </div>
-    </div>
-
-    <hr class="divider" />
-
-    <div class="section">
-      <h2>Privacy</h2>
-      <div class="privacy-grid">
-        <ul class="privacy-list">
-          <li><span class="icon-yes">\u2713</span> Token counts</li>
-          <li><span class="icon-yes">\u2713</span> Cost estimates</li>
-          <li><span class="icon-yes">\u2713</span> Model names</li>
-          <li><span class="icon-yes">\u2713</span> Number of calls</li>
-        </ul>
-        <ul class="privacy-list">
-          <li><span class="icon-no">\u2717</span> Prompts or responses</li>
-          <li><span class="icon-no">\u2717</span> Code or file contents</li>
-          <li><span class="icon-no">\u2717</span> File paths or projects</li>
-          <li><span class="icon-no">\u2717</span> Conversation data</li>
-        </ul>
+      <div class="how-detail">
+        <p>ccclub reads token counts, cost estimates, model names, and number of calls from <code class="mono">~/.claude/projects/</code> \u2014 the local usage logs that Claude Code already writes. No prompts, responses, code, file paths, or conversation data ever leave your machine.</p>
+        <p style="margin-top:8px">Run <code class="mono">ccclub show-data</code> to see exactly what gets uploaded.</p>
       </div>
-      <p class="privacy-note">
-        Run <code class="mono">ccclub show-data</code> to audit exactly what gets sent.
-      </p>
     </div>
 
     <hr class="divider" />

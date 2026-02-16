@@ -1,8 +1,8 @@
 {
   "name": "ccclub",
-  "version": "0.2.55",
+  "version": "0.2.56",
   "type": "module",
-  "description": "A multiplayer leaderboard for Claude Code",
+  "description": "Claude Code leaderboard among friends",
   "bin": {
     "ccclub": "dist/index.js"
   },

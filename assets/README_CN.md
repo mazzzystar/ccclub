@@ -2,7 +2,7 @@
 
 # ccclub.dev
 
-Claude Code 多人排行榜。
+Claude Code 好友排行榜。
 
 <img src="./demo.png" alt="ccclub" width="80%" />
 

@@ -9,14 +9,14 @@ import { createGroupCommand } from "./commands/group.js";
 import { hookCommand } from "./commands/hook.js";
 import { startUpdateCheck } from "./update-check.js";
 
-const VERSION = "0.2.55";
+const VERSION = "0.2.56";
 startUpdateCheck(VERSION);
 
 const program = new Command();
 
 program
   .name("ccclub")
-  .description("A multiplayer leaderboard for Claude Code")
+  .description("Claude Code leaderboard among friends")
   .version(VERSION, "-v, -V, --version");
 
 // Default command — just running `ccclub` shows the leaderboard

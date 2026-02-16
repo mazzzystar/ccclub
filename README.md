@@ -2,7 +2,7 @@
 
 # ccclub.dev
 
-A multiplayer leaderboard for Claude Code.
+Claude Code leaderboard among friends.
 
 <img src="assets/demo.png" alt="ccclub" width="80%" />
 

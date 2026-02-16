@@ -2,7 +2,7 @@
 
 # ccclub.dev
 
-Claude Code 멀티플레이어 리더보드.
+친구들과 함께하는 Claude Code 리더보드.
 
 <img src="./demo.png" alt="ccclub" width="80%" />
 

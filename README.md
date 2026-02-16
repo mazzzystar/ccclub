@@ -15,7 +15,7 @@ npx ccclub init
 It asks your name, gives you a 6-letter code. Send it to friends:
 
 ```bash
-npx ccclub join R4NK7D
+npx ccclub join YHAW6P
 ```
 
 Done. Usage syncs automatically via Claude Code hook. No config, no signup, no account.
@@ -51,7 +51,7 @@ More options:
 ccclub -d 7                        # Time window: 7 / 30 / all
 ccclub --cache                     # Include cache tokens in count
 ccclub --global                    # Everyone who opted in
-ccclub -g R4NK7D                   # Specific group
+ccclub -g YHAW6P                   # Specific group
 ```
 
 If you want more, it's there:
@@ -71,7 +71,7 @@ ccclub show-data                   # See exactly what gets uploaded
 Every group gets a live page:
 
 ```
-https://ccclub.dev/g/R4NK7D
+https://ccclub.dev/g/YHAW6P
 ```
 
 Period switcher (today / 7d / 30d / all time), avatars, auto-refresh every 5 minutes. There's also a global page at `/g/global` for public users.

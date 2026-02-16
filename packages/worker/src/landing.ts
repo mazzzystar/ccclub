@@ -228,7 +228,7 @@ function landingHTML() {
   <tr class="dim"><td>4</td><td>Ash</td><td>$1.08</td><td>1.6K</td><td>3</td><td>$0.36</td></tr>
   </tbody></table>
 
-  <span class="dim">Dashboard: https://ccclub.dev/g/R4NK7D</span></div>
+  <span class="dim">Dashboard: https://ccclub.dev/g/YHAW6P</span></div>
       </div>
     </div>
 

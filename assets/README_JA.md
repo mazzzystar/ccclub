@@ -15,7 +15,7 @@ npx ccclub init
 名前を入力すると、6文字の招待コードが発行されます。友達に共有しましょう:
 
 ```bash
-npx ccclub join R4NK7D
+npx ccclub join YHAW6P
 ```
 
 以上です。使用量は1時間ごとに自動同期されます。設定不要、登録不要、アカウント不要。
@@ -50,7 +50,7 @@ ccclub                             # 今日の使用量を表示
 ```bash
 ccclub -d 7                        # 期間選択: 7 / 30 / all
 ccclub --global                    # 公開ユーザー全員
-ccclub -g R4NK7D                   # 特定のグループ
+ccclub -g YHAW6P                   # 特定のグループ
 ```
 
 その他:
@@ -70,7 +70,7 @@ ccclub show-data                   # アップロード内容を確認
 各グループにライブページがあります:
 
 ```
-https://ccclub.dev/g/R4NK7D
+https://ccclub.dev/g/YHAW6P
 ```
 
 期間切替（today/7d/30d/all time）、アバター、5分ごとの自動更新。公開ユーザーのグローバルページは `/g/global` にあります。

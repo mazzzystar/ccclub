@@ -15,7 +15,7 @@ npx ccclub init
 Gib deinen Namen ein und du bekommst einen 6-stelligen Einladungscode. Teile ihn mit Freunden:
 
 ```bash
-npx ccclub join R4NK7D
+npx ccclub join YHAW6P
 ```
 
 Fertig. Die Nutzung wird automatisch jede Stunde synchronisiert. Keine Konfiguration, keine Registrierung, kein Account.
@@ -50,7 +50,7 @@ Weitere Optionen:
 ```bash
 ccclub -d 7                        # Zeitfenster: 7 / 30 / all
 ccclub --global                    # Alle öffentlichen Nutzer
-ccclub -g R4NK7D                   # Bestimmte Gruppe
+ccclub -g YHAW6P                   # Bestimmte Gruppe
 ```
 
 Weitere Funktionen:
@@ -70,7 +70,7 @@ ccclub show-data                   # Hochgeladene Daten einsehen
 Jede Gruppe hat eine Live-Seite:
 
 ```
-https://ccclub.dev/g/R4NK7D
+https://ccclub.dev/g/YHAW6P
 ```
 
 Zeitraum-Umschalter (today/7d/30d/all time), Avatare, automatische Aktualisierung alle 5 Minuten. Die globale Seite für öffentliche Nutzer ist unter `/g/global` erreichbar.

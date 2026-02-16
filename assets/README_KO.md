@@ -15,7 +15,7 @@ npx ccclub init
 이름을 입력하면 6자리 초대 코드가 발급됩니다. 친구에게 공유하세요:
 
 ```bash
-npx ccclub join R4NK7D
+npx ccclub join YHAW6P
 ```
 
 끝입니다. 사용량은 매시간 자동 동기화됩니다. 설정 없음, 가입 없음, 계정 없음.
@@ -50,7 +50,7 @@ ccclub                             # 오늘의 사용량 확인
 ```bash
 ccclub -d 7                        # 기간 선택: 7 / 30 / all
 ccclub --global                    # 공개 사용자 전체
-ccclub -g R4NK7D                   # 특정 그룹
+ccclub -g YHAW6P                   # 특정 그룹
 ```
 
 추가 명령어:
@@ -70,7 +70,7 @@ ccclub show-data                   # 업로드 내용 확인
 각 그룹마다 실시간 페이지가 있습니다:
 
 ```
-https://ccclub.dev/g/R4NK7D
+https://ccclub.dev/g/YHAW6P
 ```
 
 기간 전환(today/7d/30d/all time), 아바타, 5분마다 자동 새로고침. 공개 사용자의 글로벌 페이지는 `/g/global`에 있습니다.

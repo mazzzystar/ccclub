@@ -15,7 +15,7 @@ npx ccclub init
 输入你的名字，拿到一个 6 位邀请码。发给朋友：
 
 ```bash
-npx ccclub join R4NK7D
+npx ccclub join YHAW6P
 ```
 
 完事。用量每小时自动同步，不用配置，不用注册，不用建号。
@@ -50,7 +50,7 @@ ccclub                             # 看今天的用量
 ```bash
 ccclub -d 7                        # 时间窗口：7 / 30 / all
 ccclub --global                    # 所有公开用户
-ccclub -g R4NK7D                   # 指定小组
+ccclub -g YHAW6P                   # 指定小组
 ```
 
 想折腾的话，这些也有：
@@ -70,7 +70,7 @@ ccclub show-data                   # 看具体上传了什么
 每个小组有一个实时页面：
 
 ```
-https://ccclub.dev/g/R4NK7D
+https://ccclub.dev/g/YHAW6P
 ```
 
 可切换 today/7d/30d/all time，有头像，每 5 分钟自动刷新。公开用户的全球页面在 `/g/global`。

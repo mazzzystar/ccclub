@@ -10,7 +10,7 @@ import { leaveCommand } from "./commands/leave.js";
 import { hookCommand } from "./commands/hook.js";
 import { startUpdateCheck } from "./update-check.js";
 
-const VERSION = "0.2.60";
+const VERSION = "0.2.61";
 startUpdateCheck(VERSION);
 
 const program = new Command();

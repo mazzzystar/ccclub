@@ -487,7 +487,7 @@ function dashboardHTML(code: string) {
         var dt = new Date(t);
         var label;
         if (range === "24h") {
-          label = dt.getHours().toString().padStart(2, "0") + ":00";
+          label = dt.getHours().toString().padStart(2, "0") + ":" + dt.getMinutes().toString().padStart(2, "0");
         } else {
           label = (dt.getMonth() + 1) + "/" + dt.getDate();
         }
@@ -543,7 +543,7 @@ function dashboardHTML(code: string) {
         // Time label
         var bt = new Date(startMs + (bucketIdx + 0.5) * bucketMs);
         var timeLabel = range === "24h"
-          ? bt.getHours().toString().padStart(2, "0") + ":00"
+          ? bt.getHours().toString().padStart(2, "0") + ":" + bt.getMinutes().toString().padStart(2, "0")
           : (bt.getMonth() + 1) + "/" + bt.getDate();
         // Position dots and build tooltip content
         var tipLines = '<div style="color:#5a5550;margin-bottom:2px">' + timeLabel + '</div>';

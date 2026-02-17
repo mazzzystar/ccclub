@@ -145,6 +145,15 @@ export interface ProfileResponse {
   plan?: string;
 }
 
+// API: POST /api/leave
+export interface LeaveRequest {
+  inviteCode: string;
+}
+export interface LeaveResponse {
+  ok: boolean;
+  groupName: string;
+}
+
 // API: GET /api/rank/:code
 export interface RankResponse {
   group: { name: string; code: string; memberCount: number };

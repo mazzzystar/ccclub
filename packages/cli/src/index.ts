@@ -6,6 +6,7 @@ import { rankCommand } from "./commands/rank.js";
 import { profileCommand } from "./commands/profile.js";
 import { showDataCommand } from "./commands/show-data.js";
 import { createGroupCommand } from "./commands/group.js";
+import { leaveCommand } from "./commands/leave.js";
 import { hookCommand } from "./commands/hook.js";
 import { startUpdateCheck } from "./update-check.js";
 
@@ -75,6 +76,12 @@ program
   .command("create")
   .description("Create an additional group")
   .action(createGroupCommand);
+
+program
+  .command("leave")
+  .description("Leave a group")
+  .argument("[code]", "Group invite code")
+  .action((code: string | undefined) => leaveCommand(code));
 
 program
   .command("show-data")

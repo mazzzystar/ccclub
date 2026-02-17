@@ -9,6 +9,8 @@ import type {
   GroupRecord,
   ProfileUpdateRequest,
   ProfileResponse,
+  LeaveRequest,
+  LeaveResponse,
 } from "@ccclub/shared";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -260,6 +262,51 @@ app.post("/profile", async (c) => {
     visibility: user.visibility || "private",
     plan: user.plan,
   });
+});
+
+// POST /api/leave - Leave a group
+app.post("/leave", async (c) => {
+  const auth = c.req.header("Authorization");
+  if (!auth?.startsWith("Bearer ")) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  const token = auth.slice(7);
+  const user = await c.env.KV.get<UserRecord>(`token:${token}`, "json");
+  if (!user) {
+    return c.json({ error: "invalid token" }, 401);
+  }
+
+  const { inviteCode } = await c.req.json<LeaveRequest>();
+  if (!inviteCode) {
+    return c.json({ error: "inviteCode required" }, 400);
+  }
+  const code = inviteCode.toUpperCase();
+
+  const group = await c.env.KV.get<GroupRecord>(`group:${code}`, "json");
+  if (!group) {
+    return c.json({ error: "group not found" }, 404);
+  }
+
+  // Check membership
+  if (!group.members.some((m) => m.userId === user.userId)) {
+    return c.json({ error: "you are not a member of this group" }, 400);
+  }
+
+  // Remove user from group members
+  group.members = group.members.filter((m) => m.userId !== user.userId);
+  if (group.members.length === 0) {
+    // Last member left — delete the group entirely
+    await c.env.KV.delete(`group:${code}`);
+  } else {
+    await c.env.KV.put(`group:${code}`, JSON.stringify(group));
+  }
+
+  // Remove group from user's group list
+  const userGroups = (await c.env.KV.get<string[]>(`user_groups:${user.userId}`, "json")) || [];
+  const updated = userGroups.filter((g) => g !== code);
+  await c.env.KV.put(`user_groups:${user.userId}`, JSON.stringify(updated));
+
+  return c.json<LeaveResponse>({ ok: true, groupName: group.name });
 });
 
 // GET /api/profile - Get current user profile

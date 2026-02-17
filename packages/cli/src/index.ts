@@ -23,7 +23,7 @@ program
 program
   .command("rank", { isDefault: true, hidden: true })
   .description("Show leaderboard")
-  .option("-d, --days <days>", "Time window: 7 | 30 | all")
+  .option("-d, --days [days]", "Time window: 7 | 30 | all (default: today)")
   .addOption(new Option("-p, --period [period]").hideHelp())
   .option("-g, --group <code>", "Group invite code")
   .option("--global", "Show global public ranking")
@@ -40,14 +40,20 @@ program
 program
   .command("join")
   .description("Join a group with a 6-letter invite code")
-  .argument("<invite-code>", "6-character invite code")
-  .action(joinCommand);
+  .argument("[invite-code]", "6-character invite code")
+  .action((code: string | undefined) => {
+    if (!code) {
+      console.log(`\n  Usage:  ccclub join <code>\n\n  Example:\n    ccclub join YHAW6P\n\n  Ask a friend for their 6-letter invite code, or create your own group:\n    ccclub init\n`);
+      return;
+    }
+    return joinCommand(code);
+  });
 
 // --- Regular use ---
 
 program
   .command("sync")
-  .description("Upload usage data (runs automatically after each chat)")
+  .description("Upload usage data (runs automatically on session end)")
   .addOption(new Option("-s, --silent").hideHelp())
   .option("-f, --force", "Force full re-sync of all data")
   .addOption(new Option("--full", "Same as --force").hideHelp())
@@ -57,7 +63,7 @@ program
 
 program
   .command("profile")
-  .description("View or update name, avatar, plan, visibility")
+  .description("View or update your profile")
   .option("-n, --name <name>", "Set display name")
   .option("--avatar <url>", "Set avatar URL (empty to reset)")
   .option("--public", "Make profile visible in global ranking")
@@ -82,11 +88,16 @@ program
   .action(hookCommand);
 
 program.addHelpText("after", `
+Leaderboard options:
+  -d <period>              Time window: 7 | 30 | all (default: today)
+  -g <code>                Show a specific group
+  --global                 Global public leaderboard
+  --cache                  Include cache tokens in total
+
 Examples:
   $ ccclub                 Show today's leaderboard (default)
-  $ ccclub -d 7            Time window: 7 / 30 / all
+  $ ccclub -d 7|30|all     Time window (default: today)
   $ ccclub --global        Global public leaderboard
-  $ ccclub --cache         Include cache tokens in total
   $ ccclub sync --force    Force full re-sync of all data
 `);
 

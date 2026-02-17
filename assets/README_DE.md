@@ -18,7 +18,7 @@ Gib deinen Namen ein und du bekommst einen 6-stelligen Einladungscode. Teile ihn
 npx ccclub join YHAW6P
 ```
 
-Fertig. Die Nutzung wird automatisch jede Stunde synchronisiert. Keine Konfiguration, keine Registrierung, kein Account.
+Fertig. Die Nutzung wird automatisch per Claude Code Hook synchronisiert. Keine Konfiguration, keine Registrierung, kein Account.
 
 Sobald ein Freund beitritt, sieh dir das Ranking an:
 
@@ -28,7 +28,7 @@ ccclub
 
 ## Was wird hochgeladen
 
-CCClub liest die lokalen Nutzungslogs (`~/.claude/projects/`), die Claude Code bereits schreibt, fasst sie in stündliche Zusammenfassungen (Token-Anzahl + Kosten) zusammen und lädt nur diese Zahlen hoch. **Keine Prompts, kein Code, keine Dateipfade, keine Projektnamen** — nur Zähler. Mit `ccclub show-data` kannst du genau prüfen, was gesendet wird.
+ccclub liest die lokalen Nutzungslogs (`~/.claude/projects/`), die Claude Code bereits schreibt, fasst sie in 30-Minuten-Zusammenfassungen (Token-Anzahl + Kosten) zusammen und lädt nur diese Zahlen hoch. **Keine Prompts, kein Code, keine Dateipfade, keine Projektnamen** — nur Zähler. Mit `ccclub show-data` kannst du genau prüfen, was gesendet wird.
 
 ## Befehle
 
@@ -38,7 +38,7 @@ Für den Alltag reichen diese vier:
 ccclub init                        # Einmalige Einrichtung, erstellt eine Gruppe
 ccclub join <CODE>                 # Einer Gruppe beitreten
 ccclub sync                        # Manuelle Synchronisierung (auch bei Sitzungsende)
-ccclub                             # Heutige Nutzung anzeigen
+ccclub                             # Leaderboard anzeigen
 ```
 
 Weitere Optionen:
@@ -78,7 +78,7 @@ Es werden **ausschließlich** diese Daten hochgeladen:
 ```json
 {
   "blockStart": "2025-02-13T00:00:00Z",
-  "blockEnd": "2025-02-13T01:00:00Z",
+  "blockEnd": "2025-02-13T00:30:00Z",
   "inputTokens": 48210,
   "outputTokens": 12050,
   "cacheCreationTokens": 0,

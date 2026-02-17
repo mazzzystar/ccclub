@@ -19,7 +19,7 @@ export async function initCommand(): Promise<void> {
       const hookOk = await installHook();
       if (hookOk) console.log(chalk.green("  Auto-sync hook installed!"));
     }
-    console.log(chalk.dim('\n  Run "ccclub" to see rankings'));
+    console.log(chalk.dim('\n  Run "ccclub" to see the leaderboard'));
     return;
   }
 
@@ -73,7 +73,7 @@ export async function initCommand(): Promise<void> {
 
     // Install Claude Code hook (silent, best-effort)
     const hookOk = await installHook();
-    spinner.succeed("CCClub initialized!");
+    spinner.succeed("ccclub initialized!");
 
     console.log("");
     console.log(chalk.bold("  Your invite code:"));

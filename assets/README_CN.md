@@ -18,7 +18,7 @@ npx ccclub init
 npx ccclub join YHAW6P
 ```
 
-完事。用量每小时自动同步，不用配置，不用注册，不用建号。
+完事。用量通过 Claude Code hook 自动同步，不用配置，不用注册，不用建号。
 
 朋友加入后，查看排行榜：
 
@@ -28,7 +28,7 @@ ccclub
 
 ## 上传了什么
 
-CCClub 读取 Claude Code 在本地写入的使用日志 (`~/.claude/projects/`)，打包成每小时的摘要（token 数 + 费用），只上传这些数字。**不含提示词、不含代码、不含文件路径、不含项目名** — 只有计数器。运行 `ccclub show-data` 可以审查上传内容。
+ccclub 读取 Claude Code 在本地写入的使用日志 (`~/.claude/projects/`)，打包成每 30 分钟的摘要（token 数 + 费用），只上传这些数字。**不含提示词、不含代码、不含文件路径、不含项目名** — 只有计数器。运行 `ccclub show-data` 可以审查上传内容。
 
 ## 命令
 
@@ -38,7 +38,7 @@ CCClub 读取 Claude Code 在本地写入的使用日志 (`~/.claude/projects/`)
 ccclub init                        # 一次性初始化，创建小组
 ccclub join <邀请码>                # 加入朋友的小组
 ccclub sync                        # 手动同步（会话结束也会自动跑）
-ccclub                             # 看今天的用量
+ccclub                             # 看排行榜
 ```
 
 更多选项：
@@ -78,7 +78,7 @@ https://ccclub.dev/g/YHAW6P
 ```json
 {
   "blockStart": "2025-02-13T00:00:00Z",
-  "blockEnd": "2025-02-13T01:00:00Z",
+  "blockEnd": "2025-02-13T00:30:00Z",
   "inputTokens": 48210,
   "outputTokens": 12050,
   "cacheCreationTokens": 0,
@@ -101,7 +101,7 @@ packages/
   worker/     Cloudflare Worker — Hono API + KV + 看板
 ```
 
-自动同步：Claude Code `SessionEnd` 钩子在每次会话结束时执行 `ccclub sync --silent`。
+自动同步：Claude Code `SessionEnd` + `Stop` 钩子执行 `ccclub sync --silent`（每 5 分钟限频一次）。
 
 ## 开发
 

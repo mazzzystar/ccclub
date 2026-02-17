@@ -3,17 +3,17 @@ import { installHook, isHookInstalled } from "../hook.js";
 
 export async function hookCommand(): Promise<void> {
   if (isHookInstalled()) {
-    console.log(chalk.green("  Claude Code hooks already installed."));
-    console.log(chalk.dim("  Usage syncs on session end and periodically during sessions (every 5 min)."));
+    console.log(chalk.green("  Auto-sync is already set up."));
+    console.log(chalk.dim("  Usage syncs automatically when sessions end."));
     return;
   }
 
   const ok = await installHook();
   if (ok) {
-    console.log(chalk.green("  Claude Code hooks installed!"));
-    console.log(chalk.dim("  Usage will sync on session end and periodically during sessions (every 5 min)."));
+    console.log(chalk.green("  Auto-sync installed!"));
+    console.log(chalk.dim("  Usage will sync automatically when sessions end."));
   } else {
-    console.log(chalk.red("  Failed to install hooks."));
-    console.log(chalk.dim('  You can manually add to ~/.claude/settings.json'));
+    console.log(chalk.red("  Failed to set up auto-sync."));
+    console.log(chalk.dim("  Try running the command again, or see https://ccclub.dev for help."));
   }
 }

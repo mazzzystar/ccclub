@@ -21,16 +21,16 @@ function dashboardHTML(code: string) {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CCClub \u2014 Leaderboard</title>
-  <meta name="description" content="Live Claude Code usage leaderboard" />
+  <title>ccclub \u2014 Leaderboard</title>
+  <meta name="description" content="Claude Code leaderboard among friends" />
 
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="CCClub \u2014 Leaderboard" />
+  <meta property="og:title" content="ccclub \u2014 Leaderboard" />
   <meta property="og:description" content="Claude Code leaderboard among friends. See how you're all doing." />
   <meta property="og:url" content="https://ccclub.dev/g/${code}" />
 
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="CCClub \u2014 Leaderboard" />
+  <meta name="twitter:title" content="ccclub \u2014 Leaderboard" />
   <meta name="twitter:description" content="Claude Code leaderboard among friends. See how you're all doing." />
 
   <meta name="theme-color" content="#1a1816" />
@@ -381,7 +381,7 @@ function dashboardHTML(code: string) {
         })
         .catch(function() {
           document.getElementById("content").innerHTML =
-            '<div class="empty">Failed to load rankings</div>';
+            '<div class="empty">Couldn\\'t load the leaderboard. Try refreshing.</div>';
         });
     }
 
@@ -415,7 +415,7 @@ function dashboardHTML(code: string) {
         })
         .then(function(data) { renderChart(data); })
         .catch(function() {
-          document.getElementById("chart").innerHTML = '<div style="color:#5a5550;text-align:center;padding:24px;font-size:13px">Failed to load activity</div>';
+          document.getElementById("chart").innerHTML = '<div style="color:#5a5550;text-align:center;padding:24px;font-size:13px">Couldn't load activity chart</div>';
         });
     }
 

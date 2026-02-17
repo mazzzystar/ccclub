@@ -28,7 +28,7 @@ ccclub
 
 ## What gets uploaded
 
-CCClub reads the local usage logs (`~/.claude/projects/`) that Claude Code already writes, bundles them into hourly summaries (token counts + cost), and uploads those numbers. **No prompts, no code, no file paths, no project names** — just counters. Run `ccclub show-data` to audit exactly what gets sent.
+ccclub reads the local usage logs (`~/.claude/projects/`) that Claude Code already writes, bundles them into 30-minute summaries (token counts + cost), and uploads those numbers. **No prompts, no code, no file paths, no project names** — just counters. Run `ccclub show-data` to audit exactly what gets sent.
 
 ## Commands
 
@@ -38,7 +38,7 @@ Everyday use — these four are all you need:
 ccclub init                        # One-time setup, creates a group
 ccclub join <CODE>                 # Join a friend's group
 ccclub sync                        # Manual sync (also runs on session end)
-ccclub                             # See usage for today
+ccclub                             # Show the leaderboard
 ```
 
 More options:
@@ -79,7 +79,7 @@ Uploads **only** this:
 ```json
 {
   "blockStart": "2025-02-13T00:00:00Z",
-  "blockEnd": "2025-02-13T01:00:00Z",
+  "blockEnd": "2025-02-13T00:30:00Z",
   "inputTokens": 48210,
   "outputTokens": 12050,
   "cacheCreationTokens": 0,

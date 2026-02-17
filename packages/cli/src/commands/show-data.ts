@@ -3,7 +3,7 @@ import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
 
 export async function showDataCommand(): Promise<void> {
-  console.log(chalk.bold("\n  What CCClub uploads:\n"));
+  console.log(chalk.bold("\n  What ccclub uploads:\n"));
   console.log(chalk.dim("  Only aggregated 30-minute block summaries. No conversation content,"));
   console.log(chalk.dim("  no file paths, no project names, no session details.\n"));
 

@@ -18,7 +18,7 @@ npx ccclub init
 npx ccclub join YHAW6P
 ```
 
-끝입니다. 사용량은 매시간 자동 동기화됩니다. 설정 없음, 가입 없음, 계정 없음.
+끝입니다. 사용량은 Claude Code hook으로 자동 동기화됩니다. 설정 없음, 가입 없음, 계정 없음.
 
 친구가 참여하면 리더보드를 확인하세요:
 
@@ -28,7 +28,7 @@ ccclub
 
 ## 업로드되는 데이터
 
-CCClub은 Claude Code가 로컬에 기록하는 JSONL 로그를 읽어 1시간 단위 요약(토큰 수 + 비용)으로 묶어 업로드합니다. **프롬프트, 코드, 파일 경로, 프로젝트 이름은 포함되지 않습니다** — 카운터만 전송합니다. `ccclub show-data`로 전송 내용을 확인할 수 있습니다.
+ccclub은 Claude Code가 로컬에 기록하는 JSONL 로그를 읽어 30분 단위 요약(토큰 수 + 비용)으로 묶어 업로드합니다. **프롬프트, 코드, 파일 경로, 프로젝트 이름은 포함되지 않습니다** — 카운터만 전송합니다. `ccclub show-data`로 전송 내용을 확인할 수 있습니다.
 
 ## 명령어
 
@@ -38,7 +38,7 @@ CCClub은 Claude Code가 로컬에 기록하는 JSONL 로그를 읽어 1시간 �
 ccclub init                        # 최초 설정, 그룹 생성
 ccclub join <CODE>                 # 친구 그룹 참여
 ccclub sync                        # 수동 동기화 (세션 종료 시 자동 실행)
-ccclub                             # 오늘의 사용량 확인
+ccclub                             # 리더보드 보기
 ```
 
 추가 옵션:
@@ -78,7 +78,7 @@ https://ccclub.dev/g/YHAW6P
 ```json
 {
   "blockStart": "2025-02-13T00:00:00Z",
-  "blockEnd": "2025-02-13T01:00:00Z",
+  "blockEnd": "2025-02-13T00:30:00Z",
   "inputTokens": 48210,
   "outputTokens": 12050,
   "cacheCreationTokens": 0,

@@ -22,21 +22,24 @@ export async function rankCommand(options: { days?: string; period?: string; gro
 
   // Resolve period from -d or -p flags
   let period: RankingPeriod = "daily";
+  const DAYS_HINT = `\n  Usage:  ccclub -d <period>\n\n  Options:\n    ${chalk.white("ccclub -d 7")}     Last 7 days\n    ${chalk.white("ccclub -d 30")}    Last 30 days\n    ${chalk.white("ccclub -d all")}   All time\n    ${chalk.white("ccclub")}          Today (default)\n`;
   if (options.days) {
+    if (options.days === true) {
+      console.log(DAYS_HINT);
+      return;
+    }
     const DAYS_MAP: Record<string, RankingPeriod> = { "7": "weekly", "30": "monthly", "all": "all-time" };
     const mapped = DAYS_MAP[options.days];
     if (!mapped) {
-      console.log(chalk.red(`\n  Invalid value: -d ${options.days}`));
-      console.log(chalk.dim("  Usage: ") + chalk.white("ccclub -d 7 | 30 | all"));
+      console.log(chalk.red(`\n  Unknown value: -d ${options.days}`));
+      console.log(DAYS_HINT);
       return;
     }
     period = mapped;
   } else if (options.period) {
     const validPeriods = ["daily", "weekly", "monthly", "all-time"];
     if (options.period === true || (typeof options.period === "string" && !validPeriods.includes(options.period))) {
-      const got = options.period === true ? "(missing)" : `"${options.period}"`;
-      console.log(chalk.red(`\n  Invalid period: ${got}`));
-      console.log(chalk.dim("  Usage: ") + chalk.white("ccclub -d 7 | 30 | all"));
+      console.log(DAYS_HINT);
       return;
     }
     period = options.period as RankingPeriod;
@@ -70,7 +73,7 @@ export async function rankCommand(options: { days?: string; period?: string; gro
 
       if (!res.ok) {
         if (i === 0) spinner.stop();
-        console.log(chalk.red(`\n  Failed to fetch rankings for ${code}`));
+        console.log(chalk.red(`\n  Couldn't load leaderboard for ${code}`));
         continue;
       }
 
@@ -116,8 +119,8 @@ function formatTokens(n: number): string {
 function printGroup(data: RankResponse, code: string, period: RankingPeriod, config: { userId: string; apiUrl: string }, showCache = false): void {
   if (data.rankings.length === 0) {
     console.log(chalk.bold(`\n  ${data.group.name}`));
-    console.log(chalk.yellow("  No rankings data for this period"));
-    console.log(chalk.dim('  Run "ccclub sync" to upload your usage data'));
+    console.log(chalk.yellow("  No data for this period yet"));
+    console.log(chalk.dim('  Sync your data first: ccclub sync'));
     return;
   }
 

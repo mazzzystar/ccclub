@@ -18,7 +18,7 @@ Introduce tu nombre y recibirás un código de invitación de 6 caracteres. Comp
 npx ccclub join YHAW6P
 ```
 
-Listo. El uso se sincroniza automáticamente cada hora. Sin configuración, sin registro, sin cuenta.
+Listo. El uso se sincroniza automáticamente via hook de Claude Code. Sin configuración, sin registro, sin cuenta.
 
 Cuando un amigo se una, revisa el ranking:
 
@@ -28,7 +28,7 @@ ccclub
 
 ## Datos que se suben
 
-CCClub lee los logs de uso locales (`~/.claude/projects/`) que Claude Code ya escribe, los agrupa en resúmenes por hora (cantidad de tokens + costo) y sube solo esos números. **Sin prompts, sin código, sin rutas de archivos, sin nombres de proyecto** — solo contadores. Ejecuta `ccclub show-data` para verificar exactamente qué se envía.
+ccclub lee los logs de uso locales (`~/.claude/projects/`) que Claude Code ya escribe, los agrupa en resúmenes de 30 minutos (cantidad de tokens + costo) y sube solo esos números. **Sin prompts, sin código, sin rutas de archivos, sin nombres de proyecto** — solo contadores. Ejecuta `ccclub show-data` para verificar exactamente qué se envía.
 
 ## Comandos
 
@@ -38,7 +38,7 @@ Para el uso diario, estos cuatro son suficientes:
 ccclub init                        # Configuración inicial, crea un grupo
 ccclub join <CODE>                 # Unirse al grupo de un amigo
 ccclub sync                        # Sincronización manual (también al finalizar sesión)
-ccclub                             # Ver el uso de hoy
+ccclub                             # Ver el ranking
 ```
 
 Más opciones:
@@ -78,7 +78,7 @@ Se suben **únicamente** estos datos:
 ```json
 {
   "blockStart": "2025-02-13T00:00:00Z",
-  "blockEnd": "2025-02-13T01:00:00Z",
+  "blockEnd": "2025-02-13T00:30:00Z",
   "inputTokens": 48210,
   "outputTokens": 12050,
   "cacheCreationTokens": 0,

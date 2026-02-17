@@ -415,7 +415,7 @@ function dashboardHTML(code: string) {
         })
         .then(function(data) { renderChart(data); })
         .catch(function() {
-          document.getElementById("chart").innerHTML = '<div style="color:#5a5550;text-align:center;padding:24px;font-size:13px">Couldn't load activity chart</div>';
+          document.getElementById("chart").innerHTML = '<div style="color:#5a5550;text-align:center;padding:24px;font-size:13px">Couldn\\'t load activity chart</div>';
         });
     }
 

@@ -541,7 +541,7 @@ function dashboardHTML(code: string) {
         crosshair.setAttribute("x2", bx.toFixed(1));
         crosshair.setAttribute("opacity", "1");
         // Time label
-        var bt = new Date(startMs + (bucketIdx + 0.5) * bucketMs);
+        var bt = new Date(startMs + bucketIdx * bucketMs);
         var timeLabel = range === "24h"
           ? bt.getHours().toString().padStart(2, "0") + ":" + bt.getMinutes().toString().padStart(2, "0")
           : (bt.getMonth() + 1) + "/" + bt.getDate();

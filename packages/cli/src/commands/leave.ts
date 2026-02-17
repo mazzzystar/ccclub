@@ -2,6 +2,7 @@ import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import chalk from "chalk";
 import ora from "ora";
+import type { LeaveResponse } from "@ccclub/shared";
 import { requireConfig, saveConfig } from "../config.js";
 
 export async function leaveCommand(code?: string): Promise<void> {
@@ -73,7 +74,7 @@ export async function leaveCommand(code?: string): Promise<void> {
       return;
     }
 
-    const data = (await res.json()) as import("@ccclub/shared").LeaveResponse;
+    const data = (await res.json()) as LeaveResponse;
 
     // Remove from local config
     config.groups = config.groups.filter((g) => g !== targetCode);

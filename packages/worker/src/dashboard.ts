@@ -159,8 +159,9 @@ function dashboardHTML(code: string) {
     }
     .chart-legend-item {
       display: flex; align-items: center; gap: 5px;
-      font-size: 12px; color: #8a8480;
+      font-size: 12px; color: #8a8480; cursor: pointer; user-select: none;
     }
+    .chart-legend-item.hidden { opacity: 0.4; }
     .chart-legend-dot {
       width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
     }
@@ -397,6 +398,7 @@ function dashboardHTML(code: string) {
 
     // Activity chart
     var CHART_COLORS = ["#d4935e","#5aad7d","#4a8aaa","#d4a03e","#9a5aaa","#c45c5c","#8aaa5a","#c46a7a"];
+    var hiddenUsers = {};
 
     function periodToRange(p) {
       if (p === "weekly") return "7d";
@@ -476,7 +478,7 @@ function dashboardHTML(code: string) {
                " " + cpx.toFixed(1) + "," + cur.y.toFixed(1) +
                " " + cur.x.toFixed(1) + "," + cur.y.toFixed(1);
         }
-        paths += '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>';
+        paths += '<path id="chart-path-' + idx + '" d="' + d + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>';
       });
 
       // Time axis labels
@@ -515,12 +517,22 @@ function dashboardHTML(code: string) {
       var legend = '<div class="chart-legend">';
       userSeries.forEach(function(us, idx) {
         var color = CHART_COLORS[idx % CHART_COLORS.length];
-        legend += '<div class="chart-legend-item"><span class="chart-legend-dot" style="background:' + color + '"></span>' +
+        legend += '<div class="chart-legend-item" data-idx="' + idx + '"><span class="chart-legend-dot" style="background:' + color + '"></span>' +
           esc(us.name) + ' $' + us.total.toFixed(2) + '</div>';
       });
       legend += '</div>';
 
       el.innerHTML = svg + '<div class="chart-tooltip" id="chart-tooltip"></div>' + legend;
+
+      // Re-apply hidden state after re-render (keyed by user name)
+      userSeries.forEach(function(us, idx) {
+        if (hiddenUsers[us.name]) {
+          var item = el.querySelector('.chart-legend-item[data-idx="' + idx + '"]');
+          if (item) item.classList.add("hidden");
+          var path = document.getElementById("chart-path-" + idx);
+          if (path) path.setAttribute("opacity", "0");
+        }
+      });
 
       // Crosshair hover logic
       var tooltip = document.getElementById("chart-tooltip");
@@ -552,6 +564,10 @@ function dashboardHTML(code: string) {
           var pt = us.points[bucketIdx];
           var color = CHART_COLORS[idx % CHART_COLORS.length];
           var dot = document.getElementById("chart-dot-" + idx);
+          if (hiddenUsers[us.name]) {
+            dot.setAttribute("opacity", "0");
+            return;
+          }
           var py = PAD_T + plotH - (pt.v / globalMax) * plotH;
           dot.setAttribute("cx", bx.toFixed(1));
           dot.setAttribute("cy", py.toFixed(1));
@@ -581,6 +597,24 @@ function dashboardHTML(code: string) {
           document.getElementById("chart-dot-" + idx).setAttribute("opacity", "0");
         });
         tooltip.classList.remove("visible");
+      });
+
+      // Legend toggle: click to show/hide individual lines
+      el.querySelectorAll(".chart-legend-item").forEach(function(item) {
+        item.addEventListener("click", function() {
+          var idx = parseInt(item.getAttribute("data-idx"), 10);
+          var userName = userSeries[idx].name;
+          var pathEl = document.getElementById("chart-path-" + idx);
+          if (hiddenUsers[userName]) {
+            delete hiddenUsers[userName];
+            item.classList.remove("hidden");
+            if (pathEl) pathEl.setAttribute("opacity", "0.85");
+          } else {
+            hiddenUsers[userName] = true;
+            item.classList.add("hidden");
+            if (pathEl) pathEl.setAttribute("opacity", "0");
+          }
+        });
       });
     }
 

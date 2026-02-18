@@ -44,7 +44,7 @@ ccclub                             # Voir le classement
 Plus d'options :
 
 ```bash
-ccclub -d 1                        # Fenêtre : 1 / 7 / 30 / all
+ccclub -d 7                        # Fenêtre : 1 / 7 / 30 / all
 ccclub --global                    # Tous les utilisateurs publics
 ccclub -g YHAW6P                   # Groupe spécifique
 ```

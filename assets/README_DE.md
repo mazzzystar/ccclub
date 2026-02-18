@@ -44,7 +44,7 @@ ccclub                             # Leaderboard anzeigen
 Weitere Optionen:
 
 ```bash
-ccclub -d 7                        # Zeitfenster: 1 / 7 / 30 / all
+ccclub -d 1                        # Zeitfenster: 1 / 7 / 30 / all
 ccclub --global                    # Alle öffentlichen Nutzer
 ccclub -g YHAW6P                   # Bestimmte Gruppe
 ```

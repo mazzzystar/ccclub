@@ -44,7 +44,7 @@ ccclub                             # 看排行榜
 更多选项：
 
 ```bash
-ccclub -d 7                        # 时间窗口：1 / 7 / 30 / all
+ccclub -d 1                        # 时间窗口：1 / 7 / 30 / all
 ccclub --global                    # 所有公开用户
 ccclub -g YHAW6P                   # 指定小组
 ```

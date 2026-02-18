@@ -10,7 +10,7 @@ import { leaveCommand } from "./commands/leave.js";
 import { hookCommand } from "./commands/hook.js";
 import { startUpdateCheck } from "./update-check.js";
 
-const VERSION = "0.2.61";
+const VERSION = "0.2.62";
 startUpdateCheck(VERSION);
 
 const program = new Command();
@@ -24,7 +24,7 @@ program
 program
   .command("rank", { isDefault: true, hidden: true })
   .description("Show leaderboard")
-  .option("-d, --days [days]", "Time window: 7 | 30 | all (default: today)")
+  .option("-d, --days [days]", "Time window: 1 | 7 | 30 | all (default: today)")
   .addOption(new Option("-p, --period [period]").hideHelp())
   .option("-g, --group <code>", "Group invite code")
   .option("--global", "Show global public ranking")
@@ -96,14 +96,14 @@ program
 
 program.addHelpText("after", `
 Leaderboard options:
-  -d <period>              Time window: 7 | 30 | all (default: today)
+  -d <period>              Time window: 1 | 7 | 30 | all (default: today)
   -g <code>                Show a specific group
   --global                 Global public leaderboard
   --cache                  Include cache tokens in total
 
 Examples:
   $ ccclub                 Show today's leaderboard (default)
-  $ ccclub -d 7|30|all     Time window (default: today)
+  $ ccclub -d 1|7|30|all   Time window (default: today)
   $ ccclub --global        Global public leaderboard
   $ ccclub sync --force    Force full re-sync of all data
 `);

@@ -10,7 +10,7 @@ import type {
 
 const app = new Hono<{ Bindings: Env }>();
 
-const VALID_PERIODS: RankingPeriod[] = ["daily", "weekly", "monthly", "all-time"];
+const VALID_PERIODS: RankingPeriod[] = ["daily", "yesterday", "weekly", "monthly", "all-time"];
 
 function parsePeriod(raw: string | undefined): RankingPeriod {
   if (raw && VALID_PERIODS.includes(raw as RankingPeriod)) return raw as RankingPeriod;
@@ -28,6 +28,12 @@ function getDateRange(period: RankingPeriod, tzOffsetMin = 0): { start: Date; en
       s.setUTCHours(0, 0, 0, 0);
       // Shift back to real UTC
       return { start: new Date(s.getTime() - tzOffsetMin * 60_000), end: new Date(s.getTime() - tzOffsetMin * 60_000 + 86_400_000) };
+    }
+    case "yesterday": {
+      const s = new Date(nowLocal);
+      s.setUTCHours(0, 0, 0, 0);
+      const todayUtc = s.getTime() - tzOffsetMin * 60_000;
+      return { start: new Date(todayUtc - 86_400_000), end: new Date(todayUtc) };
     }
     case "weekly": {
       // Rolling 7-day window (today minus 6 days through end of today)
@@ -272,13 +278,13 @@ app.get("/rank/:code", async (c) => {
   });
 });
 
-// GET /api/activity/:code?range=24h|7d|30d&tz=N
+// GET /api/activity/:code?range=24h|yesterday|7d|30d&tz=N
 app.get("/activity/:code", async (c) => {
   const rawCode = c.req.param("code");
   const isGlobal = rawCode.toLowerCase() === "global";
   const code = rawCode.toUpperCase();
   const rawRange = c.req.query("range") || "24h";
-  const range = rawRange === "7d" ? "7d" : rawRange === "30d" ? "30d" : "24h";
+  const range = rawRange === "yesterday" ? "yesterday" : rawRange === "7d" ? "7d" : rawRange === "30d" ? "30d" : "24h";
   const tz = parseInt(c.req.query("tz") || "0", 10) || 0;
 
   // Align time window to user's local day boundary (same logic as getDateRange)
@@ -289,14 +295,20 @@ app.get("/activity/:code", async (c) => {
   const todayUtc = todayLocal.getTime() - tz * 60_000;
 
   let startMs: number;
+  let endMs: number;
   if (range === "30d") {
     startMs = todayUtc - 29 * 86_400_000;
+    endMs = todayUtc + 86_400_000;
   } else if (range === "7d") {
     startMs = todayUtc - 6 * 86_400_000;
+    endMs = todayUtc + 86_400_000;
+  } else if (range === "yesterday") {
+    startMs = todayUtc - 86_400_000;
+    endMs = todayUtc;
   } else {
     startMs = todayUtc;
+    endMs = todayUtc + 86_400_000;
   }
-  const endMs = todayUtc + 86_400_000; // end of today
 
   // Get members + resolve display names
   const MAX_USERS = 10;

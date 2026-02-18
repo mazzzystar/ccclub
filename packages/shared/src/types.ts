@@ -97,7 +97,7 @@ export interface RankingEntry {
   chatCount: number;
 }
 
-export type RankingPeriod = "daily" | "weekly" | "monthly" | "all-time";
+export type RankingPeriod = "daily" | "yesterday" | "weekly" | "monthly" | "all-time";
 
 // API: POST /api/init
 export interface InitRequest {

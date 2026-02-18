@@ -22,13 +22,13 @@ export async function rankCommand(options: { days?: string; period?: string; gro
 
   // Resolve period from -d or -p flags
   let period: RankingPeriod = "daily";
-  const DAYS_HINT = `\n  Usage:  ccclub -d <period>\n\n  Options:\n    ${chalk.white("ccclub -d 7")}     Last 7 days\n    ${chalk.white("ccclub -d 30")}    Last 30 days\n    ${chalk.white("ccclub -d all")}   All time\n    ${chalk.white("ccclub")}          Today (default)\n`;
+  const DAYS_HINT = `\n  Usage:  ccclub -d <period>\n\n  Options:\n    ${chalk.white("ccclub -d 1")}     Yesterday\n    ${chalk.white("ccclub -d 7")}     Last 7 days\n    ${chalk.white("ccclub -d 30")}    Last 30 days\n    ${chalk.white("ccclub -d all")}   All time\n    ${chalk.white("ccclub")}          Today (default)\n`;
   if (options.days) {
     if (options.days === true) {
       console.log(DAYS_HINT);
       return;
     }
-    const DAYS_MAP: Record<string, RankingPeriod> = { "7": "weekly", "30": "monthly", "all": "all-time" };
+    const DAYS_MAP: Record<string, RankingPeriod> = { "1": "yesterday", "7": "weekly", "30": "monthly", "all": "all-time" };
     const mapped = DAYS_MAP[options.days];
     if (!mapped) {
       console.log(chalk.red(`\n  Unknown value: -d ${options.days}`));
@@ -83,7 +83,7 @@ export async function rankCommand(options: { days?: string; period?: string; gro
       printGroup(data, code, period, config, options.cache);
 
       // Fetch and render activity sparklines
-      const range = period === "weekly" ? "7d" : period === "monthly" || period === "all-time" ? "30d" : "24h";
+      const range = period === "weekly" ? "7d" : period === "monthly" || period === "all-time" ? "30d" : period === "yesterday" ? "yesterday" : "24h";
       await printActivity(config.apiUrl, code, range);
 
       if (i < codes.length - 1) console.log("");
@@ -125,7 +125,7 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   }
 
   console.log(chalk.bold(`\n  ${data.group.name}`));
-  const periodLabel: Record<string, string> = { daily: "TODAY", weekly: "7 DAYS", monthly: "30 DAYS", "all-time": "ALL TIME" };
+  const periodLabel: Record<string, string> = { daily: "TODAY", yesterday: "YESTERDAY", weekly: "7 DAYS", monthly: "30 DAYS", "all-time": "ALL TIME" };
   console.log(chalk.dim(`  ${periodLabel[period] || period.toUpperCase()} · ${data.start.slice(0, 10)} → ${data.end.slice(0, 10)} · ${data.group.memberCount} members\n`));
 
   const hasPlan = data.rankings.some((r) => r.plan);
@@ -218,7 +218,7 @@ async function printActivity(apiUrl: string, code: string, range: string): Promi
 
     const startMs = new Date(data.start).getTime();
     const endMs = new Date(data.end).getTime();
-    const bucketCount = range === "24h" ? 48 : range === "7d" ? 28 : 30;
+    const bucketCount = range === "24h" || range === "yesterday" ? 48 : range === "7d" ? 28 : 30;
     const bucketMs = (endMs - startMs) / bucketCount;
 
     // Build all buckets with sqrt-compressed global normalization
@@ -272,7 +272,7 @@ async function printActivity(apiUrl: string, code: string, range: string): Promi
 
     // Time axis labels
     const axisArr: string[] = new Array(bucketCount).fill(" ");
-    if (range === "24h") {
+    if (range === "24h" || range === "yesterday") {
       for (let b = 0; b < bucketCount; b += 12) {
         const t = new Date(startMs + b * bucketMs);
         const label = `${t.getHours()}h`;

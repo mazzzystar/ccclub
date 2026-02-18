@@ -213,6 +213,7 @@ function dashboardHTML(code: string) {
 
     <div class="periods">
       <button class="active" data-period="daily">Today</button>
+      <button data-period="yesterday">Yesterday</button>
       <button data-period="weekly">7d</button>
       <button data-period="monthly">30d</button>
       <button data-period="all-time">All Time</button>
@@ -401,6 +402,7 @@ function dashboardHTML(code: string) {
     var hiddenUsers = {};
 
     function periodToRange(p) {
+      if (p === "yesterday") return "yesterday";
       if (p === "weekly") return "7d";
       if (p === "monthly" || p === "all-time") return "30d";
       return "24h";
@@ -436,7 +438,7 @@ function dashboardHTML(code: string) {
       // Bucket blocks into time intervals to show activity intensity
       var W = 560, H = 200, PAD_L = 0, PAD_R = 0, PAD_T = 8, PAD_B = 20;
       var plotW = W - PAD_L - PAD_R, plotH = H - PAD_T - PAD_B;
-      var bucketCount = range === "24h" ? 48 : range === "7d" ? 28 : 30;
+      var bucketCount = range === "24h" || range === "yesterday" ? 48 : range === "7d" ? 28 : 30;
       var bucketMs = durationMs / bucketCount;
 
       var globalMax = 0;
@@ -483,12 +485,12 @@ function dashboardHTML(code: string) {
 
       // Time axis labels
       var labels = "";
-      var labelCount = range === "24h" ? 6 : range === "7d" ? 7 : 6;
+      var labelCount = range === "24h" || range === "yesterday" ? 6 : range === "7d" ? 7 : 6;
       for (var i = 0; i <= labelCount; i++) {
         var t = startMs + (durationMs * i / labelCount);
         var dt = new Date(t);
         var label;
-        if (range === "24h") {
+        if (range === "24h" || range === "yesterday") {
           label = dt.getHours().toString().padStart(2, "0") + ":" + dt.getMinutes().toString().padStart(2, "0");
         } else {
           label = (dt.getMonth() + 1) + "/" + dt.getDate();
@@ -554,7 +556,7 @@ function dashboardHTML(code: string) {
         crosshair.setAttribute("opacity", "1");
         // Time label
         var bt = new Date(startMs + bucketIdx * bucketMs);
-        var timeLabel = range === "24h"
+        var timeLabel = range === "24h" || range === "yesterday"
           ? bt.getHours().toString().padStart(2, "0") + ":" + bt.getMinutes().toString().padStart(2, "0")
           : (bt.getMonth() + 1) + "/" + bt.getDate();
         // Position dots and build tooltip content

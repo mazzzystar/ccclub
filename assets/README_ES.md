@@ -44,7 +44,7 @@ ccclub                             # Ver el ranking
 Más opciones:
 
 ```bash
-ccclub -d 7                        # Ventana de tiempo: 7 / 30 / all
+ccclub -d 1                        # Ventana de tiempo: 1 / 7 / 30 / all
 ccclub --global                    # Todos los usuarios públicos
 ccclub -g YHAW6P                   # Grupo específico
 ```

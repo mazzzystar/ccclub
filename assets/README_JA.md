@@ -44,7 +44,7 @@ ccclub                             # リーダーボードを表示
 追加オプション:
 
 ```bash
-ccclub -d 7                        # 期間選択: 7 / 30 / all
+ccclub -d 1                        # 期間選択: 1 / 7 / 30 / all
 ccclub --global                    # 公開ユーザー全員
 ccclub -g YHAW6P                   # 特定のグループ
 ```

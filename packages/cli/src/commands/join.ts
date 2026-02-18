@@ -93,8 +93,8 @@ export async function joinCommand(inviteCode: string): Promise<void> {
   console.log(chalk.dim("  See the leaderboard:"));
   console.log(chalk.white("    ccclub"));
   console.log("");
-  console.log(chalk.dim("  Last 7 days / 30 days / all time:"));
-  console.log(chalk.white("    ccclub -d 7"));
+  console.log(chalk.dim("  Yesterday / 7 days / 30 days / all time:"));
+  console.log(chalk.white("    ccclub -d 1"));
   console.log("");
   console.log(chalk.dim("  Open the dashboard in browser:"));
   console.log(chalk.white(`    https://ccclub.dev/g/${data.groupCode}`));

@@ -37,7 +37,7 @@ export async function rankCommand(options: { days?: string; period?: string; gro
     }
     period = mapped;
   } else if (options.period) {
-    const validPeriods = ["daily", "weekly", "monthly", "all-time"];
+    const validPeriods = ["daily", "yesterday", "weekly", "monthly", "all-time"];
     if (options.period === true || (typeof options.period === "string" && !validPeriods.includes(options.period))) {
       console.log(DAYS_HINT);
       return;

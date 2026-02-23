@@ -98,12 +98,13 @@ app.get("/rank/global", async (c) => {
   );
 
   // Resolve display info and check if any user has a plan
-  const userInfos: Array<{ displayName: string; avatar: string; plan?: string }> = [];
+  const userInfos: Array<{ displayName: string; avatar: string; plan?: string; url?: string }> = [];
   for (let idx = 0; idx < publicUsers.length; idx++) {
     const userId = publicUsers[idx];
     let displayName = userId.slice(0, 8);
     let avatar = "";
     let plan: string | undefined;
+    let url: string | undefined;
     const firstCode = firstGroupCodes[idx];
     if (firstCode) {
       const group = groupMap.get(firstCode);
@@ -112,9 +113,10 @@ app.get("/rank/global", async (c) => {
         displayName = member.displayName;
         avatar = member.avatar || "";
         plan = member.plan;
+        url = member.url;
       }
     }
-    userInfos.push({ displayName, avatar, plan });
+    userInfos.push({ displayName, avatar, plan, url });
   }
   const hasPlan = userInfos.some((u) => u.plan);
 
@@ -167,6 +169,7 @@ app.get("/rank/global", async (c) => {
         chatCount,
       };
       if (info.plan) entry.plan = info.plan;
+      if (info.url) entry.url = info.url;
       if (hasPlan) {
         entry.monthlyCostUSD = Math.round((isMonthly ? costUSD : monthlyCost) * 10000) / 10000;
       }
@@ -260,6 +263,7 @@ app.get("/rank/:code", async (c) => {
       chatCount,
     };
     if (member.plan) entry.plan = member.plan;
+    if (member.url) entry.url = member.url;
     if (hasPlan) {
       entry.monthlyCostUSD = Math.round((isMonthly ? costUSD : monthlyCost) * 10000) / 10000;
     }
@@ -313,7 +317,7 @@ app.get("/activity/:code", async (c) => {
   // Get members + resolve display names
   const MAX_USERS = 10;
   let memberIds: string[] = [];
-  const memberMap = new Map<string, { displayName: string; avatar: string }>();
+  const memberMap = new Map<string, { displayName: string; avatar: string; url?: string }>();
 
   if (isGlobal) {
     const publicUsers = (await c.env.KV.get<string[]>("public_users", "json")) || [];
@@ -339,7 +343,7 @@ app.get("/activity/:code", async (c) => {
         const grp = groupMap.get(fc);
         const mem = grp?.members.find((m) => m.userId === uid);
         if (mem) {
-          memberMap.set(uid, { displayName: mem.displayName, avatar: mem.avatar || "" });
+          memberMap.set(uid, { displayName: mem.displayName, avatar: mem.avatar || "", url: mem.url });
           continue;
         }
       }
@@ -350,7 +354,7 @@ app.get("/activity/:code", async (c) => {
     if (!group) return c.json({ error: "group not found" }, 404);
     for (const m of group.members) {
       memberIds.push(m.userId);
-      memberMap.set(m.userId, { displayName: m.displayName, avatar: m.avatar || "" });
+      memberMap.set(m.userId, { displayName: m.displayName, avatar: m.avatar || "", url: m.url });
     }
   }
 
@@ -364,6 +368,7 @@ app.get("/activity/:code", async (c) => {
   const series: Array<{
     displayName: string;
     avatar: string;
+    url?: string;
     totalCost: number;
     blocks: Array<{ t: string; cost: number; tokens: number; totalTokens: number; chats: number }>;
   }> = [];
@@ -399,7 +404,7 @@ app.get("/activity/:code", async (c) => {
       chats: bl.chats,
     }));
 
-    series.push({ displayName: info.displayName, avatar: info.avatar, totalCost, blocks });
+    series.push({ displayName: info.displayName, avatar: info.avatar, url: info.url, totalCost, blocks });
   }
 
   // Sort by total cost descending, limit to top N

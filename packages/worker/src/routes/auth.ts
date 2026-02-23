@@ -202,6 +202,9 @@ app.post("/profile", async (c) => {
   if (body.plan !== undefined && !validPlans.includes(body.plan)) {
     return c.json({ error: "plan must be one of: pro, max100, max200, api (or empty to clear)" }, 400);
   }
+  if (body.url !== undefined && body.url !== "" && (body.url.length > 200 || !body.url.startsWith("https://"))) {
+    return c.json({ error: "URL must start with https:// and be at most 200 characters" }, 400);
+  }
 
   const oldVisibility = user.visibility || "private";
   let changed = false;
@@ -218,6 +221,13 @@ app.post("/profile", async (c) => {
     const newPlan = body.plan || undefined;
     if (newPlan !== user.plan) {
       user.plan = newPlan;
+      changed = true;
+    }
+  }
+  if (body.url !== undefined) {
+    const newUrl = body.url || undefined;
+    if (newUrl !== user.url) {
+      user.url = newUrl;
       changed = true;
     }
   }
@@ -239,6 +249,7 @@ app.post("/profile", async (c) => {
         member.displayName = user.displayName;
         member.avatar = user.avatar;
         member.plan = user.plan;
+        member.url = user.url;
         await c.env.KV.put(`group:${code}`, JSON.stringify(group));
       }
     }
@@ -261,6 +272,7 @@ app.post("/profile", async (c) => {
     avatar: user.avatar,
     visibility: user.visibility || "private",
     plan: user.plan,
+    url: user.url,
   });
 });
 
@@ -326,6 +338,7 @@ app.get("/profile", async (c) => {
     avatar: user.avatar || "",
     visibility: user.visibility || "private",
     plan: user.plan,
+    url: user.url,
   });
 });
 

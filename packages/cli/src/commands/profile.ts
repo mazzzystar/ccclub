@@ -10,10 +10,11 @@ export async function profileCommand(options: {
   public?: boolean;
   private?: boolean;
   plan?: string;
+  url?: string;
 }): Promise<void> {
   const config = await requireConfig();
 
-  const hasUpdate = options.name !== undefined || options.avatar !== undefined || options.public || options.private || options.plan !== undefined;
+  const hasUpdate = options.name !== undefined || options.avatar !== undefined || options.public || options.private || options.plan !== undefined || options.url !== undefined;
 
   if (!hasUpdate) {
     // Show current profile
@@ -35,6 +36,7 @@ export async function profileCommand(options: {
       console.log(`  Avatar:     ${profile.avatar || chalk.dim("(default)")}`);
       console.log(`  Visibility: ${profile.visibility === "public" ? chalk.green("public") : chalk.dim("private")}`);
       console.log(`  Plan:       ${profile.plan ? PLAN_LABELS[profile.plan as keyof typeof PLAN_LABELS] || profile.plan : chalk.dim("(not set)")}`);
+      console.log(`  URL:        ${profile.url || chalk.dim("(not set)")}`);
       console.log();
     } catch (err) {
       spinner.fail(`Error: ${err instanceof Error ? err.message : err}`);
@@ -61,6 +63,7 @@ export async function profileCommand(options: {
   if (options.public) body.visibility = "public";
   if (options.private) body.visibility = "private";
   if (options.plan !== undefined) body.plan = options.plan === "none" ? "" : options.plan;
+  if (options.url !== undefined) body.url = options.url;
 
   const spinner = ora("Updating profile...").start();
   try {
@@ -93,6 +96,7 @@ export async function profileCommand(options: {
     console.log(`  Avatar:     ${profile.avatar || chalk.dim("(default)")}`);
     console.log(`  Visibility: ${profile.visibility === "public" ? chalk.green("public") : chalk.dim("private")}`);
     console.log(`  Plan:       ${profile.plan ? PLAN_LABELS[profile.plan as keyof typeof PLAN_LABELS] || profile.plan : chalk.dim("(not set)")}`);
+    console.log(`  URL:        ${profile.url || chalk.dim("(not set)")}`);
     console.log();
   } catch (err) {
     spinner.fail(`Error: ${err instanceof Error ? err.message : err}`);

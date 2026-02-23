@@ -54,6 +54,7 @@ export interface UserRecord {
   avatar: string;                    // URL or "" (empty = default)
   visibility: "public" | "private";  // default "private"
   plan?: string;                     // "pro" | "max100" | "max200" | "api"
+  url?: string;                      // clickable link (GitHub, website, etc.)
   createdAt: string;
 }
 
@@ -71,6 +72,7 @@ export interface GroupMember {
   displayName: string;
   avatar: string;
   plan?: string;
+  url?: string;
   joinedAt: string;
 }
 
@@ -87,6 +89,7 @@ export interface RankingEntry {
   displayName: string;
   avatar: string;
   plan?: string;
+  url?: string;
   totalTokens: number;
   inputTokens: number;
   outputTokens: number;
@@ -136,6 +139,7 @@ export interface ProfileUpdateRequest {
   avatar?: string;
   visibility?: "public" | "private";
   plan?: string;
+  url?: string;
 }
 
 export interface ProfileResponse {
@@ -143,6 +147,7 @@ export interface ProfileResponse {
   avatar: string;
   visibility: "public" | "private";
   plan?: string;
+  url?: string;
 }
 
 // API: POST /api/leave

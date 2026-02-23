@@ -127,6 +127,8 @@ function dashboardHTML(code: string) {
     .avatar .fallback { display: none; }
     .avatar img.errored + .fallback { display: flex; }
     .name-text { font-weight: 500; font-size: 14px; }
+    .name-link { color: #6ba3be; text-decoration: none; }
+    .name-link:hover { text-decoration: underline; }
     .bar {
       height: 3px; background: #d4935e; border-radius: 2px; margin-top: 6px;
       opacity: 0.5; transition: width 0.3s;
@@ -355,7 +357,7 @@ function dashboardHTML(code: string) {
             h += '<tr>' +
               '<td class="' + rankClass + '">' + r.rank + '</td>' +
               '<td><div class="name-cell">' + avatarHTML(r.userId, r.displayName, r.avatar) +
-                '<div><div class="name-text">' + esc(r.displayName) + '</div>' +
+                '<div><div class="name-text">' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" rel="noopener" class="name-link">' + esc(r.displayName) + '</a>' : esc(r.displayName)) + '</div>' +
                 '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +
               '<td class="cost">$' + r.costUSD.toFixed(2) + '</td>' +
               '<td class="tokens">' + formatTokens(showCache ? r.totalTokens : (r.inputTokens + r.outputTokens)) + '</td>';
@@ -456,7 +458,7 @@ function dashboardHTML(code: string) {
         var points = buckets.map(function(v, i) {
           return { t: startMs + (i + 0.5) * bucketMs, v: v };
         });
-        return { name: user.displayName, total: total, points: points };
+        return { name: user.displayName, url: user.url || "", total: total, points: points };
       });
 
       if (globalMax === 0) globalMax = 1;
@@ -519,8 +521,9 @@ function dashboardHTML(code: string) {
       var legend = '<div class="chart-legend">';
       userSeries.forEach(function(us, idx) {
         var color = CHART_COLORS[idx % CHART_COLORS.length];
+        var legendName = us.url ? '<a href="' + esc(us.url) + '" target="_blank" rel="noopener" class="name-link">' + esc(us.name) + '</a>' : esc(us.name);
         legend += '<div class="chart-legend-item" data-idx="' + idx + '"><span class="chart-legend-dot" style="background:' + color + '"></span>' +
-          esc(us.name) + ' $' + us.total.toFixed(2) + '</div>';
+          legendName + ' $' + us.total.toFixed(2) + '</div>';
       });
       legend += '</div>';
 

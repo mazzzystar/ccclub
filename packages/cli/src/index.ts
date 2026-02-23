@@ -10,7 +10,7 @@ import { leaveCommand } from "./commands/leave.js";
 import { hookCommand } from "./commands/hook.js";
 import { startUpdateCheck } from "./update-check.js";
 
-const VERSION = "0.2.64";
+const VERSION = "0.2.65";
 startUpdateCheck(VERSION);
 
 const program = new Command();
@@ -70,6 +70,7 @@ program
   .option("--public", "Make profile visible in global ranking")
   .option("--private", "Hide from global ranking")
   .option("--plan <plan>", "pro ($20) | max100 ($100) | max200 ($200) | api | none")
+  .option("--url <url>", "Link your name to a URL (GitHub, website, etc.)")
   .action(profileCommand);
 
 program

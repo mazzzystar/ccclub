@@ -6,6 +6,7 @@ import { loadConfig, saveConfig, generateDeviceToken, getApiUrl, getDefaultDispl
 import { installHook, isHookInstalled } from "../hook.js";
 import { doSync } from "./sync.js";
 import { ensureGlobalInstall } from "../global-install.js";
+import { formatFetchError } from "../fetch-error.js";
 import type { InitResponse } from "@ccclub/shared";
 
 export async function initCommand(): Promise<void> {
@@ -51,7 +52,7 @@ export async function initCommand(): Promise<void> {
         signal: AbortSignal.timeout(15_000),
       });
     } catch (err) {
-      spinner.fail(`Setup failed: ${err instanceof Error ? err.message : err}`);
+      spinner.fail(`Setup failed: ${formatFetchError(err)}`);
       return;
     }
 

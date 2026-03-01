@@ -6,6 +6,7 @@ import { loadConfig, saveConfig, generateDeviceToken, getApiUrl, getDefaultDispl
 import { installHook } from "../hook.js";
 import { doSync } from "./sync.js";
 import { ensureGlobalInstall } from "../global-install.js";
+import { formatFetchError } from "../fetch-error.js";
 import type { JoinResponse } from "@ccclub/shared";
 
 export async function joinCommand(inviteCode: string): Promise<void> {
@@ -48,7 +49,7 @@ export async function joinCommand(inviteCode: string): Promise<void> {
       signal: AbortSignal.timeout(15_000),
     });
   } catch (err) {
-    spinner.fail(`Join failed: ${err instanceof Error ? err.message : err}`);
+    spinner.fail(`Join failed: ${formatFetchError(err)}`);
     return;
   }
 

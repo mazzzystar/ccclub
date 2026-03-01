@@ -4,6 +4,7 @@ import chalk from "chalk";
 import ora from "ora";
 import type { LeaveResponse } from "@ccclub/shared";
 import { requireConfig, saveConfig } from "../config.js";
+import { formatFetchError } from "../fetch-error.js";
 
 export async function leaveCommand(code?: string): Promise<void> {
   const config = await requireConfig();
@@ -82,6 +83,6 @@ export async function leaveCommand(code?: string): Promise<void> {
 
     spinner.succeed(`Left "${data.groupName}"`);
   } catch (err) {
-    spinner.fail(`Failed: ${err instanceof Error ? err.message : err}`);
+    spinner.fail(`Failed: ${formatFetchError(err)}`);
   }
 }

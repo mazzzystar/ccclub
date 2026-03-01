@@ -3,6 +3,7 @@ import ora from "ora";
 import type { ProfileResponse } from "@ccclub/shared";
 import { PLAN_LABELS } from "@ccclub/shared";
 import { requireConfig, saveConfig } from "../config.js";
+import { formatFetchError } from "../fetch-error.js";
 
 export async function profileCommand(options: {
   name?: string;
@@ -39,7 +40,7 @@ export async function profileCommand(options: {
       console.log(`  URL:        ${profile.url || chalk.dim("(not set)")}`);
       console.log();
     } catch (err) {
-      spinner.fail(`Error: ${err instanceof Error ? err.message : err}`);
+      spinner.fail(`Error: ${formatFetchError(err)}`);
     }
     return;
   }
@@ -99,6 +100,6 @@ export async function profileCommand(options: {
     console.log(`  URL:        ${profile.url || chalk.dim("(not set)")}`);
     console.log();
   } catch (err) {
-    spinner.fail(`Error: ${err instanceof Error ? err.message : err}`);
+    spinner.fail(`Error: ${formatFetchError(err)}`);
   }
 }

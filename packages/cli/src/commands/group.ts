@@ -3,6 +3,7 @@ import { stdin, stdout } from "node:process";
 import chalk from "chalk";
 import ora from "ora";
 import { requireConfig, saveConfig } from "../config.js";
+import { formatFetchError } from "../fetch-error.js";
 export async function createGroupCommand(): Promise<void> {
   const config = await requireConfig();
   const rl = createInterface({ input: stdin, output: stdout });
@@ -28,7 +29,7 @@ export async function createGroupCommand(): Promise<void> {
         signal: AbortSignal.timeout(15_000),
       });
     } catch (err) {
-      spinner.fail(`Failed: ${err instanceof Error ? err.message : err}`);
+      spinner.fail(`Failed: ${formatFetchError(err)}`);
       return;
     }
 

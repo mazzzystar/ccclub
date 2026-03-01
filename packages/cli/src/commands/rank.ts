@@ -4,6 +4,7 @@ import ora from "ora";
 import type { RankingPeriod, RankResponse } from "@ccclub/shared";
 import { PLAN_PRICES } from "@ccclub/shared";
 import { requireConfig } from "../config.js";
+import { formatFetchError } from "../fetch-error.js";
 import { doSync, needsFullSync } from "./sync.js";
 import { installHook, isHookInstalled } from "../hook.js";
 import { getUpdateResult } from "../update-check.js";
@@ -96,7 +97,7 @@ export async function rankCommand(options: { days?: string; period?: string; gro
       console.log(chalk.yellow("\n  Update available") + chalk.dim(`: ${update.current} → ${update.latest}  Run `) + chalk.cyan("npm i -g ccclub@latest"));
     }
   } catch (err) {
-    spinner.fail(`Error: ${err instanceof Error ? err.message : err}`);
+    spinner.fail(`Error: ${formatFetchError(err)}`);
   }
 }
 

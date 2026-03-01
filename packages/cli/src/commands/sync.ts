@@ -9,6 +9,7 @@ import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
 import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
 import type { SyncResponse, UsageBlock } from "@ccclub/shared";
+import { formatFetchError } from "../fetch-error.js";
 
 // Bump this when block format changes to auto-trigger full re-sync
 const SYNC_FORMAT_VERSION = "6";
@@ -133,7 +134,7 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
       log(chalk.dim(`  Tokens: ${totalTokens.toLocaleString()}  Cost: $${totalCost.toFixed(4)}`));
     }
   } catch (err) {
-    if (spinner) spinner.fail(`Sync error: ${err instanceof Error ? err.message : err}`);
+    if (spinner) spinner.fail(`Sync error: ${formatFetchError(err)}`);
     if (silent) throw err; // Re-throw so hook caller can reset throttle
   }
 }

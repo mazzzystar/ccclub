@@ -8,8 +8,9 @@ import { requireConfig, loadConfig, getLastSyncPath, getLastSyncTimePath } from 
 import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
 import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
-import type { SyncResponse, UsageBlock } from "@ccclub/shared";
+import type { SyncRequest, SyncResponse, UsageBlock } from "@ccclub/shared";
 import { formatFetchError } from "../fetch-error.js";
+import { fetchUsageLimits } from "../usage-limits.js";
 
 // Bump this when block format changes to auto-trigger full re-sync
 const SYNC_FORMAT_VERSION = "6";
@@ -67,7 +68,10 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
   const spinner = silent ? null : ora("Collecting usage data...").start();
 
   try {
-    const { entries, humanTurns } = await collectUsageEntries();
+    const [{ entries, humanTurns }, usageSnapshot] = await Promise.all([
+      collectUsageEntries(),
+      fetchUsageLimits().catch(() => null),
+    ]);
     if (spinner) spinner.text = `Found ${entries.length} entries`;
 
     if (entries.length === 0) {
@@ -101,13 +105,16 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
 
     if (spinner) spinner.text = `Uploading ${blocksToSync.length} blocks...`;
 
+    const syncBody: SyncRequest = { blocks: blocksToSync };
+    if (usageSnapshot) syncBody.usageSnapshot = usageSnapshot;
+
     const res = await fetch(`${config.apiUrl}/api/sync`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${config.token}`,
       },
-      body: JSON.stringify({ blocks: blocksToSync }),
+      body: JSON.stringify(syncBody),
       signal: AbortSignal.timeout(60_000),
     });
 

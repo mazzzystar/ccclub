@@ -130,9 +130,14 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   console.log(chalk.dim(`  ${periodLabel[period] || period.toUpperCase()} · ${data.start.slice(0, 10)} → ${data.end.slice(0, 10)} · ${data.group.memberCount} members\n`));
 
   const hasPlan = data.rankings.some((r) => r.plan);
+  const hasUsage = data.rankings.some((r) => r.usageSnapshot);
 
   const head = ["#", "Name", "Cost", "Tokens"];
   const widths = [5, 20, 12, 10];
+  if (hasUsage) {
+    head.push("Usage (5h/7d)");
+    widths.push(14);
+  }
   if (hasPlan) {
     head.push("Monthly ROI");
     widths.push(15);
@@ -162,6 +167,15 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
       c(`$${entry.costUSD.toFixed(2)}`),
       c(formatTokens(tokens)),
     ];
+
+    if (hasUsage) {
+      if (entry.usageSnapshot) {
+        const { fiveHour, sevenDay } = entry.usageSnapshot;
+        row.push(c(`${Math.round(fiveHour)}%/${Math.round(sevenDay)}%`));
+      } else {
+        row.push(chalk.dim("—"));
+      }
+    }
 
     if (hasPlan) {
       if (entry.plan && entry.plan !== "api") {

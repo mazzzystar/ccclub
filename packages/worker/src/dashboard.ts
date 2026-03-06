@@ -141,6 +141,7 @@ function dashboardHTML(code: string) {
     .roi .pct.high { color: #5aad7d; }
     .roi .pct.mid { color: #d4a03e; }
     .roi .pct.low { color: #6b6560; }
+    .usage { font-family: "SF Mono", "Fira Code", Menlo, Consolas, monospace; color: #8a8480; font-size: 13px; white-space: nowrap; }
     .calls { color: #6b6560; font-size: 14px; }
 
     /* Activity chart */
@@ -346,8 +347,10 @@ function dashboardHTML(code: string) {
           var maxCost = 0;
           data.rankings.forEach(function(r) { if (r.costUSD > maxCost) maxCost = r.costUSD; });
           var hasPlan = data.rankings.some(function(r) { return r.plan; });
+          var hasUsage = data.rankings.some(function(r) { return r.usageSnapshot; });
           var PLAN_PRICES = { pro: 20, max100: 100, max200: 200, api: 0 };
           var h = '<table><thead><tr><th>#</th><th>Name</th><th>Cost</th><th>Tokens</th>';
+          if (hasUsage) h += '<th>Usage (5h/7d)</th>';
           if (hasPlan) h += '<th>Monthly ROI</th>';
           h += '<th>Chats</th><th>$/Chat</th></tr></thead><tbody>';
 
@@ -361,6 +364,14 @@ function dashboardHTML(code: string) {
                 '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +
               '<td class="cost">$' + r.costUSD.toFixed(2) + '</td>' +
               '<td class="tokens">' + formatTokens(showCache ? r.totalTokens : (r.inputTokens + r.outputTokens)) + '</td>';
+            if (hasUsage) {
+              if (r.usageSnapshot) {
+                var snapshotTitle = "5h window / 7d rolling \u00b7 as of " + new Date(r.usageSnapshot.snapshotAt).toLocaleString();
+                h += '<td class="usage" title="' + esc(snapshotTitle) + '">' + Math.round(r.usageSnapshot.fiveHour) + '%/' + Math.round(r.usageSnapshot.sevenDay) + '%</td>';
+              } else {
+                h += '<td class="usage"><span style="color:#4a4640">\u2014</span></td>';
+              }
+            }
             if (hasPlan) {
               if (r.plan && r.plan !== "api") {
                 var price = PLAN_PRICES[r.plan] || 0;

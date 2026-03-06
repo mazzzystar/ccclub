@@ -76,10 +76,18 @@ export interface GroupMember {
   joinedAt: string;
 }
 
+// Subscription utilization snapshot (from Claude's OAuth API)
+export interface UsageSnapshot {
+  fiveHour: number;   // % of 5-hour quota used (0–100)
+  sevenDay: number;   // % of 7-day quota used (0–100)
+  snapshotAt: string; // ISO timestamp
+}
+
 // KV: usage:{userId} → UsageData
 export interface UsageData {
   blocks: UsageBlock[];
   lastSync: string;
+  usageSnapshot?: UsageSnapshot;
 }
 
 // Ranking entry
@@ -98,6 +106,7 @@ export interface RankingEntry {
   models: string[];
   entryCount: number;
   chatCount: number;
+  usageSnapshot?: UsageSnapshot;
 }
 
 export type RankingPeriod = "daily" | "yesterday" | "weekly" | "monthly" | "all-time";
@@ -128,6 +137,7 @@ export interface JoinResponse {
 // API: POST /api/sync
 export interface SyncRequest {
   blocks: UsageBlock[];
+  usageSnapshot?: UsageSnapshot;
 }
 export interface SyncResponse {
   synced: number;

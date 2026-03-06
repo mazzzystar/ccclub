@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "../types.js";
-import type { UserRecord, UsageData, SyncResponse, UsageBlock } from "@ccclub/shared";
+import type { UserRecord, UsageData, SyncResponse, SyncRequest, UsageBlock } from "@ccclub/shared";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -17,7 +17,7 @@ app.post("/sync", async (c) => {
     return c.json({ error: "invalid token" }, 401);
   }
 
-  const { blocks } = await c.req.json<{ blocks: UsageBlock[] }>();
+  const { blocks, usageSnapshot } = await c.req.json<SyncRequest>();
   if (!Array.isArray(blocks) || blocks.length === 0) {
     return c.json({ error: "blocks array required" }, 400);
   }
@@ -63,6 +63,22 @@ app.post("/sync", async (c) => {
     blocks: merged,
     lastSync: new Date().toISOString(),
   };
+
+  if (
+    usageSnapshot &&
+    typeof usageSnapshot.fiveHour === "number" && isFinite(usageSnapshot.fiveHour) &&
+    typeof usageSnapshot.sevenDay === "number" && isFinite(usageSnapshot.sevenDay) &&
+    typeof usageSnapshot.snapshotAt === "string" && usageSnapshot.snapshotAt.length < 64
+  ) {
+    usageData.usageSnapshot = {
+      fiveHour: Math.max(0, Math.min(100, usageSnapshot.fiveHour)),
+      sevenDay: Math.max(0, Math.min(100, usageSnapshot.sevenDay)),
+      snapshotAt: usageSnapshot.snapshotAt,
+    };
+  } else if (existing.usageSnapshot) {
+    // Preserve previously stored snapshot if not sent this time
+    usageData.usageSnapshot = existing.usageSnapshot;
+  }
 
   await c.env.KV.put(`usage:${user.userId}`, JSON.stringify(usageData));
 

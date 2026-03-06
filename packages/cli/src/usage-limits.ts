@@ -25,17 +25,14 @@ export async function fetchUsageLimits(): Promise<UsageSnapshot | null> {
     const accessToken = credentials?.claudeAiOauth?.accessToken;
     if (!accessToken || typeof accessToken !== "string") return null;
 
-    const res = await fetch("https://api.anthropic.com/api/oauth/usage", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "anthropic-beta": "oauth-2025-04-20",
-      },
-      signal: AbortSignal.timeout(8_000),
-    });
+    // Use curl instead of Node fetch to bypass proxy issues
+    const curlCmd = `curl -sf "https://api.anthropic.com/api/oauth/usage" -H "Authorization: Bearer ${accessToken}" -H "anthropic-beta: oauth-2025-04-20" -H "User-Agent: claude-code/2.1.5"`;
+    const response = execSync(curlCmd, { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"], timeout: 8000 });
+    if (!response) return null;
 
-    if (!res.ok) return null;
+    const data = JSON.parse(response) as Record<string, unknown>;
+    if ((data as { error?: unknown }).error) return null;
 
-    const data = await res.json() as Record<string, unknown>;
     const fiveHourRaw = (data.five_hour as Record<string, unknown>)?.utilization;
     const sevenDayRaw = (data.seven_day as Record<string, unknown>)?.utilization;
 

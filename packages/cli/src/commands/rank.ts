@@ -8,6 +8,7 @@ import { formatFetchError } from "../fetch-error.js";
 import { doSync, needsFullSync } from "./sync.js";
 import { installHook, isHookInstalled } from "../hook.js";
 import { getUpdateResult } from "../update-check.js";
+import { fetchUsageLimits } from "../usage-limits.js";
 
 export async function rankCommand(options: { days?: string; period?: string; group?: string; global?: boolean; cache?: boolean }): Promise<void> {
   const config = await requireConfig();
@@ -63,6 +64,9 @@ export async function rankCommand(options: { days?: string; period?: string; gro
     return;
   }
 
+  // Fire in parallel with rank API — resolves by the time rank data arrives
+  const localUsagePromise = fetchUsageLimits().catch(() => null);
+
   const spinner = ora("Loading leaderboard...").start();
 
   try {
@@ -80,6 +84,13 @@ export async function rankCommand(options: { days?: string; period?: string; gro
 
       const data = (await res.json()) as RankResponse;
       if (i === 0) spinner.stop();
+
+      // Inject live local snapshot into current user's row (fresher than last sync)
+      const localSnapshot = await localUsagePromise;
+      if (localSnapshot) {
+        const me = data.rankings.find((r) => r.userId === config.userId);
+        if (me) me.usageSnapshot = localSnapshot;
+      }
 
       printGroup(data, code, period, config, options.cache);
 

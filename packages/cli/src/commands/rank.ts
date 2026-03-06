@@ -87,6 +87,12 @@ export async function rankCommand(options: { days?: string; period?: string; gro
 
       // Inject live local snapshot into current user's row (fresher than last sync)
       const localSnapshot = await localUsagePromise;
+      if (process.env.CCCLUB_DEBUG) {
+        console.error("[usage-debug] localSnapshot:", localSnapshot);
+        console.error("[usage-debug] config.userId:", config.userId);
+        const dbgMe = data.rankings.find((r) => r.userId === config.userId);
+        console.error("[usage-debug] me found:", !!dbgMe, "rankings userIds:", data.rankings.map((r) => r.userId).slice(0, 3));
+      }
       if (localSnapshot) {
         const me = data.rankings.find((r) => r.userId === config.userId);
         if (me) me.usageSnapshot = localSnapshot;
@@ -146,8 +152,8 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   const head = ["#", "Name", "Cost", "Tokens"];
   const widths = [5, 20, 12, 10];
   if (hasUsage) {
-    head.push("Usage (5h/7d)");
-    widths.push(14);
+    head.push("Usage 7d");
+    widths.push(10);
   }
   if (hasPlan) {
     head.push("Monthly ROI");
@@ -181,8 +187,8 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
 
     if (hasUsage) {
       if (entry.usageSnapshot) {
-        const { fiveHour, sevenDay } = entry.usageSnapshot;
-        row.push(c(`${Math.round(fiveHour)}%/${Math.round(sevenDay)}%`));
+        const { sevenDay } = entry.usageSnapshot;
+        row.push(c(`${Math.round(sevenDay)}%`));
       } else {
         row.push(chalk.dim("—"));
       }

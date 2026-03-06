@@ -10,7 +10,7 @@ import { installHook, isHookInstalled } from "../hook.js";
 import { getUpdateResult } from "../update-check.js";
 import { fetchUsageLimits } from "../usage-limits.js";
 
-export async function rankCommand(options: { days?: string; period?: string; group?: string; global?: boolean; cache?: boolean }): Promise<void> {
+export async function rankCommand(options: { days?: string; period?: string; group?: string; global?: boolean; cache?: boolean; all?: boolean }): Promise<void> {
   const config = await requireConfig();
 
   // Ensure hook is installed (silent, one-time for existing users)
@@ -107,7 +107,7 @@ export async function rankCommand(options: { days?: string; period?: string; gro
         if (me) me.usageSnapshot = localSnapshot;
       }
 
-      printGroup(rankData, code, period, config, options.cache);
+      printGroup(rankData, code, period, config, options.cache, options.all);
 
       if (activityData) renderActivity(activityData, range);
 
@@ -141,7 +141,7 @@ function formatTokens(n: number): string {
   return String(n);
 }
 
-function printGroup(data: RankResponse, code: string, period: RankingPeriod, config: { userId: string; apiUrl: string }, showCache = false): void {
+function printGroup(data: RankResponse, code: string, period: RankingPeriod, config: { userId: string; apiUrl: string }, showCache = false, showAll = false): void {
   if (data.rankings.length === 0) {
     console.log(chalk.bold(`\n  ${data.group.name}`));
     console.log(chalk.yellow("  No data for this period yet"));
@@ -153,8 +153,13 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   const periodLabel: Record<string, string> = { daily: "TODAY", yesterday: "YESTERDAY", weekly: "7 DAYS", monthly: "30 DAYS", "all-time": "ALL TIME" };
   console.log(chalk.dim(`  ${periodLabel[period] || period.toUpperCase()} · ${data.start.slice(0, 10)} → ${data.end.slice(0, 10)} · ${data.group.memberCount} members\n`));
 
-  const hasPlan = data.rankings.some((r) => r.plan);
-  const hasUsage = data.rankings.some((r) => r.usageSnapshot);
+  const activeRankings = showAll || data.rankings.length <= 15
+    ? data.rankings
+    : data.rankings.filter((r) => r.costUSD > 0 || r.userId === config.userId);
+  const hiddenCount = data.rankings.length - activeRankings.length;
+
+  const hasPlan = activeRankings.some((r) => r.plan);
+  const hasUsage = activeRankings.some((r) => r.usageSnapshot);
 
   const head = ["#", "Name", "Cost", "Tokens"];
   const widths = [5, 20, 12, 10];
@@ -175,7 +180,7 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
     colWidths: widths,
   });
 
-  for (const entry of data.rankings) {
+  for (const entry of activeRankings) {
     const isMe = entry.userId === config.userId;
     const tokens = showCache ? entry.totalTokens : entry.inputTokens + entry.outputTokens;
     const marker = isMe ? chalk.green("→") : " ";
@@ -223,6 +228,9 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   }
 
   console.log(table.toString());
+  if (hiddenCount > 0) {
+    console.log(chalk.dim(`  ${hiddenCount} inactive member${hiddenCount > 1 ? "s" : ""} hidden · ccclub --all to show`));
+  }
   console.log(chalk.dim(`  Dashboard: ${config.apiUrl}/g/${code}`));
 
   // Hint if the group has plan users but current user hasn't set one

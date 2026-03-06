@@ -45,6 +45,8 @@ ccclub                             # 看排行榜
 
 ```bash
 ccclub -d 1                        # 时间窗口：1 / 7 / 30 / all
+ccclub --cache                     # 包含缓存 token
+ccclub --all                       # 显示所有成员（包括今天没有使用记录的）
 ccclub --global                    # 所有公开用户
 ccclub -g YHAW6P                   # 指定小组
 ```

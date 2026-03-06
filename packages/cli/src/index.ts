@@ -30,6 +30,7 @@ program
   .option("-g, --group <code>", "Group invite code")
   .option("--global", "Show global public ranking")
   .option("--cache", "Include cache tokens in count")
+  .option("--all", "Show all members including those with no activity")
   .action(rankCommand);
 
 // --- Setup (one-time) ---
@@ -102,6 +103,7 @@ Leaderboard options:
   -g <code>                Show a specific group
   --global                 Global public leaderboard
   --cache                  Include cache tokens in total
+  --all                    Show all members including inactive ones
 
 Examples:
   $ ccclub                 Show today's leaderboard (default)

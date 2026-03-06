@@ -196,6 +196,18 @@ app.get("/rank/:code", async (c) => {
   const period = parsePeriod(c.req.query("period"));
   const tz = parseInt(c.req.query("tz") || "0", 10) || 0;
 
+  // Check KV-backed cache before doing O(N) reads
+  const tzBucket = Math.round(tz / 60);
+  const cacheKey = `rank_cache:${code}:${period}:${tzBucket}`;
+  const [cacheEntry, lastSyncStr] = await Promise.all([
+    c.env.KV.get<{ data: RankResponse; computedAt: number }>(cacheKey, "json"),
+    c.env.KV.get(`last_sync:${code}`, "text"),
+  ]);
+  const lastSync = lastSyncStr ? parseInt(lastSyncStr) : 0;
+  if (cacheEntry && cacheEntry.computedAt >= lastSync) {
+    return c.json(cacheEntry.data);
+  }
+
   const group = await c.env.KV.get<GroupRecord>(`group:${code}`, "json");
   if (!group) {
     return c.json({ error: "group not found" }, 404);
@@ -275,13 +287,22 @@ app.get("/rank/:code", async (c) => {
   entries.sort((a, b) => b.costUSD - a.costUSD);
   entries.forEach((e, i) => (e.rank = i + 1));
 
-  return c.json<RankResponse>({
+  const result: RankResponse = {
     group: { name: group.name, code: group.code, memberCount: group.members.length },
     period,
     start: start.toISOString(),
     end: end.toISOString(),
     rankings: entries,
-  });
+  };
+
+  // Store in cache (10 min TTL as safety net); non-blocking
+  c.executionCtx.waitUntil(
+    c.env.KV.put(cacheKey, JSON.stringify({ data: result, computedAt: Date.now() }), {
+      expirationTtl: 600,
+    })
+  );
+
+  return c.json<RankResponse>(result);
 });
 
 // GET /api/activity/:code?range=24h|yesterday|7d|30d&tz=N
@@ -292,6 +313,18 @@ app.get("/activity/:code", async (c) => {
   const rawRange = c.req.query("range") || "24h";
   const range = rawRange === "yesterday" ? "yesterday" : rawRange === "7d" ? "7d" : rawRange === "30d" ? "30d" : "24h";
   const tz = parseInt(c.req.query("tz") || "0", 10) || 0;
+
+  // Check KV-backed cache before doing O(N) reads
+  const tzBucket = Math.round(tz / 60);
+  const activityCacheKey = `activity_cache:${code}:${range}:${tzBucket}`;
+  const [activityCacheEntry, activityLastSyncStr] = await Promise.all([
+    c.env.KV.get<{ data: unknown; computedAt: number }>(activityCacheKey, "json"),
+    c.env.KV.get(`last_sync:${code}`, "text"),
+  ]);
+  const activityLastSync = activityLastSyncStr ? parseInt(activityLastSyncStr) : 0;
+  if (activityCacheEntry && activityCacheEntry.computedAt >= activityLastSync) {
+    return c.json(activityCacheEntry.data);
+  }
 
   // Align time window to user's local day boundary (same logic as getDateRange)
   const nowUtc = Date.now();
@@ -413,7 +446,15 @@ app.get("/activity/:code", async (c) => {
   series.sort((a, b) => b.totalCost - a.totalCost);
   const limited = series.filter((s) => s.blocks.length > 0).slice(0, MAX_USERS);
 
-  return c.json({ range, start: new Date(startMs).toISOString(), end: new Date(endMs).toISOString(), series: limited });
+  const activityResult = { range, start: new Date(startMs).toISOString(), end: new Date(endMs).toISOString(), series: limited };
+
+  c.executionCtx.waitUntil(
+    c.env.KV.put(activityCacheKey, JSON.stringify({ data: activityResult, computedAt: Date.now() }), {
+      expirationTtl: 600,
+    })
+  );
+
+  return c.json(activityResult);
 });
 
 export { app as rankRoutes };

@@ -1,6 +1,6 @@
 {
   "name": "ccclub",
-  "version": "0.2.74",
+  "version": "0.2.75",
   "type": "module",
   "description": "Claude Code leaderboard among friends",
   "bin": {

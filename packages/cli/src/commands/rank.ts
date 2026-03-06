@@ -70,41 +70,48 @@ export async function rankCommand(options: { days?: string; period?: string; gro
   const spinner = ora("Loading leaderboard...").start();
 
   try {
-    for (let i = 0; i < codes.length; i++) {
-      const code = codes[i];
-      const tz = -new Date().getTimezoneOffset();
-      const url = `${config.apiUrl}/api/rank/${code}?period=${period}&tz=${tz}`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+    // Fire all rank + activity fetches simultaneously across all groups
+    const groupResults = await Promise.all(
+      codes.map(async (code) => {
+        const tz = -new Date().getTimezoneOffset();
+        const range = period === "weekly" ? "7d" : period === "monthly" || period === "all-time" ? "30d" : period === "yesterday" ? "yesterday" : "24h";
+        const [rankRes, activityRes] = await Promise.all([
+          fetch(`${config.apiUrl}/api/rank/${code}?period=${period}&tz=${tz}`, { signal: AbortSignal.timeout(15_000) }),
+          fetch(`${config.apiUrl}/api/activity/${code}?range=${range}&tz=${tz}`, { signal: AbortSignal.timeout(10_000) }).catch(() => null),
+        ]);
+        if (!rankRes.ok) return { code, rankData: null, activityData: null, range };
+        const rankData = (await rankRes.json()) as RankResponse;
+        const activityData = activityRes?.ok ? ((await activityRes.json()) as ActivityResponse) : null;
+        return { code, rankData, activityData, range };
+      })
+    );
 
-      if (!res.ok) {
-        if (i === 0) spinner.stop();
+    spinner.stop();
+
+    const localSnapshot = await localUsagePromise;
+    if (process.env.CCCLUB_DEBUG) {
+      console.error("[usage-debug] localSnapshot:", localSnapshot);
+      console.error("[usage-debug] config.userId:", config.userId);
+    }
+
+    for (let i = 0; i < groupResults.length; i++) {
+      const { code, rankData, activityData, range } = groupResults[i];
+      if (!rankData) {
         console.log(chalk.red(`\n  Couldn't load leaderboard for ${code}`));
         continue;
       }
 
-      const data = (await res.json()) as RankResponse;
-      if (i === 0) spinner.stop();
-
       // Inject live local snapshot into current user's row (fresher than last sync)
-      const localSnapshot = await localUsagePromise;
-      if (process.env.CCCLUB_DEBUG) {
-        console.error("[usage-debug] localSnapshot:", localSnapshot);
-        console.error("[usage-debug] config.userId:", config.userId);
-        const dbgMe = data.rankings.find((r) => r.userId === config.userId);
-        console.error("[usage-debug] me found:", !!dbgMe, "rankings userIds:", data.rankings.map((r) => r.userId).slice(0, 3));
-      }
       if (localSnapshot) {
-        const me = data.rankings.find((r) => r.userId === config.userId);
+        const me = rankData.rankings.find((r) => r.userId === config.userId);
         if (me) me.usageSnapshot = localSnapshot;
       }
 
-      printGroup(data, code, period, config, options.cache);
+      printGroup(rankData, code, period, config, options.cache);
 
-      // Fetch and render activity sparklines
-      const range = period === "weekly" ? "7d" : period === "monthly" || period === "all-time" ? "30d" : period === "yesterday" ? "yesterday" : "24h";
-      await printActivity(config.apiUrl, code, range);
+      if (activityData) renderActivity(activityData, range);
 
-      if (i < codes.length - 1) console.log("");
+      if (i < groupResults.length - 1) console.log("");
     }
 
     console.log(chalk.dim("\n  Tokens = input + output ") + chalk.yellow("(cache excluded)") + chalk.dim(". Use ") + chalk.white("--cache") + chalk.dim(" to include cache tokens."));
@@ -239,13 +246,7 @@ interface ActivityResponse {
 
 const SPARK_CHARS = "▁▂▃▄▅▆▇";
 
-async function printActivity(apiUrl: string, code: string, range: string): Promise<void> {
-  try {
-    const tz = -new Date().getTimezoneOffset();
-    const res = await fetch(`${apiUrl}/api/activity/${code}?range=${range}&tz=${tz}`, { signal: AbortSignal.timeout(10_000) });
-    if (!res.ok) return;
-
-    const data = (await res.json()) as ActivityResponse;
+function renderActivity(data: ActivityResponse, range: string): void {
     const active = data.series.filter((s) => s.blocks.length > 0);
     if (active.length === 0) return;
 
@@ -326,7 +327,4 @@ async function printActivity(apiUrl: string, code: string, range: string): Promi
       }
     }
     console.log(chalk.dim("  " + " ".repeat(12) + " " + axisArr.join("")));
-  } catch {
-    // Silently skip if activity fetch fails
-  }
 }

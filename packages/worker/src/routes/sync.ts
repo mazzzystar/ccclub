@@ -82,6 +82,14 @@ app.post("/sync", async (c) => {
 
   await c.env.KV.put(`usage:${user.userId}`, JSON.stringify(usageData));
 
+  // Invalidate rank cache for all groups this user belongs to
+  const userGroups = (await c.env.KV.get<string[]>(`user_groups:${user.userId}`, "json")) || [];
+  if (userGroups.length > 0) {
+    await Promise.all(
+      userGroups.map((code) => c.env.KV.put(`last_sync:${code}`, String(Date.now())))
+    );
+  }
+
   return c.json<SyncResponse>({ synced: blocks.length });
 });
 

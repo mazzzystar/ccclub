@@ -350,9 +350,10 @@ function dashboardHTML(code: string) {
           var hasUsage = data.rankings.some(function(r) { return r.usageSnapshot; });
           var PLAN_PRICES = { pro: 20, max100: 100, max200: 200, api: 0 };
           var h = '<table><thead><tr><th>#</th><th>Name</th><th>Cost</th><th>Tokens</th>';
-          if (hasUsage) h += '<th>Usage (5h/7d)</th>';
           if (hasPlan) h += '<th>Monthly ROI</th>';
-          h += '<th>Chats</th><th>$/Chat</th></tr></thead><tbody>';
+          h += '<th>Chats</th><th>$/Chat</th>';
+          if (hasUsage) h += '<th>Usage 7d</th>';
+          h += '</tr></thead><tbody>';
 
           data.rankings.forEach(function(r) {
             var pct = maxCost > 0 ? (r.costUSD / maxCost * 100) : 0;
@@ -364,14 +365,6 @@ function dashboardHTML(code: string) {
                 '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +
               '<td class="cost">$' + r.costUSD.toFixed(2) + '</td>' +
               '<td class="tokens">' + formatTokens(showCache ? r.totalTokens : (r.inputTokens + r.outputTokens)) + '</td>';
-            if (hasUsage) {
-              if (r.usageSnapshot) {
-                var snapshotTitle = "5h window / 7d rolling \u00b7 as of " + new Date(r.usageSnapshot.snapshotAt).toLocaleString();
-                h += '<td class="usage" title="' + esc(snapshotTitle) + '">' + Math.round(r.usageSnapshot.fiveHour) + '%/' + Math.round(r.usageSnapshot.sevenDay) + '%</td>';
-              } else {
-                h += '<td class="usage"><span style="color:#4a4640">\u2014</span></td>';
-              }
-            }
             if (hasPlan) {
               if (r.plan && r.plan !== "api") {
                 var price = PLAN_PRICES[r.plan] || 0;
@@ -387,7 +380,16 @@ function dashboardHTML(code: string) {
             }
             var chats = r.chatCount || 0;
             var perChat = chats > 0 ? '$' + (r.costUSD / chats).toFixed(2) : '\u2014';
-            h += '<td class="calls">' + chats + '</td><td class="cost">' + perChat + '</td></tr>';
+            h += '<td class="calls">' + chats + '</td><td class="cost">' + perChat + '</td>';
+            if (hasUsage) {
+              if (r.usageSnapshot) {
+                var snapshotTitle = "7d rolling \u00b7 as of " + new Date(r.usageSnapshot.snapshotAt).toLocaleString();
+                h += '<td class="usage" title="' + esc(snapshotTitle) + '">' + Math.round(r.usageSnapshot.sevenDay) + '%</td>';
+              } else {
+                h += '<td class="usage"><span style="color:#4a4640">\u2014</span></td>';
+              }
+            }
+            h += '</tr>';
           });
           h += '</tbody></table>';
           document.getElementById("content").innerHTML = h;

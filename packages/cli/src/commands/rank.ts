@@ -151,16 +151,16 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
 
   const head = ["#", "Name", "Cost", "Tokens"];
   const widths = [5, 20, 12, 10];
-  if (hasUsage) {
-    head.push("Usage 7d");
-    widths.push(10);
-  }
   if (hasPlan) {
     head.push("Monthly ROI");
     widths.push(15);
   }
   head.push("Chats", "$/Chat");
   widths.push(8, 9);
+  if (hasUsage) {
+    head.push("Usage 7d");
+    widths.push(10);
+  }
 
   const table = new Table({
     head: head.map((h) => chalk.cyan(h)),
@@ -185,15 +185,6 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
       c(formatTokens(tokens)),
     ];
 
-    if (hasUsage) {
-      if (entry.usageSnapshot) {
-        const { sevenDay } = entry.usageSnapshot;
-        row.push(c(`${Math.round(sevenDay)}%`));
-      } else {
-        row.push(chalk.dim("—"));
-      }
-    }
-
     if (hasPlan) {
       if (entry.plan && entry.plan !== "api") {
         const price = PLAN_PRICES[entry.plan as keyof typeof PLAN_PRICES];
@@ -211,6 +202,16 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
 
     row.push(c(String(entry.chatCount)));
     row.push(entry.chatCount > 0 ? c(`$${(entry.costUSD / entry.chatCount).toFixed(2)}`) : chalk.dim("—"));
+
+    if (hasUsage) {
+      if (entry.usageSnapshot) {
+        const { sevenDay } = entry.usageSnapshot;
+        row.push(c(`${Math.round(sevenDay)}%`));
+      } else {
+        row.push(chalk.dim("—"));
+      }
+    }
+
     table.push(row);
   }
 

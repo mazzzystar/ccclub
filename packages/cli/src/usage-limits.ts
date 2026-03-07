@@ -1,6 +1,9 @@
 import { execSync, exec } from "node:child_process";
 import { promisify } from "node:util";
-import { userInfo } from "node:os";
+import { userInfo, homedir } from "node:os";
+import { join } from "node:path";
+import { readFileSync, writeFileSync } from "node:fs";
+import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
 import type { UsageSnapshot } from "@ccclub/shared";
 
 export type { UsageSnapshot };
@@ -10,6 +13,22 @@ const execAsync = promisify(exec);
 const debug = (...args: unknown[]) => {
   if (process.env.CCCLUB_DEBUG) console.error("[usage-debug]", ...args);
 };
+
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_PATH = join(homedir(), CCCLUB_CONFIG_DIR, "usage-cache.json");
+
+function readCache(allowStale = false): UsageSnapshot | null {
+  try {
+    const raw = readFileSync(CACHE_PATH, "utf-8");
+    const { snapshot, fetchedAt } = JSON.parse(raw) as { snapshot: UsageSnapshot; fetchedAt: number };
+    if (allowStale || Date.now() - fetchedAt < CACHE_TTL_MS) return snapshot;
+  } catch { /* no cache or parse error */ }
+  return null;
+}
+
+function writeCache(snapshot: UsageSnapshot): void {
+  try { writeFileSync(CACHE_PATH, JSON.stringify({ snapshot, fetchedAt: Date.now() })); } catch { /* ignore */ }
+}
 
 function parseUtilization(value: unknown): number {
   if (typeof value === "number") return Math.round(value * 100) / 100;
@@ -21,6 +40,12 @@ function parseUtilization(value: unknown): number {
 }
 
 export async function fetchUsageLimits(): Promise<UsageSnapshot | null> {
+  const cached = readCache();
+  if (cached) {
+    debug("returning cached snapshot:", cached.fiveHour, cached.sevenDay);
+    return cached;
+  }
+
   try {
     const username = process.env.USER || process.env.USERNAME || userInfo().username;
     debug("username:", username);
@@ -49,9 +74,8 @@ export async function fetchUsageLimits(): Promise<UsageSnapshot | null> {
       return null;
     }
 
-    // Use async exec so Node event loop stays free (curl bypasses proxy issues with native fetch)
-    // --noproxy '*' ensures proxy env vars don't interfere
-    const curlCmd = `curl -sf --max-time 8 --noproxy '*' "https://api.anthropic.com/api/oauth/usage" -H "Authorization: Bearer ${accessToken}" -H "anthropic-beta: oauth-2025-04-20" -H "User-Agent: claude-code/2.1.5"`;
+    // Use async exec so Node event loop stays free
+    const curlCmd = `curl -sf --max-time 8 "https://api.anthropic.com/api/oauth/usage" -H "Authorization: Bearer ${accessToken}" -H "anthropic-beta: oauth-2025-04-20" -H "User-Agent: claude-code/2.1.5"`;
     debug("running curl...");
     const { stdout } = await execAsync(curlCmd, { timeout: 9000 });
     debug("curl stdout length:", stdout.length, "first 100:", stdout.slice(0, 100));
@@ -76,9 +100,13 @@ export async function fetchUsageLimits(): Promise<UsageSnapshot | null> {
       snapshotAt: new Date().toISOString(),
     };
     debug("returning snapshot:", result.fiveHour, result.sevenDay);
+    writeCache(result);
     return result;
   } catch (err) {
     debug("caught error:", err instanceof Error ? err.message : String(err));
-    return null;
+    // On failure (e.g. 429 rate limit), fall back to stale cache rather than returning null
+    const stale = readCache(true);
+    if (stale) debug("returning stale cache as fallback:", stale.fiveHour, stale.sevenDay);
+    return stale;
   }
 }

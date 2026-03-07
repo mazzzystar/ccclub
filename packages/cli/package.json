@@ -12,6 +12,7 @@
   ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean",
+    "prepublishOnly": "npm run build",
     "postinstall": "node scripts/postinstall.cjs",
     "dev": "tsx src/index.ts",
     "test": "vitest run"

@@ -98,8 +98,16 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
 
     if (blocksToSync.length === 0) {
       if (spinner) spinner.succeed("Already up to date");
-      // Still write sync version even if no new blocks
       await writeFile(getSyncVersionPath(), SYNC_FORMAT_VERSION);
+      // Even with no new blocks, upload usage snapshot so others see fresh data
+      if (usageSnapshot) {
+        fetch(`${config.apiUrl}/api/usage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.token}` },
+          body: JSON.stringify({ usageSnapshot }),
+          signal: AbortSignal.timeout(8_000),
+        }).catch(() => {});
+      }
       return;
     }
 

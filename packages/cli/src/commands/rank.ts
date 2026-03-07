@@ -89,6 +89,16 @@ export async function rankCommand(options: { days?: string; period?: string; gro
     spinner.stop();
 
     const localSnapshot = await localUsagePromise;
+
+    // Fire-and-forget: upload own usage so others see fresh data
+    if (localSnapshot) {
+      fetch(`${config.apiUrl}/api/usage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.token}` },
+        body: JSON.stringify({ usageSnapshot: localSnapshot }),
+        signal: AbortSignal.timeout(8_000),
+      }).catch(() => {});
+    }
     if (process.env.CCCLUB_DEBUG) {
       console.error("[usage-debug] localSnapshot:", localSnapshot);
       console.error("[usage-debug] config.userId:", config.userId);

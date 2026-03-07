@@ -74,39 +74,46 @@ export async function fetchUsageLimits(): Promise<UsageSnapshot | null> {
       return null;
     }
 
-    // Use async exec so Node event loop stays free
-    const curlCmd = `curl -sf --max-time 8 "https://api.anthropic.com/api/oauth/usage" -H "Authorization: Bearer ${accessToken}" -H "anthropic-beta: oauth-2025-04-20" -H "User-Agent: claude-code/2.1.5"`;
+    // Use async exec so Node event loop stays free; omit -f so 429 body is readable
+    const curlCmd = `curl -s --max-time 8 "https://api.anthropic.com/api/oauth/usage" -H "Authorization: Bearer ${accessToken}" -H "anthropic-beta: oauth-2025-04-20" -H "User-Agent: claude-code/2.1.5"`;
     debug("running curl...");
     const { stdout } = await execAsync(curlCmd, { timeout: 9000 });
     debug("curl stdout length:", stdout.length, "first 100:", stdout.slice(0, 100));
 
-    if (!stdout) {
-      debug("returning null: empty stdout");
-      return null;
+    if (stdout) {
+      const data = JSON.parse(stdout) as Record<string, unknown>;
+      if (!(data as { error?: unknown }).error) {
+        const fiveHourRaw = (data.five_hour as Record<string, unknown>)?.utilization;
+        const sevenDayRaw = (data.seven_day as Record<string, unknown>)?.utilization;
+        const result = {
+          fiveHour: parseUtilization(fiveHourRaw),
+          sevenDay: parseUtilization(sevenDayRaw),
+          snapshotAt: new Date().toISOString(),
+        };
+        debug("returning snapshot:", result.fiveHour, result.sevenDay);
+        writeCache(result);
+        return result;
+      }
+      debug("API error response:", (data as { error?: unknown }).error);
     }
-
-    const data = JSON.parse(stdout) as Record<string, unknown>;
-    if ((data as { error?: unknown }).error) {
-      debug("returning null: data.error =", (data as { error?: unknown }).error);
-      return null;
-    }
-
-    const fiveHourRaw = (data.five_hour as Record<string, unknown>)?.utilization;
-    const sevenDayRaw = (data.seven_day as Record<string, unknown>)?.utilization;
-
-    const result = {
-      fiveHour: parseUtilization(fiveHourRaw),
-      sevenDay: parseUtilization(sevenDayRaw),
-      snapshotAt: new Date().toISOString(),
-    };
-    debug("returning snapshot:", result.fiveHour, result.sevenDay);
-    writeCache(result);
-    return result;
+    // API error (e.g. 429) — fall through to cached fallbacks below
   } catch (err) {
     debug("caught error:", err instanceof Error ? err.message : String(err));
-    // On failure (e.g. 429 rate limit), fall back to stale cache rather than returning null
-    const stale = readCache(true);
-    if (stale) debug("returning stale cache as fallback:", stale.fiveHour, stale.sevenDay);
-    return stale;
   }
+
+  // Fallback 1: cc-costline's /tmp/sl-claude-usage (often fresher)
+  try {
+    const tmp = JSON.parse(readFileSync("/tmp/sl-claude-usage", "utf-8")) as { fiveHour: number; sevenDay: number };
+    if (typeof tmp.fiveHour === "number" && typeof tmp.sevenDay === "number") {
+      const result = { fiveHour: tmp.fiveHour, sevenDay: tmp.sevenDay, snapshotAt: new Date().toISOString() };
+      debug("returning cc-costline cache fallback:", result.fiveHour, result.sevenDay);
+      writeCache(result);
+      return result;
+    }
+  } catch { /* no cc-costline cache */ }
+
+  // Fallback 2: our own stale cache
+  const stale = readCache(true);
+  if (stale) debug("returning stale cache as fallback:", stale.fiveHour, stale.sevenDay);
+  return stale;
 }

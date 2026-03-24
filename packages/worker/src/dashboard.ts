@@ -58,13 +58,24 @@ function dashboardHTML(code: string) {
 
     .wrap { max-width: 640px; margin: 0 auto; padding: 48px 24px; }
 
+    /* Top nav */
+    .top-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
     /* Back link */
     .back-link {
-      display: inline-block; margin-bottom: 20px;
       color: #6b6560; font-size: 13px; text-decoration: none;
       transition: color 0.15s;
     }
     .back-link:hover { color: #c8c4be; }
+
+    .global-link {
+      color: #6b6560; font-size: 13px; text-decoration: none;
+      transition: color 0.15s;
+    }
+    .global-link:hover { color: #c8c4be; }
 
     /* Header */
     h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.5px; color: #f0ece6; }
@@ -212,7 +223,10 @@ function dashboardHTML(code: string) {
 </head>
 <body>
   <div class="wrap">
-    <a href="/" class="back-link">\u2190 Home</a>
+    <div class="top-nav">
+      <a href="/" class="back-link">\u2190 Home</a>
+      ${isGlobal ? html`` : html`<a href="/g/global" class="global-link">Global \u2192</a>`}
+    </div>
     <h1 id="title"></h1>
     <div class="subtitle" id="date-range"></div>
 
@@ -222,7 +236,6 @@ function dashboardHTML(code: string) {
       <button data-period="weekly">7d</button>
       <button data-period="monthly">30d</button>
       <button data-period="all-time">All Time</button>
-      ${isGlobal ? html`` : html`<button data-nav="global">Global</button>`}
       <div class="toggle-wrap">
         <span class="toggle-label" id="cache-label">Cache</span>
         <button class="toggle" id="cache-toggle" aria-label="Include cache tokens"></button>
@@ -281,14 +294,6 @@ function dashboardHTML(code: string) {
         this.textContent = "Copied!";
         var btn = this;
         setTimeout(function() { btn.textContent = "Copy"; }, 2000);
-      });
-    }
-
-    // Global navigation button
-    var navGlobal = document.querySelector('[data-nav="global"]');
-    if (navGlobal) {
-      navGlobal.addEventListener("click", function() {
-        window.location.href = "/g/global";
       });
     }
 

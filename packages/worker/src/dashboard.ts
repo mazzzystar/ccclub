@@ -78,7 +78,7 @@ function dashboardHTML(code: string) {
       font-size: 13px; font-family: inherit;
       transition: all 0.15s ease;
     }
-    .periods button:hover { border-color: #5a5550; color: #c8c4be; }
+    .periods button:hover:not(.toggle) { border-color: #5a5550; color: #c8c4be; }
     .periods button.active {
       background: #2a2826; color: #e8e4de; border-color: #4a4640;
     }
@@ -88,16 +88,18 @@ function dashboardHTML(code: string) {
       margin-left: auto; display: flex; align-items: center; gap: 6px;
     }
     .toggle-label { font-size: 12px; color: #6b6560; user-select: none; cursor: pointer; }
+    .periods button.toggle,
     .toggle {
       position: relative; width: 32px; height: 18px; cursor: pointer;
-      background: #363330; border-radius: 9px; border: none;
-      transition: background 0.2s;
+      background: #363330; border-radius: 9px; border: none; outline: none;
+      padding: 0; transition: background 0.2s;
     }
     .toggle::after {
       content: ""; position: absolute; top: 2px; left: 2px;
       width: 14px; height: 14px; border-radius: 50%;
       background: #6b6560; transition: all 0.2s;
     }
+    .periods button.toggle.on,
     .toggle.on { background: #5aad7d; }
     .toggle.on::after { left: 16px; background: #e8e4de; }
 

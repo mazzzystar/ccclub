@@ -58,13 +58,21 @@ function dashboardHTML(code: string) {
 
     .wrap { max-width: 640px; margin: 0 auto; padding: 48px 24px; }
 
-    /* Back link */
+    /* Top nav */
+    .top-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px;
+    }
     .back-link {
-      display: inline-block; margin-bottom: 20px;
       color: #6b6560; font-size: 13px; text-decoration: none;
       transition: color 0.15s;
     }
     .back-link:hover { color: #c8c4be; }
+    .global-link {
+      color: #6b6560; font-size: 13px; text-decoration: none;
+      transition: color 0.15s;
+    }
+    .global-link:hover { color: #c8c4be; }
 
     /* Header */
     h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.5px; color: #f0ece6; }
@@ -78,7 +86,7 @@ function dashboardHTML(code: string) {
       font-size: 13px; font-family: inherit;
       transition: all 0.15s ease;
     }
-    .periods button:hover { border-color: #5a5550; color: #c8c4be; }
+    .periods button:hover:not(.toggle) { border-color: #5a5550; color: #c8c4be; }
     .periods button.active {
       background: #2a2826; color: #e8e4de; border-color: #4a4640;
     }
@@ -88,18 +96,22 @@ function dashboardHTML(code: string) {
       margin-left: auto; display: flex; align-items: center; gap: 6px;
     }
     .toggle-label { font-size: 12px; color: #6b6560; user-select: none; cursor: pointer; }
+    .periods button.toggle,
     .toggle {
       position: relative; width: 32px; height: 18px; cursor: pointer;
-      background: #363330; border-radius: 9px; border: none;
-      transition: background 0.2s;
+      background: #363330; border-radius: 9px; border: none; outline: none;
+      padding: 0; transition: background 0.2s;
     }
     .toggle::after {
       content: ""; position: absolute; top: 2px; left: 2px;
       width: 14px; height: 14px; border-radius: 50%;
       background: #6b6560; transition: all 0.2s;
     }
+    .periods button.toggle.on,
     .toggle.on { background: #5aad7d; }
     .toggle.on::after { left: 16px; background: #e8e4de; }
+    .usage-toggle-wrap { display: none; align-items: center; gap: 6px; margin-right: 8px; }
+    .usage-toggle-wrap.visible { display: flex; }
 
     /* Table */
     table { width: 100%; border-collapse: collapse; margin-top: 8px; }
@@ -210,7 +222,10 @@ function dashboardHTML(code: string) {
 </head>
 <body>
   <div class="wrap">
-    <a href="/" class="back-link">\u2190 Home</a>
+    <div class="top-nav">
+      <a href="/" class="back-link">\u2190 Home</a>
+      ${isGlobal ? html`` : html`<a href="/g/global" class="global-link">Global \u2192</a>`}
+    </div>
     <h1 id="title"></h1>
     <div class="subtitle" id="date-range"></div>
 
@@ -220,8 +235,11 @@ function dashboardHTML(code: string) {
       <button data-period="weekly">7d</button>
       <button data-period="monthly">30d</button>
       <button data-period="all-time">All Time</button>
-      ${isGlobal ? html`` : html`<button data-nav="global">Global</button>`}
       <div class="toggle-wrap">
+        <div class="usage-toggle-wrap" id="usage-toggle-wrap">
+          <span class="toggle-label" id="usage-label">Native</span>
+          <button class="toggle" id="usage-toggle" aria-label="Show native Claude Code users only"></button>
+        </div>
         <span class="toggle-label" id="cache-label">Cache</span>
         <button class="toggle" id="cache-toggle" aria-label="Include cache tokens"></button>
       </div>
@@ -258,6 +276,7 @@ function dashboardHTML(code: string) {
     var IS_GLOBAL = ${isGlobal ? "true" : "false"};
     var period = "daily";
     var showCache = false;
+    var showUsageOnly = false;
 
     var cacheToggle = document.getElementById("cache-toggle");
     var cacheLabel = document.getElementById("cache-label");
@@ -270,6 +289,17 @@ function dashboardHTML(code: string) {
       cacheToggle.click();
     });
 
+    var usageToggle = document.getElementById("usage-toggle");
+    var usageLabel = document.getElementById("usage-label");
+    usageToggle.addEventListener("click", function() {
+      showUsageOnly = !showUsageOnly;
+      usageToggle.classList.toggle("on", showUsageOnly);
+      load();
+    });
+    usageLabel.addEventListener("click", function() {
+      usageToggle.click();
+    });
+
     var inviteEl = document.getElementById("invite-code-display");
     if (inviteEl) inviteEl.textContent = "npx ccclub join " + CODE;
     var copyBtn = document.getElementById("copy-btn");
@@ -279,14 +309,6 @@ function dashboardHTML(code: string) {
         this.textContent = "Copied!";
         var btn = this;
         setTimeout(function() { btn.textContent = "Copy"; }, 2000);
-      });
-    }
-
-    // Global navigation button
-    var navGlobal = document.querySelector('[data-nav="global"]');
-    if (navGlobal) {
-      navGlobal.addEventListener("click", function() {
-        window.location.href = "/g/global";
       });
     }
 
@@ -348,6 +370,12 @@ function dashboardHTML(code: string) {
           data.rankings.forEach(function(r) { if (r.costUSD > maxCost) maxCost = r.costUSD; });
           var hasPlan = data.rankings.some(function(r) { return r.plan; });
           var hasUsage = data.rankings.some(function(r) { return r.usageSnapshot; });
+          var ufWrap = document.getElementById("usage-toggle-wrap");
+          if (hasUsage) { ufWrap.classList.add("visible"); } else { ufWrap.classList.remove("visible"); }
+          var rows = data.rankings;
+          if (hasUsage && showUsageOnly) {
+            rows = data.rankings.filter(function(r) { return !!r.usageSnapshot; });
+          }
           var PLAN_PRICES = { pro: 20, max100: 100, max200: 200, api: 0 };
           var h = '<table><thead><tr><th>#</th><th>Name</th><th>Cost</th><th>Tokens</th>';
           if (hasPlan) h += '<th>Monthly ROI</th>';
@@ -355,11 +383,12 @@ function dashboardHTML(code: string) {
           if (hasUsage) h += '<th>Usage 7d</th>';
           h += '</tr></thead><tbody>';
 
-          data.rankings.forEach(function(r) {
+          rows.forEach(function(r, idx) {
+            var displayRank = showUsageOnly ? (idx + 1) : r.rank;
             var pct = maxCost > 0 ? (r.costUSD / maxCost * 100) : 0;
-            var rankClass = r.rank <= 3 ? "rank top" : "rank";
+            var rankClass = displayRank <= 3 ? "rank top" : "rank";
             h += '<tr>' +
-              '<td class="' + rankClass + '">' + r.rank + '</td>' +
+              '<td class="' + rankClass + '">' + displayRank + '</td>' +
               '<td><div class="name-cell">' + avatarHTML(r.userId, r.displayName, r.avatar) +
                 '<div><div class="name-text">' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" rel="noopener" class="name-link">' + esc(r.displayName) + '</a>' : esc(r.displayName)) + '</div>' +
                 '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +

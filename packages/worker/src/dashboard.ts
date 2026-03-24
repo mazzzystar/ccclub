@@ -100,6 +100,15 @@ function dashboardHTML(code: string) {
     }
     .toggle.on { background: #5aad7d; }
     .toggle.on::after { left: 16px; background: #e8e4de; }
+    .usage-filter { display: none; margin-left: auto; gap: 4px; align-items: center; }
+    .usage-filter.visible { display: flex; }
+    .uf-btn {
+      padding: 4px 10px; border-radius: 4px; border: 1px solid #363330;
+      background: transparent; color: #6b6560; cursor: pointer;
+      font-size: 11px; font-family: inherit; transition: all 0.15s ease;
+    }
+    .uf-btn:hover { border-color: #5a5550; color: #c8c4be; }
+    .uf-btn.active { border-color: #d4935e; color: #d4935e; }
 
     /* Table */
     table { width: 100%; border-collapse: collapse; margin-top: 8px; }
@@ -225,6 +234,11 @@ function dashboardHTML(code: string) {
         <span class="toggle-label" id="cache-label">Cache</span>
         <button class="toggle" id="cache-toggle" aria-label="Include cache tokens"></button>
       </div>
+      <div class="usage-filter" id="usage-filter">
+        <button class="uf-btn active" data-uf="all">All</button>
+        <button class="uf-btn" data-uf="has">Has 7d</button>
+        <button class="uf-btn" data-uf="none">No 7d</button>
+      </div>
     </div>
 
     <div id="content"></div>
@@ -258,6 +272,7 @@ function dashboardHTML(code: string) {
     var IS_GLOBAL = ${isGlobal ? "true" : "false"};
     var period = "daily";
     var showCache = false;
+    var usageFilter = "all";
 
     var cacheToggle = document.getElementById("cache-toggle");
     var cacheLabel = document.getElementById("cache-label");
@@ -268,6 +283,15 @@ function dashboardHTML(code: string) {
     });
     cacheLabel.addEventListener("click", function() {
       cacheToggle.click();
+    });
+
+    document.querySelectorAll(".uf-btn").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        document.querySelectorAll(".uf-btn").forEach(function(b) { b.classList.remove("active"); });
+        btn.classList.add("active");
+        usageFilter = btn.dataset.uf;
+        load();
+      });
     });
 
     var inviteEl = document.getElementById("invite-code-display");
@@ -348,6 +372,13 @@ function dashboardHTML(code: string) {
           data.rankings.forEach(function(r) { if (r.costUSD > maxCost) maxCost = r.costUSD; });
           var hasPlan = data.rankings.some(function(r) { return r.plan; });
           var hasUsage = data.rankings.some(function(r) { return r.usageSnapshot; });
+          var ufEl = document.getElementById("usage-filter");
+          if (hasUsage) { ufEl.classList.add("visible"); } else { ufEl.classList.remove("visible"); }
+          if (hasUsage && usageFilter !== "all") {
+            data.rankings = data.rankings.filter(function(r) {
+              return usageFilter === "has" ? !!r.usageSnapshot : !r.usageSnapshot;
+            });
+          }
           var PLAN_PRICES = { pro: 20, max100: 100, max200: 200, api: 0 };
           var h = '<table><thead><tr><th>#</th><th>Name</th><th>Cost</th><th>Tokens</th>';
           if (hasPlan) h += '<th>Monthly ROI</th>';

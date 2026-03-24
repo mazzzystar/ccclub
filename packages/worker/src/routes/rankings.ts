@@ -174,6 +174,7 @@ app.get("/rank/global", async (c) => {
         entry.monthlyCostUSD = Math.round((isMonthly ? costUSD : monthlyCost) * 10000) / 10000;
       }
       if (usage?.usageSnapshot) entry.usageSnapshot = usage.usageSnapshot;
+      if (usage?.lastSync) entry.lastSync = usage.lastSync;
       entries.push(entry);
     }
   }
@@ -281,6 +282,7 @@ app.get("/rank/:code", async (c) => {
       entry.monthlyCostUSD = Math.round((isMonthly ? costUSD : monthlyCost) * 10000) / 10000;
     }
     if (usage?.usageSnapshot) entry.usageSnapshot = usage.usageSnapshot;
+    if (usage?.lastSync) entry.lastSync = usage.lastSync;
     entries.push(entry);
   }
 

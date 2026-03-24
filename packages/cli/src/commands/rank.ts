@@ -10,6 +10,8 @@ import { installHook, isHookInstalled } from "../hook.js";
 import { getUpdateResult } from "../update-check.js";
 import { fetchUsageLimits } from "../usage-limits.js";
 
+const ACTIVE_THRESHOLD_MS = 15 * 60 * 1000;
+
 export async function rankCommand(options: { days?: string; period?: string; group?: string; global?: boolean; cache?: boolean; all?: boolean }): Promise<void> {
   const config = await requireConfig();
 
@@ -161,7 +163,13 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
 
   console.log(chalk.bold(`\n  ${data.group.name}`));
   const periodLabel: Record<string, string> = { daily: "TODAY", yesterday: "YESTERDAY", weekly: "7 DAYS", monthly: "30 DAYS", "all-time": "ALL TIME" };
-  console.log(chalk.dim(`  ${periodLabel[period] || period.toUpperCase()} · ${data.start.slice(0, 10)} → ${data.end.slice(0, 10)} · ${data.group.memberCount} members\n`));
+  const now = Date.now();
+  const activeCount = data.rankings.filter((r) => r.lastSync && now - new Date(r.lastSync).getTime() < ACTIVE_THRESHOLD_MS).length;
+  console.log(chalk.dim(`  ${periodLabel[period] || period.toUpperCase()} · ${data.start.slice(0, 10)} → ${data.end.slice(0, 10)} · ${data.group.memberCount} members`));
+  if (activeCount > 0) {
+    console.log(chalk.green(`  ${activeCount} active`));
+  }
+  console.log("");
 
   const activeRankings = showAll || data.rankings.length <= 15
     ? data.rankings
@@ -172,7 +180,8 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   const hasUsage = activeRankings.some((r) => r.usageSnapshot);
 
   const head = ["#", "Name", "Cost", "Tokens"];
-  const widths = [5, 20, 12, 10];
+  const hasActive = activeRankings.some((r) => r.lastSync && now - new Date(r.lastSync).getTime() < ACTIVE_THRESHOLD_MS);
+  const widths = [5, hasActive ? 30 : 20, 12, 10];
   if (hasPlan) {
     head.push("Monthly ROI");
     widths.push(15);
@@ -194,15 +203,18 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
     const isMe = entry.userId === config.userId;
     const tokens = showCache ? entry.totalTokens : entry.inputTokens + entry.outputTokens;
     const marker = isMe ? chalk.green("→") : " ";
+    const isActive = entry.lastSync && now - new Date(entry.lastSync).getTime() < ACTIVE_THRESHOLD_MS;
 
     // Only two highlights: #1 gold, self green. Everything else default.
     const id = (s: string) => s;
     const c = isMe ? chalk.green : entry.rank === 1 ? chalk.yellow : id;
     const nameC = isMe ? chalk.green.bold : entry.rank === 1 ? chalk.yellow.bold : id;
 
+    const displayName = isActive ? `${entry.displayName} ${chalk.green("(active)")}` : entry.displayName;
+
     const row: string[] = [
       `${marker}${c(String(entry.rank))}`,
-      nameC(entry.displayName),
+      nameC(displayName),
       c(`$${entry.costUSD.toFixed(2)}`),
       c(formatTokens(tokens)),
     ];

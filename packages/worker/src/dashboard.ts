@@ -140,6 +140,8 @@ function dashboardHTML(code: string) {
     .avatar .fallback { display: none; }
     .avatar img.errored + .fallback { display: flex; }
     .name-text { font-weight: 500; font-size: 14px; }
+    .active-badge { color: #5aad7d; font-size: 12px; font-weight: 400; margin-left: 4px; }
+    .active-count { color: #5aad7d; font-size: 13px; margin-top: 4px; }
     .name-link { color: #6ba3be; text-decoration: none; }
     .name-link:hover { text-decoration: underline; }
     .bar {
@@ -229,6 +231,7 @@ function dashboardHTML(code: string) {
     </div>
     <h1 id="title"></h1>
     <div class="subtitle" id="date-range"></div>
+    <div class="active-count" id="active-count"></div>
 
     <div class="periods">
       <button class="active" data-period="daily">Today</button>
@@ -273,6 +276,7 @@ function dashboardHTML(code: string) {
     var IS_GLOBAL = ${isGlobal ? "true" : "false"};
     var period = "daily";
     var showCache = false;
+    var ACTIVE_THRESHOLD_MS = 15 * 60 * 1000;
 
     var cacheToggle = document.getElementById("cache-toggle");
     var cacheLabel = document.getElementById("cache-label");
@@ -343,6 +347,13 @@ function dashboardHTML(code: string) {
             data.start.slice(0,10) + " \u2014 " + data.end.slice(0,10) +
             " \u00b7 " + data.group.memberCount + (IS_GLOBAL ? " public users" : " members");
 
+          var now = Date.now();
+          var activeCount = data.rankings.filter(function(r) {
+            return r.lastSync && (now - new Date(r.lastSync).getTime()) < ACTIVE_THRESHOLD_MS;
+          }).length;
+          var activeEl = document.getElementById("active-count");
+          activeEl.textContent = activeCount > 0 ? activeCount + " active" : "";
+
           if (data.rankings.length === 0) {
             document.getElementById("content").innerHTML =
               '<div class="empty">' + (IS_GLOBAL
@@ -368,7 +379,7 @@ function dashboardHTML(code: string) {
             h += '<tr>' +
               '<td class="' + rankClass + '">' + r.rank + '</td>' +
               '<td><div class="name-cell">' + avatarHTML(r.userId, r.displayName, r.avatar) +
-                '<div><div class="name-text">' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" rel="noopener" class="name-link">' + esc(r.displayName) + '</a>' : esc(r.displayName)) + '</div>' +
+                '<div><div class="name-text">' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" rel="noopener" class="name-link">' + esc(r.displayName) + '</a>' : esc(r.displayName)) + (r.lastSync && (now - new Date(r.lastSync).getTime()) < ACTIVE_THRESHOLD_MS ? '<span class="active-badge">(active)</span>' : '') + '</div>' +
                 '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +
               '<td class="cost">$' + r.costUSD.toFixed(2) + '</td>' +
               '<td class="tokens">' + formatTokens(showCache ? r.totalTokens : (r.inputTokens + r.outputTokens)) + '</td>';

@@ -107,6 +107,7 @@ export interface RankingEntry {
   entryCount: number;
   chatCount: number;
   usageSnapshot?: UsageSnapshot;
+  lastSync?: string;
 }
 
 export type RankingPeriod = "daily" | "yesterday" | "weekly" | "monthly" | "all-time";

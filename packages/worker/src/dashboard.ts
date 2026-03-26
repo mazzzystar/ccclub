@@ -236,7 +236,7 @@ function dashboardHTML(code: string) {
 <body>
   <div class="wrap">
     <div class="top-nav">
-      <a href="/" class="back-link">\u2190 Home</a>
+      <a href="/" class="back-link" id="back-link">\u2190 ${isGlobal ? "My Club" : "Home"}</a>
       ${isGlobal ? html`` : html`<a href="/g/global" class="global-link">Global \u2192</a>`}
     </div>
     <h1 id="title"></h1>
@@ -287,6 +287,18 @@ function dashboardHTML(code: string) {
     var period = "daily";
     var showCache = false;
     var ACTIVE_THRESHOLD_MS = 15 * 60 * 1000;
+
+    // Global page: back link goes to referrer group or fallback to home
+    if (IS_GLOBAL) {
+      var backLink = document.getElementById("back-link");
+      if (backLink) {
+        var ref = document.referrer;
+        var groupMatch = ref && ref.match(/\\/g\\/([a-zA-Z0-9]+)/);
+        if (groupMatch && groupMatch[1].toLowerCase() !== "global") {
+          backLink.href = "/g/" + groupMatch[1];
+        }
+      }
+    }
 
     var cacheToggle = document.getElementById("cache-toggle");
     var cacheLabel = document.getElementById("cache-label");

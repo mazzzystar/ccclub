@@ -151,6 +151,22 @@ function dashboardHTML(code: string) {
     .avatar .fallback { display: none; }
     .avatar img.errored + .fallback { display: flex; }
     .name-text { font-weight: 500; font-size: 14px; }
+    .typing-bubble {
+      display: inline-flex; gap: 2px; align-items: center;
+      background: #2a2826; border-radius: 6px;
+      padding: 2px 5px; margin-left: 6px; vertical-align: middle;
+    }
+    .typing-bubble span {
+      width: 3px; height: 3px; border-radius: 50%; background: #e8e4de;
+      opacity: 0.15; animation: typing-fade 1.2s infinite ease-in-out;
+    }
+    .typing-bubble span:nth-child(1) { animation-delay: 0s; }
+    .typing-bubble span:nth-child(2) { animation-delay: 0.3s; }
+    .typing-bubble span:nth-child(3) { animation-delay: 0.6s; }
+    @keyframes typing-fade {
+      0%, 100% { opacity: 0.15; }
+      30%, 50% { opacity: 1; }
+    }
     .active-count { color: #5aad7d; font-size: 13px; margin-top: 4px; position: relative; display: inline-block; }
     .name-link { color: #6ba3be; text-decoration: none; }
     .name-link:hover { text-decoration: underline; }
@@ -404,7 +420,7 @@ function dashboardHTML(code: string) {
             h += '<tr>' +
               '<td class="' + rankClass + '">' + r.rank + '</td>' +
               '<td><div class="name-cell">' + avatarHTML(r.userId, r.displayName, r.avatar, isActive) +
-                '<div><div class="name-text">' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" rel="noopener" class="name-link">' + esc(r.displayName) + '</a>' : esc(r.displayName)) + '</div>' +
+                '<div><div class="name-text">' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" rel="noopener" class="name-link">' + esc(r.displayName) + '</a>' : esc(r.displayName)) + (isActive ? '<span class="typing-bubble"><span></span><span></span><span></span></span>' : '') + '</div>' +
                 '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +
               '<td class="cost">$' + r.costUSD.toFixed(2) + '</td>' +
               '<td class="tokens">' + formatTokens(showCache ? r.totalTokens : (r.inputTokens + r.outputTokens)) + '</td>';

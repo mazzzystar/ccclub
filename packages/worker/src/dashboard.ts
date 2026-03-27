@@ -134,30 +134,14 @@ function dashboardHTML(code: string) {
       display: flex; align-items: center; justify-content: center;
       font-weight: 600; font-size: 13px; color: #1a1816;
     }
-    .active-dot {
-      position: absolute; top: 1px; right: 1px;
-      width: 6px; height: 6px; border-radius: 50%;
-      background: #4ade80; box-shadow: 0 0 0 2px #1a1816;
-      animation: breathe 3s infinite ease-in-out;
-    }
-    @keyframes breathe {
-      0%, 100% { opacity: 0.5; transform: scale(0.85); }
-      50% { opacity: 1; transform: scale(1); }
-    }
-    .avatar img {
-      width: 32px; height: 32px; border-radius: 50%; object-fit: cover;
-    }
-    .avatar img.errored { display: none; }
-    .avatar .fallback { display: none; }
-    .avatar img.errored + .fallback { display: flex; }
-    .name-text { font-weight: 500; font-size: 14px; }
     .typing-bubble {
-      display: inline-flex; gap: 2px; align-items: center;
-      background: #2a2826; border-radius: 6px;
-      padding: 2px 5px; margin-left: 6px; vertical-align: middle;
+      position: absolute; top: -6px; right: -4px;
+      background: #2a2826; border-radius: 8px;
+      padding: 3px 5px; display: flex; gap: 2px; align-items: center;
+      box-shadow: 0 0 0 2px #1a1816;
     }
     .typing-bubble span {
-      width: 3px; height: 3px; border-radius: 50%; background: #e8e4de;
+      width: 3.5px; height: 3.5px; border-radius: 50%; background: #e8e4de;
       opacity: 0.15; animation: typing-fade 1.2s infinite ease-in-out;
     }
     .typing-bubble span:nth-child(1) { animation-delay: 0s; }
@@ -167,7 +151,15 @@ function dashboardHTML(code: string) {
       0%, 100% { opacity: 0.15; }
       30%, 50% { opacity: 1; }
     }
-    .active-count { color: #5aad7d; font-size: 13px; margin-top: 4px; position: relative; display: inline-block; }
+    .avatar img {
+      width: 32px; height: 32px; border-radius: 50%; object-fit: cover;
+    }
+    .avatar img.errored { display: none; }
+    .avatar .fallback { display: none; }
+    .avatar img.errored + .fallback { display: flex; }
+    .name-text { font-weight: 500; font-size: 14px; }
+    .active-badge { color: #5aad7d; font-size: 12px; font-weight: 400; margin-left: 4px; }
+    .active-count { color: #5aad7d; font-size: 13px; margin-top: 4px; }
     .name-link { color: #6ba3be; text-decoration: none; }
     .name-link:hover { text-decoration: underline; }
     .bar {
@@ -355,15 +347,15 @@ function dashboardHTML(code: string) {
     function avatarHTML(userId, displayName, avatarUrl, isActive) {
       var initial = esc((displayName || "?").charAt(0).toUpperCase());
       var color = getAvatarColor(userId);
-      var dot = isActive ? '<div class="active-dot"></div>' : '';
+      var bubble = isActive ? '<div class="typing-bubble"><span></span><span></span><span></span></div>' : '';
       if (avatarUrl) {
         return '<div class="avatar-wrap">' +
           '<div class="avatar">' +
           '<img src="' + esc(avatarUrl) + '" alt="" onerror="this.classList.add(&#39;errored&#39;)">' +
           '<span class="fallback avatar" style="background:' + color + ';width:32px;height:32px;display:none;align-items:center;justify-content:center">' + initial + '</span>' +
-          '</div>' + dot + '</div>';
+          '</div>' + bubble + '</div>';
       }
-      return '<div class="avatar-wrap"><div class="avatar" style="background:' + color + '">' + initial + '</div>' + dot + '</div>';
+      return '<div class="avatar-wrap"><div class="avatar" style="background:' + color + '">' + initial + '</div>' + bubble + '</div>';
     }
 
     document.querySelectorAll(".periods button[data-period]").forEach(function(btn) {
@@ -392,7 +384,7 @@ function dashboardHTML(code: string) {
             return r.lastSync && (now - new Date(r.lastSync).getTime()) < ACTIVE_THRESHOLD_MS;
           }).length;
           var activeEl = document.getElementById("active-count");
-          activeEl.innerHTML = activeCount > 0 ? '<span style="position:relative">' + activeCount + ' active<div class="active-dot" style="position:absolute;top:-2px;right:-10px"></div></span>' : "";
+          activeEl.textContent = activeCount > 0 ? activeCount + " active" : "";
 
           if (data.rankings.length === 0) {
             document.getElementById("content").innerHTML =
@@ -420,7 +412,7 @@ function dashboardHTML(code: string) {
             h += '<tr>' +
               '<td class="' + rankClass + '">' + r.rank + '</td>' +
               '<td><div class="name-cell">' + avatarHTML(r.userId, r.displayName, r.avatar, isActive) +
-                '<div><div class="name-text">' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" rel="noopener" class="name-link">' + esc(r.displayName) + '</a>' : esc(r.displayName)) + (isActive ? '<span class="typing-bubble"><span></span><span></span><span></span></span>' : '') + '</div>' +
+                '<div><div class="name-text">' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" rel="noopener" class="name-link">' + esc(r.displayName) + '</a>' : esc(r.displayName)) + (isActive ? '<span class="active-badge">(active)</span>' : '') + '</div>' +
                 '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +
               '<td class="cost">$' + r.costUSD.toFixed(2) + '</td>' +
               '<td class="tokens">' + formatTokens(showCache ? r.totalTokens : (r.inputTokens + r.outputTokens)) + '</td>';

@@ -39,6 +39,8 @@ export async function profileCommand(options: {
       console.log(`  Plan:       ${profile.plan ? PLAN_LABELS[profile.plan as keyof typeof PLAN_LABELS] || profile.plan : chalk.dim("(not set)")}`);
       console.log(`  URL:        ${profile.url || chalk.dim("(not set)")}`);
       console.log();
+      console.log(chalk.dim("  Update: ccclub profile --name <name> --avatar <url> --public"));
+      console.log();
     } catch (err) {
       spinner.fail(`Error: ${formatFetchError(err)}`);
     }

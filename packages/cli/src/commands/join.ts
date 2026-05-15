@@ -100,4 +100,7 @@ export async function joinCommand(inviteCode: string): Promise<void> {
   console.log(chalk.dim("  Open the dashboard in browser:"));
   console.log(chalk.white(`    https://ccclub.dev/g/${data.groupCode}`));
   console.log("");
+  console.log(chalk.dim("  All commands:"));
+  console.log(chalk.white("    ccclub -h"));
+  console.log("");
 }

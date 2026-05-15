@@ -117,4 +117,7 @@ function printQuickStart(groupCode: string): void {
   console.log(chalk.dim("  Check what data gets uploaded:"));
   console.log(chalk.white("    ccclub show-data"));
   console.log("");
+  console.log(chalk.dim("  All commands:"));
+  console.log(chalk.white("    ccclub -h"));
+  console.log("");
 }

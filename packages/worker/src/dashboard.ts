@@ -303,9 +303,9 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
     tbody tr { transition: background 0.15s ease; }
     tbody tr:hover { background: rgba(255,255,255,0.025); }
     tbody tr:last-child td { border-bottom: none; }
-    tr.top-one { box-shadow: inset 2px 0 0 rgba(214,181,109,0.7); background: rgba(214,181,109,0.035); }
-    tr.top-two { box-shadow: inset 2px 0 0 rgba(174,183,191,0.55); }
-    tr.top-three { box-shadow: inset 2px 0 0 rgba(197,138,97,0.55); }
+    tr.top-one { background: rgba(214,181,109,0.045); }
+    tr.top-two { background: rgba(174,183,191,0.028); }
+    tr.top-three { background: rgba(197,138,97,0.032); }
     .rank { font-weight: 650; width: 40px; color: var(--faint); }
     .rank.gold { color: var(--gold); }
     .rank.silver { color: var(--silver); }

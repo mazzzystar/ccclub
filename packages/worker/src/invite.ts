@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { html, raw } from "hono/html";
 import type { Env } from "./types.js";
 import type { GroupRecord } from "@ccclub/shared";
-import { getColor, svgEsc, htmlEsc, truncate, renderToPng, sanitizeCode } from "./og-utils.js";
+import { getColor, svgEsc, htmlEsc, truncate, renderToPng, sanitizeCode, latinOnly } from "./og-utils.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -341,8 +341,8 @@ function buildOgSvg(group: GroupRecord): string {
   const H = 630;
   const creator = getCreator(group);
   const n = group.members.length;
-  const groupName = svgEsc(truncate(group.name, 36));
-  const creatorName = svgEsc(truncate(creator, 30));
+  const groupName = svgEsc(truncate(latinOnly(group.name) || group.code, 36));
+  const creatorName = svgEsc(truncate(latinOnly(creator) || "A friend", 30));
   const code = group.code;
 
   const MAX_AVATARS = 8;
@@ -359,7 +359,8 @@ function buildOgSvg(group: GroupRecord): string {
   shown.forEach((m, i) => {
     const cx = avatarStartX + i * avatarSpacing;
     const color = getColor(m.userId);
-    const initial = svgEsc((m.displayName || "?").charAt(0).toUpperCase());
+    const latin = latinOnly(m.displayName);
+    const initial = svgEsc((latin || "?").charAt(0).toUpperCase());
     avatarsSvg += `<circle cx="${cx}" cy="${avatarY}" r="${avatarR}" fill="${color}" stroke="#1a1816" stroke-width="3"/>`;
     avatarsSvg += `<text x="${cx}" y="${avatarY + 6}" text-anchor="middle" fill="#1a1816" font-size="20" font-weight="600" font-family="Inter, sans-serif">${initial}</text>`;
   });

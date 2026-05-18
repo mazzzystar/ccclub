@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { html } from "hono/html";
 import type { Env } from "./types.js";
 import type { GroupRecord, UsageData } from "@ccclub/shared";
-import { getColor, svgEsc, htmlEsc, truncate, renderToPng, sanitizeCode } from "./og-utils.js";
+import { getColor, svgEsc, htmlEsc, truncate, renderToPng, sanitizeCode, latinOnly } from "./og-utils.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -87,7 +87,7 @@ function buildDashboardOgSvg(
 ): string {
   const W = 1200;
   const H = 630;
-  const name = svgEsc(truncate(groupName, 32));
+  const name = svgEsc(truncate(latinOnly(groupName) || code, 32));
 
   const ROW_H = 52;
   const TABLE_X = 240;
@@ -98,8 +98,9 @@ function buildDashboardOgSvg(
   top5.forEach((entry, i) => {
     const y = TABLE_Y + i * ROW_H;
     const color = getColor(entry.userId);
-    const initial = svgEsc((entry.displayName || "?").charAt(0).toUpperCase());
-    const displayName = svgEsc(truncate(entry.displayName, 20));
+    const latin = latinOnly(entry.displayName);
+    const initial = svgEsc((latin || "?").charAt(0).toUpperCase());
+    const displayName = svgEsc(truncate(latin || entry.userId.slice(0, 8), 20));
     const rankColor = i < 3 ? "#d4a03e" : "#6b6560";
     const costStr = entry.costUSD > 0 ? `$${entry.costUSD.toFixed(2)}` : "$0.00";
 

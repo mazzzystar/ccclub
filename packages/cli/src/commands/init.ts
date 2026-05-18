@@ -8,6 +8,7 @@ import { installHeartbeat, isHeartbeatInstalled } from "../heartbeat.js";
 import { doSync } from "./sync.js";
 import { ensureGlobalInstall } from "../global-install.js";
 import { formatFetchError } from "../fetch-error.js";
+import { theme } from "../theme.js";
 import type { InitResponse } from "@ccclub/shared";
 
 export async function initCommand(): Promise<void> {
@@ -93,7 +94,7 @@ export async function initCommand(): Promise<void> {
     console.log("");
     console.log(chalk.bold("  Invite friends to compete:"));
     console.log("");
-    console.log(`    ${chalk.cyan.underline(`${apiUrl}/invite/${data.groupCode}`)}`);
+    console.log(`    ${theme.link(`${apiUrl}/invite/${data.groupCode}`)}`);
     console.log("");
     console.log(chalk.dim(`    or: npx ccclub join ${data.groupCode}`));
 
@@ -113,6 +114,6 @@ export async function initCommand(): Promise<void> {
 
 function printQuickStart(): void {
   console.log("");
-  console.log(chalk.dim("  Run ") + chalk.white("ccclub") + chalk.dim(" to see the leaderboard. ") + chalk.white("ccclub -h") + chalk.dim(" for all commands."));
+  console.log(chalk.dim("  Run ") + theme.text("ccclub") + chalk.dim(" to see the leaderboard. ") + theme.text("ccclub -h") + chalk.dim(" for all commands."));
   console.log("");
 }

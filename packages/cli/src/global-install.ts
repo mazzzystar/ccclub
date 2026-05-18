@@ -1,5 +1,6 @@
 import { exec } from "node:child_process";
 import chalk from "chalk";
+import { theme } from "./theme.js";
 
 function run(cmd: string): Promise<string> {
   return new Promise((resolve) => {
@@ -20,9 +21,9 @@ export async function ensureGlobalInstall(): Promise<void> {
 
   const result = await run("npm install -g ccclub");
   if (result) {
-    console.log(chalk.green("  Done!") + chalk.dim(" You can now use ") + chalk.white("ccclub") + chalk.dim(" directly."));
+    console.log(theme.success("  Done!") + chalk.dim(" You can now use ") + theme.text("ccclub") + chalk.dim(" directly."));
   } else {
     console.log(chalk.dim("  Could not auto-install. Run manually:"));
-    console.log(chalk.white("    npm install -g ccclub"));
+    console.log(theme.text("    npm install -g ccclub"));
   }
 }

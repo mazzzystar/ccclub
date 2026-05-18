@@ -4,6 +4,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { requireConfig, saveConfig } from "../config.js";
 import { formatFetchError } from "../fetch-error.js";
+import { theme } from "../theme.js";
 export async function createGroupCommand(): Promise<void> {
   const config = await requireConfig();
   const rl = createInterface({ input: stdin, output: stdout });
@@ -49,7 +50,7 @@ export async function createGroupCommand(): Promise<void> {
 
     spinner.succeed(`Created "${data.groupName}"`);
     console.log("");
-    console.log(`    ${chalk.cyan.underline(`${config.apiUrl}/invite/${data.groupCode}`)}`);
+    console.log(`    ${theme.link(`${config.apiUrl}/invite/${data.groupCode}`)}`);
     console.log("");
     console.log(chalk.dim(`    or: npx ccclub join ${data.groupCode}`));
   } finally {

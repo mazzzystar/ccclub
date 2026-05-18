@@ -1,8 +1,8 @@
-import chalk from "chalk";
 import Table from "cli-table3";
 import ora from "ora";
 import type { RankingEntry, RankingPeriod, RankResponse } from "@ccclub/shared";
 import { AGENT_LABELS, PLAN_PRICES } from "@ccclub/shared";
+import { theme, type StyleFn } from "../theme.js";
 import { requireConfig } from "../config.js";
 import { formatFetchError } from "../fetch-error.js";
 import { doSync, needsFullSync } from "./sync.js";
@@ -28,7 +28,7 @@ export async function rankCommand(options: { days?: string; period?: string; gro
 
   // Resolve period from -d or -p flags
   let period: RankingPeriod = "daily";
-  const DAYS_HINT = `\n  Usage:  ccclub -d <period>\n\n  Options:\n    ${chalk.white("ccclub -d 1")}     Yesterday\n    ${chalk.white("ccclub -d 7")}     Last 7 days\n    ${chalk.white("ccclub -d 30")}    Last 30 days\n    ${chalk.white("ccclub -d all")}   All time\n    ${chalk.white("ccclub")}          Today (default)\n`;
+  const DAYS_HINT = `\n  Usage:  ccclub -d <period>\n\n  Options:\n    ${theme.text("ccclub -d 1")}     Yesterday\n    ${theme.text("ccclub -d 7")}     Last 7 days\n    ${theme.text("ccclub -d 30")}    Last 30 days\n    ${theme.text("ccclub -d all")}   All time\n    ${theme.text("ccclub")}          Today (default)\n`;
   if (options.days) {
     if (options.days === true) {
       console.log(DAYS_HINT);
@@ -37,7 +37,7 @@ export async function rankCommand(options: { days?: string; period?: string; gro
     const DAYS_MAP: Record<string, RankingPeriod> = { "1": "yesterday", "7": "weekly", "30": "monthly", "all": "all-time" };
     const mapped = DAYS_MAP[options.days];
     if (!mapped) {
-      console.log(chalk.red(`\n  Unknown value: -d ${options.days}`));
+      console.log(theme.danger(`\n  Unknown value: -d ${options.days}`));
       console.log(DAYS_HINT);
       return;
     }
@@ -64,7 +64,7 @@ export async function rankCommand(options: { days?: string; period?: string; gro
   }
 
   if (codes.length === 0) {
-    console.log(chalk.red("No group found. Run 'ccclub init' or 'ccclub join <code>' first."));
+    console.log(theme.danger("No group found. Run 'ccclub init' or 'ccclub join <code>' first."));
     return;
   }
 
@@ -111,7 +111,7 @@ export async function rankCommand(options: { days?: string; period?: string; gro
     for (let i = 0; i < groupResults.length; i++) {
       const { code, rankData, activityData, range } = groupResults[i];
       if (!rankData) {
-        console.log(chalk.red(`\n  Couldn't load leaderboard for ${code}`));
+        console.log(theme.danger(`\n  Couldn't load leaderboard for ${code}`));
         continue;
       }
 
@@ -128,11 +128,11 @@ export async function rankCommand(options: { days?: string; period?: string; gro
       if (i < groupResults.length - 1) console.log("");
     }
 
-    console.log(chalk.dim("\n  Tokens = input + output + reasoning ") + chalk.yellow("(cache excluded)") + chalk.dim(". Use ") + chalk.white("--cache") + chalk.dim(" to include cache tokens."));
+    console.log(theme.muted("\n  Tokens = input + output + reasoning ") + theme.warning("(cache excluded)") + theme.muted(". Use ") + theme.text("--cache") + theme.muted(" to include cache tokens."));
 
     const update = await getUpdateResult();
     if (update) {
-      console.log(chalk.yellow("\n  Update available") + chalk.dim(`: ${update.current} → ${update.latest}  Run `) + chalk.cyan("npm i -g ccclub@latest"));
+      console.log(theme.warningBold("\n  Update available") + theme.muted(`: ${update.current} → ${update.latest}  Run `) + theme.linkText("npm i -g ccclub@latest"));
     }
   } catch (err) {
     spinner.fail(`Error: ${formatFetchError(err)}`);
@@ -157,19 +157,19 @@ function formatTokens(n: number): string {
 
 function printGroup(data: RankResponse, code: string, period: RankingPeriod, config: { userId: string; apiUrl: string }, showCache = false, showAll = false): void {
   if (data.rankings.length === 0) {
-    console.log(chalk.bold(`\n  ${data.group.name}`));
-    console.log(chalk.yellow("  No data for this period yet"));
-    console.log(chalk.dim('  Sync your data first: ccclub sync'));
+    console.log(theme.title(`\n  ${data.group.name}`));
+    console.log(theme.warning("  No data for this period yet"));
+    console.log(theme.muted("  Sync your data first: ccclub sync"));
     return;
   }
 
-  console.log(chalk.bold(`\n  ${data.group.name}`));
+  console.log(theme.title(`\n  ${data.group.name}`));
   const periodLabel: Record<string, string> = { daily: "TODAY", yesterday: "YESTERDAY", weekly: "7 DAYS", monthly: "30 DAYS", "all-time": "ALL TIME" };
   const now = Date.now();
   const activeCount = data.rankings.filter((r) => r.lastSync && now - new Date(r.lastSync).getTime() < ACTIVE_THRESHOLD_MS).length;
-  console.log(chalk.dim(`  ${periodLabel[period] || period.toUpperCase()} · ${data.start.slice(0, 10)} → ${data.end.slice(0, 10)} · ${data.group.memberCount} members`));
+  console.log(theme.muted(`  ${periodLabel[period] || period.toUpperCase()} · ${data.start.slice(0, 10)} → ${data.end.slice(0, 10)} · ${data.group.memberCount} members`));
   if (activeCount > 0) {
-    console.log(chalk.green(`  ${activeCount} active`));
+    console.log(theme.success(`  ${activeCount} active`));
   }
   console.log("");
 
@@ -223,67 +223,79 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   );
 
   const table = new Table({
-    head: head.map((h) => chalk.cyan(h)),
-    style: { head: [], border: [] },
+    head: head.map((h) => theme.linkText(h)),
+    style: { head: [], border: ["gray"] },
     colWidths: widths,
   });
 
   for (const plain of plainRows) {
     const { entry } = plain;
     const isMe = entry.userId === config.userId;
-    const marker = isMe ? chalk.green("→") : " ";
-
-    // Only two highlights: #1 gold, self green. Everything else default.
-    const id = (s: string) => s;
-    const c = isMe ? chalk.green : entry.rank === 1 ? chalk.yellow : id;
-    const nameC = isMe ? chalk.green.bold : entry.rank === 1 ? chalk.yellow.bold : id;
+    const rowStyle = isMe ? theme.success : podiumStyle(entry.rank);
+    const nameStyle = isMe ? theme.successBold : podiumNameStyle(entry.rank);
+    const rankStyle = podiumNameStyle(entry.rank);
+    const marker = isMe ? theme.success("→") : " ";
 
     const nameWidth = Math.max(widths[1] - 2, 4);
     const displayName = plain.isActive
-      ? `${chalk.green("●")} ${nameC(truncateDisplay(entry.displayName, Math.max(nameWidth - 2, 1)))}`
-      : nameC(truncateDisplay(entry.displayName, nameWidth));
+      ? `${theme.success("●")} ${nameStyle(truncateDisplay(entry.displayName, Math.max(nameWidth - 2, 1)))}`
+      : nameStyle(truncateDisplay(entry.displayName, nameWidth));
 
     const row: string[] = [
-      `${marker}${c(String(entry.rank))}`,
+      `${marker}${rankStyle(String(entry.rank))}`,
       displayName,
     ];
 
     if (hasAgents) {
       const agentWidth = Math.max(widths[2] - 2, 4);
-      row.push(c(truncateDisplay(plain.agents, agentWidth)));
+      row.push(rowStyle(truncateDisplay(plain.agents, agentWidth)));
     }
 
-    row.push(c(plain.cost), c(plain.tokens));
+    row.push(rowStyle(plain.cost), rowStyle(plain.tokens));
 
     if (hasPlan) {
       row.push(colorRoi(plain.roi, entry));
     }
 
-    row.push(c(plain.turns));
-    row.push(entry.chatCount > 0 ? c(plain.perTurn) : chalk.dim("—"));
+    row.push(rowStyle(plain.turns));
+    row.push(entry.chatCount > 0 ? rowStyle(plain.perTurn) : theme.faint("—"));
 
     table.push(row);
   }
 
   console.log(table.toString());
   if (hiddenCount > 0) {
-    console.log(chalk.dim(`  ${hiddenCount} inactive member${hiddenCount > 1 ? "s" : ""} hidden · ccclub --all to show`));
+    console.log(theme.muted(`  ${hiddenCount} inactive member${hiddenCount > 1 ? "s" : ""} hidden · ccclub --all to show`));
   }
-  console.log(chalk.dim("  Dashboard: ") + chalk.green(`${config.apiUrl}/g/${code}`));
+  console.log(theme.muted("  Dashboard: ") + theme.link(`${config.apiUrl}/g/${code}`));
   if (code !== "global") {
-    console.log(chalk.dim("  Invite:    ") + chalk.hex("#d4935e").underline(`${config.apiUrl}/invite/${code}`));
+    console.log(theme.muted("  Invite:    ") + theme.link(`${config.apiUrl}/invite/${code}`));
   }
 
   if (hasPlan) {
     const me = data.rankings.find((r) => r.userId === config.userId);
     if (me && !me.plan) {
-      console.log(chalk.dim("  Set your plan: ") + chalk.white("ccclub profile --plan pro|max100|max200|api"));
+      console.log(theme.muted("  Set your plan: ") + theme.text("ccclub profile --plan pro|max100|max200|api"));
     }
   }
 }
 
 function isEntryActive(entry: RankingEntry, now: number): boolean {
   return Boolean(entry.lastSync && now - new Date(entry.lastSync).getTime() < ACTIVE_THRESHOLD_MS);
+}
+
+function podiumStyle(rank: number): StyleFn {
+  if (rank === 1) return theme.gold;
+  if (rank === 2) return theme.silver;
+  if (rank === 3) return theme.bronze;
+  return theme.text;
+}
+
+function podiumNameStyle(rank: number): StyleFn {
+  if (rank === 1) return theme.goldBold;
+  if (rank === 2) return theme.silverBold;
+  if (rank === 3) return theme.bronzeBold;
+  return theme.text;
 }
 
 function formatRoi(entry: RankingEntry, hasPlan: boolean): string {
@@ -303,9 +315,9 @@ function colorRoi(roiStr: string, entry: RankingEntry): string {
     const price = PLAN_PRICES[entry.plan as keyof typeof PLAN_PRICES];
     const monthly = entry.monthlyCostUSD || 0;
     const roi = price > 0 ? Math.round((monthly / price) * 100) : 0;
-    return roi >= 100 ? chalk.green.bold(roiStr) : roi >= 50 ? chalk.yellow(roiStr) : chalk.dim(roiStr);
+    return roi >= 100 ? theme.successBold(roiStr) : roi >= 50 ? theme.warning(roiStr) : theme.faint(roiStr);
   }
-  return chalk.dim(roiStr);
+  return theme.faint(roiStr);
 }
 
 function formatAgents(entry: RankingEntry): string {
@@ -417,7 +429,7 @@ function renderActivity(data: ActivityResponse, range: string): void {
     }
     if (globalMax === 0) globalMax = 1;
 
-    console.log(chalk.dim(`\n  Activity (${range})`));
+    console.log(theme.muted(`\n  Activity (${range})`));
 
     for (let i = 0; i < active.length; i++) {
       const user = active[i];
@@ -430,22 +442,10 @@ function renderActivity(data: ActivityResponse, range: string): void {
         return SPARK_CHARS[idx];
       }).join("");
       const total = user.blocks.reduce((s, b) => s + b.cost, 0);
-      const displayWidth = [...user.displayName].reduce((w, ch) => w + (ch.charCodeAt(0) > 0x7f ? 2 : 1), 0);
       const maxWidth = 12;
-      let name = user.displayName;
-      if (displayWidth > maxWidth) {
-        let w = 0;
-        let cut = 0;
-        for (const ch of name) {
-          const cw = ch.charCodeAt(0) > 0x7f ? 2 : 1;
-          if (w + cw > maxWidth) break;
-          w += cw;
-          cut++;
-        }
-        name = [...name].slice(0, cut).join("");
-      }
-      const pad = " ".repeat(Math.max(0, maxWidth - displayWidth));
-      console.log(`  ${chalk.dim(name + pad)} ${spark}  ${chalk.dim("$" + total.toFixed(2))}`);
+      const name = truncateDisplay(user.displayName, maxWidth);
+      const pad = " ".repeat(Math.max(0, maxWidth - visualWidth(name)));
+      console.log(`  ${theme.muted(name + pad)} ${theme.brand(spark)}  ${theme.muted("$" + total.toFixed(2))}`);
     }
 
     // Time axis labels
@@ -470,5 +470,5 @@ function renderActivity(data: ActivityResponse, range: string): void {
         for (let c = 0; c < label.length && b + c < bucketCount; c++) axisArr[b + c] = label[c];
       }
     }
-    console.log(chalk.dim("  " + " ".repeat(12) + " " + axisArr.join("")));
+    console.log(theme.faint("  " + " ".repeat(12) + " " + axisArr.join("")));
 }

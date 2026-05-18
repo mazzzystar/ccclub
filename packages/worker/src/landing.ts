@@ -50,20 +50,39 @@ function landingHTML() {
 
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #1a1816;
+      --panel: #201e1c;
+      --panel-soft: #24211f;
+      --line: #332f2b;
+      --text: #e8e4de;
+      --title: #f1ede7;
+      --muted: #8a8480;
+      --faint: #5a5550;
+      --brand: #d4935e;
+      --link: #7ab7c6;
+      --success: #63b486;
+      --gold: #d6b56d;
+      --silver: #aeb7bf;
+      --bronze: #c58a61;
+      --paper: #f4f1ed;
+      --paper-soft: #e9e5df;
+      --ink: #181615;
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-      background: #1a1816; color: #e8e4de; min-height: 100vh;
+      background: var(--bg); color: var(--text); min-height: 100vh;
       -webkit-font-smoothing: antialiased;
       line-height: 1.6;
     }
-    a { color: #d4935e; text-decoration: none; }
+    a { color: var(--link); text-decoration: none; }
     a:hover { text-decoration: underline; }
     code, .mono {
       font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace;
     }
 
     /* Layout */
-    .wrap { max-width: 680px; margin: 0 auto; padding: 0 24px; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 0 24px; }
 
     /* Brand */
     .brand {
@@ -72,32 +91,59 @@ function landingHTML() {
     }
     .brand img { border-radius: 6px; }
     .brand span {
-      font-size: 16px; font-weight: 600; color: #9b9590;
+      font-size: 16px; font-weight: 600; color: var(--muted);
       letter-spacing: -0.3px;
     }
-    .brand:hover span { color: #c8c4be; }
+    .brand:hover span { color: var(--text); }
 
     /* Hero */
-    .hero { padding: 40px 0; text-align: center; }
+    .hero { padding: 42px 0 26px; text-align: center; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      color: var(--brand); font-size: 12px; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+    .eyebrow::before, .eyebrow::after {
+      content: ""; width: 22px; height: 1px; background: var(--line);
+    }
     .hero h1 {
-      font-size: 32px; font-weight: 700; letter-spacing: -0.5px;
-      line-height: 1.15; margin-bottom: 20px; color: #f0ece6;
+      font-size: clamp(34px, 6vw, 56px); font-weight: 720; letter-spacing: -1.8px;
+      line-height: 0.98; margin-bottom: 18px; color: var(--title);
     }
     .hero .tagline {
-      font-size: 18px; color: #9b9590; line-height: 1.6;
-      max-width: 560px; margin: 0 auto; font-weight: 400;
+      font-size: 18px; color: var(--muted); line-height: 1.6;
+      max-width: 590px; margin: 0 auto; font-weight: 400;
     }
     .hero-links { display: flex; gap: 16px; justify-content: center; margin-top: 18px; }
-    .hero-links a { display: flex; align-items: center; opacity: 0.6; transition: opacity 0.15s ease; }
-    .hero-links a:hover { opacity: 1; }
+    .hero-links a { display: flex; align-items: center; color: var(--muted); opacity: 0.65; transition: all 0.15s ease; }
+    .hero-links a:hover { color: var(--link); opacity: 1; }
+    .hero-links svg { fill: var(--muted); }
+    .preview-wrap { padding: 4px 0 30px; }
+    .preview-frame {
+      display: block; border-radius: 16px; overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: var(--panel); box-shadow: 0 22px 70px rgba(0,0,0,0.38);
+      text-decoration: none;
+    }
+    .preview-frame:hover { text-decoration: none; border-color: rgba(122,183,198,0.32); }
+    .preview-frame img {
+      display: block; width: 100%; height: auto; aspect-ratio: 1264 / 756; object-fit: cover;
+    }
+    .preview-caption {
+      display: flex; justify-content: space-between; gap: 16px;
+      padding: 12px 16px; color: var(--muted); font-size: 12px;
+      border-top: 1px solid rgba(255,255,255,0.06); background: #151310;
+    }
+    .preview-caption strong { color: var(--text); font-weight: 500; }
     .setup-panel {
       margin: 28px auto 0; max-width: 620px; padding: 10px;
-      border-radius: 18px; background: #f4f1ed; color: #181615;
+      border-radius: 18px; background: var(--paper); color: var(--ink);
       box-shadow: 0 24px 70px rgba(0,0,0,0.28), 0 0 0 1px rgba(255,255,255,0.08);
     }
     .setup-tabs {
       display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
-      padding: 4px; border-radius: 13px; background: #e9e5df;
+      padding: 4px; border-radius: 13px; background: var(--paper-soft);
       box-shadow: inset 0 0 0 1px rgba(0,0,0,0.04);
     }
     .setup-tab {
@@ -141,13 +187,13 @@ function landingHTML() {
     }
     .setup-command {
       width: 100%; margin-top: 22px; border: none; border-radius: 13px;
-      background: #181615; color: #f4f1ed; padding: 14px 16px;
+      background: #181615; color: var(--paper); padding: 14px 16px;
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
       cursor: pointer; font: inherit; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
     }
     .setup-command:hover { background: #24211e; }
     .setup-command code {
-      color: #67c083; font-size: 13px; line-height: 1.4;
+      color: #75c993; font-size: 13px; line-height: 1.4;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .copy-icon {
@@ -160,59 +206,9 @@ function landingHTML() {
     .copy-feedback.show { opacity: 1; }
     .setup-after-demo { padding: 0 0 64px; }
 
-    /* Terminal */
-    .terminal-wrap { padding: 24px 0 28px; }
-    .terminal {
-      background: #13110f; border: none; border-radius: 10px;
-      overflow: hidden;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06);
-    }
-    .terminal-bar {
-      padding: 12px 16px;
-      display: flex; align-items: center; gap: 8px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-    .terminal-dot { width: 10px; height: 10px; border-radius: 50%; }
-    .terminal-dot.r { background: #e05555; }
-    .terminal-dot.y { background: #d4a03e; }
-    .terminal-dot.g { background: #5aad7d; }
-    .terminal-body {
-      padding: 20px 24px; font-size: 14px; line-height: 1.8;
-      color: #8a8480; white-space: pre; overflow-x: auto;
-      font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace;
-    }
-    .terminal-body .prompt { color: #5aad7d; }
-    .terminal-body .cmd { color: #e8e4de; }
-    .terminal-body .dim { color: #5a5550; }
-    .terminal-body .accent { color: #d4935e; }
-    .terminal-body .gold { color: #d4a03e; }
-    .terminal-body .me { color: #5aad7d; }
-    .rank-tbl { border-collapse: collapse; font: inherit; line-height: inherit; display: inline-table; vertical-align: top; }
-    .rank-tbl td { padding: 0; text-align: right; padding-left: 4ch; }
-    .rank-tbl td:first-child { text-align: right; padding-left: 0; width: 2.5ch; }
-    .rank-tbl td:nth-child(2) { text-align: left; padding-left: 1.5ch; min-width: 14ch; }
-    .rank-tbl tr.gold td { color: #d4a03e; }
-    .rank-tbl tr.me td { color: #5aad7d; }
-    .rank-tbl tr.dim td { color: #5a5550; }
-    .rank-tbl thead td { color: #5a5550; }
-    .active-tag { color: #5aad7d; font-size: 12px; }
-    .typing-dot {
-      display: inline-block; width: 3px; height: 3px; border-radius: 50%;
-      background: #5aad7d; margin-left: 1px; vertical-align: middle;
-      animation: blink 1.2s infinite ease-in-out;
-    }
-    .typing-dot:nth-child(2) { animation-delay: 0.3s; }
-    .typing-dot:nth-child(3) { animation-delay: 0.6s; }
-    @keyframes blink { 0%, 100% { opacity: 0.15; } 30%, 50% { opacity: 1; } }
-    .roi-high { color: #5aad7d; }
-    .roi-mid { color: #d4a03e; }
-    .roi-low { color: #5a5550; }
-    .dash-link { color: #5aad7d; text-decoration: none; }
-    .dash-link:hover { text-decoration: underline; }
-
     /* Divider */
     .divider {
-      border: none; border-top: 1px solid #2e2c2a;
+      border: none; border-top: 1px solid var(--line);
       margin: 0;
     }
 
@@ -220,7 +216,7 @@ function landingHTML() {
     .section { padding: 64px 0; }
     .section h2 {
       font-size: 22px; font-weight: 600; margin-bottom: 32px;
-      letter-spacing: -0.3px; color: #e8e4de;
+      letter-spacing: -0.3px; color: var(--text);
     }
 
     /* Steps */
@@ -230,51 +226,52 @@ function landingHTML() {
     }
     .step-num {
       flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%;
-      border: 1px solid #363330; color: #9b9590;
+      border: 1px solid var(--line); color: var(--muted);
       display: flex; align-items: center; justify-content: center;
       font-size: 13px; font-weight: 500; margin-top: 2px;
     }
     .step-content h3 {
-      font-size: 15px; font-weight: 500; margin-bottom: 4px; color: #e8e4de;
+      font-size: 15px; font-weight: 500; margin-bottom: 4px; color: var(--text);
     }
     .step-content p {
-      font-size: 14px; color: #8a8480; line-height: 1.6;
+      font-size: 14px; color: var(--muted); line-height: 1.6;
     }
     .step-content code {
-      background: #242220; padding: 1px 6px; border-radius: 4px;
-      font-size: 13px; color: #c8c4be;
+      background: var(--panel-soft); padding: 1px 6px; border-radius: 4px;
+      font-size: 13px; color: var(--text);
     }
 
     /* How-detail */
     .how-detail {
-      margin-top: 24px; color: #6b6560; font-size: 14px; line-height: 1.7;
+      margin-top: 24px; color: var(--muted); font-size: 14px; line-height: 1.7;
     }
     .how-detail code {
-      background: #242220; padding: 1px 6px; border-radius: 4px;
-      font-size: 13px; color: #c8c4be;
+      background: var(--panel-soft); padding: 1px 6px; border-radius: 4px;
+      font-size: 13px; color: var(--text);
     }
 
     /* Commands */
     .cmd-list { display: flex; flex-direction: column; gap: 0; }
     .cmd-row {
       display: flex; justify-content: space-between; align-items: baseline;
-      padding: 14px 0; border-bottom: 1px solid #2e2c2a;
+      padding: 14px 0; border-bottom: 1px solid var(--line);
     }
     .cmd-row:last-child { border-bottom: none; }
-    .cmd-row code { font-size: 14px; color: #e8e4de; }
-    .cmd-row span { font-size: 14px; color: #6b6560; }
+    .cmd-row code { font-size: 14px; color: var(--text); }
+    .cmd-row span { font-size: 14px; color: var(--muted); }
 
     /* Footer */
     .footer {
       padding: 48px 0;
-      border-top: 1px solid #2e2c2a;
-      text-align: center; color: #5a5550; font-size: 13px;
+      border-top: 1px solid var(--line);
+      text-align: center; color: var(--faint); font-size: 13px;
     }
-    .footer a { color: #6b6560; }
+    .footer a { color: var(--muted); }
 
     @media (max-width: 600px) {
-      .hero { padding: 32px 0; }
-      .hero h1 { font-size: 24px; }
+      .hero { padding: 32px 0 22px; }
+      .hero h1 { font-size: 36px; letter-spacing: -1.2px; }
+      .preview-caption { flex-direction: column; gap: 2px; }
       .setup-panel { border-radius: 16px; }
       .setup-tab { font-size: 14px; padding: 11px 8px; }
       .setup-title { font-size: 18px; }
@@ -294,42 +291,25 @@ function landingHTML() {
   <div class="wrap">
     <a href="/" class="brand"><img src="https://raw.githubusercontent.com/mazzzystar/ccclub/main/assets/icon.png" alt="ccclub" width="28" height="28" /><span>ccclub</span></a>
     <div class="hero">
-      <h1>Coding agent leaderboard among friends.</h1>
-      <p class="tagline">Track token usage and cost across the coding agents your group actually uses.</p>
+      <div class="eyebrow">Among friends</div>
+      <h1>Claude Code & Codex leaderboard among friends.</h1>
+      <p class="tagline">Track coding agent token usage, cost, active status, and agent mix across Claude Code, Codex, OpenCode, Amp, and pi-agent.</p>
       <div class="hero-links">
-        <a href="https://github.com/mazzzystar/ccclub" aria-label="GitHub"><svg width="20" height="20" viewBox="0 0 24 24" fill="#6b6560"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg></a>
-        <a href="https://discord.gg/6QbGWJUVHq" aria-label="Discord"><svg width="22" height="22" viewBox="0 0 24 24" fill="#6b6560"><path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></a>
+        <a href="https://github.com/mazzzystar/ccclub" aria-label="GitHub"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg></a>
+        <a href="https://discord.gg/6QbGWJUVHq" aria-label="Discord"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></a>
       </div>
     </div>
   </div>
 
   <div class="wrap">
-    <div class="terminal-wrap">
-      <div class="terminal">
-        <div class="terminal-bar">
-          <div class="terminal-dot r"></div>
-          <div class="terminal-dot y"></div>
-          <div class="terminal-dot g"></div>
+    <div class="preview-wrap">
+      <a class="preview-frame" href="/g/global" aria-label="Open the global ccclub dashboard">
+        <img src="/og.png" alt="ccclub leaderboard preview" width="1264" height="756" />
+        <div class="preview-caption">
+          <strong>Live leaderboard preview</strong>
+          <span>Cost · tokens · turns · active friends · agent mix</span>
         </div>
-        <div class="terminal-body"><span class="prompt">$</span> <span class="cmd">ccclub</span>
-
-  <span class="accent">mazzystar's club</span>
-  <span class="dim">TODAY \u00b7 44 members</span>
-  <span class="active-tag">3 active <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span>
-  <span class="dim">Sources: Claude Code \u00b7 Codex \u00b7 OpenCode \u00b7 Amp \u00b7 pi-agent</span>
-
-  <table class="rank-tbl"><thead><tr class="dim"><td>#</td><td>Name</td><td>Cost</td><td>Tokens</td><td>ROI</td><td>Turns</td><td>$/Turn</td></tr></thead><tbody>
-  <tr class="gold"><td>1</td><td>Tiger <span class="active-tag">(active)</span></td><td>$110.57</td><td>339K</td><td class="dim">\u2014</td><td>17</td><td>$6.50</td></tr>
-  <tr class="me"><td>\u21922</td><td>mazzystar <span class="active-tag">(active)</span></td><td>$101.88</td><td>206K</td><td><span class="roi-high">$200/1610%</span></td><td>66</td><td>$1.54</td></tr>
-  <tr><td>3</td><td>Darkrayon</td><td>$96.08</td><td>219K</td><td><span class="roi-high">$200/3560%</span></td><td>26</td><td>$3.70</td></tr>
-  <tr><td>4</td><td>BryantChen</td><td>$53.38</td><td>284K</td><td class="dim">\u2014</td><td>39</td><td>$1.37</td></tr>
-  <tr><td>5</td><td>Owen</td><td>$42.87</td><td>232K</td><td class="dim">\u2014</td><td>31</td><td>$1.38</td></tr>
-  <tr><td>6</td><td>ventuss <span class="active-tag">(active)</span></td><td>$42.54</td><td>188K</td><td><span class="roi-high">$200/1987%</span></td><td>48</td><td>$0.89</td></tr>
-  <tr class="dim"><td>7</td><td>junyu</td><td>$21.19</td><td>81K</td><td><span class="roi-mid">$200/558%</span></td><td>18</td><td>$1.18</td></tr>
-  </tbody></table>
-
-  <span class="dim">Dashboard: </span><a href="/g/YHAW6P" class="dash-link">https://ccclub.dev/g/YHAW6P</a></div>
-      </div>
+      </a>
     </div>
 
     <div class="setup-after-demo">

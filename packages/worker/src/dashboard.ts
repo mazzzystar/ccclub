@@ -197,15 +197,33 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
 
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #1a1816;
+      --surface: #201e1c;
+      --surface-soft: #24211f;
+      --surface-deep: #13110f;
+      --line: #332f2b;
+      --line-soft: #282521;
+      --text: #e8e4de;
+      --title: #f1ede7;
+      --muted: #8a8480;
+      --faint: #5a5550;
+      --brand: #d4935e;
+      --link: #7ab7c6;
+      --success: #63b486;
+      --gold: #d6b56d;
+      --silver: #aeb7bf;
+      --bronze: #c58a61;
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-      background: #1a1816; color: #e8e4de; min-height: 100vh;
+      background: var(--bg); color: var(--text); min-height: 100vh;
       -webkit-font-smoothing: antialiased;
       line-height: 1.6;
     }
     code { font-family: "SF Mono", "Fira Code", Menlo, Consolas, monospace; }
 
-    .wrap { max-width: 640px; margin: 0 auto; padding: 48px 24px; }
+    .wrap { max-width: 880px; margin: 0 auto; padding: 44px 24px; }
 
     /* Top nav */
     .top-nav {
@@ -215,83 +233,99 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
 
     /* Back link */
     .back-link {
-      color: #6b6560; font-size: 13px; text-decoration: none;
+      color: var(--muted); font-size: 13px; text-decoration: none;
       transition: color 0.15s;
     }
-    .back-link:hover { color: #c8c4be; }
+    .back-link:hover { color: var(--link); }
 
     .global-link {
-      color: #6b6560; font-size: 13px; text-decoration: none;
+      color: var(--muted); font-size: 13px; text-decoration: none;
       transition: color 0.15s;
     }
-    .global-link:hover { color: #c8c4be; }
+    .global-link:hover { color: var(--link); }
 
     /* Header */
-    h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.5px; color: #f0ece6; }
-    .subtitle { color: #6b6560; font-size: 13px; margin-top: 4px; }
-    .agent-summary { color: #8a8480; font-size: 12px; margin-top: 5px; min-height: 18px; }
+    h1 { font-size: 28px; font-weight: 680; letter-spacing: -0.7px; color: var(--title); }
+    .subtitle { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .agent-summary { color: var(--muted); font-size: 12px; margin-top: 5px; min-height: 18px; }
 
     /* Period selector */
-    .periods { display: flex; gap: 6px; margin: 28px 0; flex-wrap: wrap; align-items: center; }
+    .periods {
+      display: flex; gap: 6px; margin: 28px 0; flex-wrap: wrap; align-items: center;
+      padding: 4px; border-radius: 10px; background: rgba(255,255,255,0.025);
+      border: 1px solid var(--line-soft);
+    }
     .periods button {
-      padding: 6px 14px; border-radius: 6px; border: 1px solid #363330;
-      background: transparent; color: #8a8480; cursor: pointer;
+      padding: 6px 14px; border-radius: 7px; border: 1px solid transparent;
+      background: transparent; color: var(--muted); cursor: pointer;
       font-size: 13px; font-family: inherit;
       transition: all 0.15s ease;
     }
-    .periods button:hover:not(.toggle) { border-color: #5a5550; color: #c8c4be; }
+    .periods button:hover:not(.toggle) { color: var(--text); background: rgba(255,255,255,0.035); }
     .periods button.active {
-      background: #2a2826; color: #e8e4de; border-color: #4a4640;
+      background: var(--surface-soft); color: var(--text); border-color: rgba(255,255,255,0.06);
     }
 
     /* Cache toggle */
     .toggle-wrap {
       margin-left: auto; display: flex; align-items: center; gap: 6px;
     }
-    .toggle-label { font-size: 12px; color: #6b6560; user-select: none; cursor: pointer; }
+    .toggle-label { font-size: 12px; color: var(--muted); user-select: none; cursor: pointer; }
     .periods button.toggle,
     .toggle {
       position: relative; width: 32px; height: 18px; cursor: pointer;
-      background: #363330; border-radius: 9px; border: none; outline: none;
+      background: var(--line); border-radius: 9px; border: none; outline: none;
       padding: 0; transition: background 0.2s;
     }
     .toggle::after {
       content: ""; position: absolute; top: 2px; left: 2px;
       width: 14px; height: 14px; border-radius: 50%;
-      background: #6b6560; transition: all 0.2s;
+      background: var(--muted); transition: all 0.2s;
     }
     .periods button.toggle.on,
-    .toggle.on { background: #5aad7d; }
-    .toggle.on::after { left: 16px; background: #e8e4de; }
+    .toggle.on { background: var(--success); }
+    .toggle.on::after { left: 16px; background: var(--text); }
 
     /* Table */
-    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-    th {
-      color: #5a5550; font-size: 11px; text-transform: uppercase;
-      letter-spacing: 0.5px; font-weight: 500;
-      text-align: left; padding: 8px 12px;
-      border-bottom: 1px solid #2e2c2a;
+    .table-shell {
+      overflow-x: auto; border-radius: 10px; border: 1px solid var(--line-soft);
+      background: rgba(19,17,15,0.38);
     }
-    td { padding: 14px 12px; border-bottom: 1px solid #242220; }
-    tr:hover { background: rgba(255,255,255,0.015); }
-    .rank { font-weight: 600; width: 40px; color: #6b6560; }
-    .rank.top { color: #d4a03e; }
+    table { width: 100%; border-collapse: collapse; margin-top: 0; min-width: 680px; }
+    th {
+      color: var(--faint); font-size: 11px; text-transform: uppercase;
+      letter-spacing: 0.5px; font-weight: 500;
+      text-align: left; padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255,255,255,0.012);
+    }
+    td { padding: 14px 12px; border-bottom: 1px solid var(--line-soft); }
+    tbody tr { transition: background 0.15s ease; }
+    tbody tr:hover { background: rgba(255,255,255,0.025); }
+    tbody tr:last-child td { border-bottom: none; }
+    tr.top-one { box-shadow: inset 2px 0 0 rgba(214,181,109,0.7); background: rgba(214,181,109,0.035); }
+    tr.top-two { box-shadow: inset 2px 0 0 rgba(174,183,191,0.55); }
+    tr.top-three { box-shadow: inset 2px 0 0 rgba(197,138,97,0.55); }
+    .rank { font-weight: 650; width: 40px; color: var(--faint); }
+    .rank.gold { color: var(--gold); }
+    .rank.silver { color: var(--silver); }
+    .rank.bronze { color: var(--bronze); }
     .name-cell { display: flex; align-items: center; gap: 12px; }
     .name-cell > div:last-child { flex: 1; min-width: 0; }
     .avatar-wrap { position: relative; flex-shrink: 0; width: 32px; height: 32px; }
     .avatar {
       width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
-      font-weight: 600; font-size: 13px; color: #1a1816;
+      font-weight: 600; font-size: 13px; color: var(--bg);
     }
     .typing-bubble {
       position: absolute; top: -6px; right: -4px;
-      background: #2a2826; border-radius: 8px;
+      background: var(--surface-soft); border-radius: 8px;
       padding: 3px 5px; display: flex; gap: 2px; align-items: center;
-      box-shadow: 0 0 0 2px #1a1816;
+      box-shadow: 0 0 0 2px var(--bg);
     }
     .typing-bubble span {
-      width: 3.5px; height: 3.5px; border-radius: 50%; background: #e8e4de;
+      width: 3.5px; height: 3.5px; border-radius: 50%; background: var(--text);
       opacity: 0.15; animation: typing-fade 1.2s infinite ease-in-out;
     }
     .typing-bubble span:nth-child(1) { animation-delay: 0s; }
@@ -309,41 +343,41 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
     .avatar img.errored + .fallback { display: flex; }
     .name-text { font-weight: 500; font-size: 14px; }
     .agent-line {
-      color: #6b6560; font-size: 11px; margin-top: 4px; min-height: 18px;
+      color: var(--faint); font-size: 11px; margin-top: 4px; min-height: 18px;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .agent-source { color: #8a8480; }
-    .agent-percent { color: #6b6560; font-variant-numeric: tabular-nums; }
+    .agent-source { color: var(--muted); }
+    .agent-percent { color: var(--faint); font-variant-numeric: tabular-nums; }
     .active-badge {
       display: inline-flex; align-items: center; gap: 4px; vertical-align: -1px;
-      color: #5aad7d; font-size: 12px; font-weight: 400; margin-left: 6px; line-height: 1;
+      color: var(--success); font-size: 12px; font-weight: 400; margin-left: 6px; line-height: 1;
     }
     .active-agent-icon {
       width: 12px; height: 12px; display: block; object-fit: contain; flex: 0 0 auto;
     }
     .active-agent-fallback {
       width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center;
-      border-radius: 3px; background: rgba(90,173,125,0.12); color: #5aad7d; font-size: 10px; font-weight: 600;
+      border-radius: 3px; background: rgba(99,180,134,0.12); color: var(--success); font-size: 10px; font-weight: 600;
     }
-    .active-count { color: #5aad7d; font-size: 13px; margin-top: 4px; }
-    .name-link { color: #6ba3be; text-decoration: none; }
+    .active-count { color: var(--success); font-size: 13px; margin-top: 4px; }
+    .name-link { color: var(--link); text-decoration: none; }
     .name-link:hover { text-decoration: underline; }
     .bar {
-      height: 3px; background: #d4935e; border-radius: 2px; margin-top: 6px;
-      opacity: 0.5; transition: width 0.3s;
+      height: 3px; background: var(--brand); border-radius: 2px; margin-top: 6px;
+      opacity: 0.55; transition: width 0.3s;
     }
-    .tokens { color: #8a8480; font-variant-numeric: tabular-nums; font-size: 14px; }
+    .tokens { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 14px; }
     .cost { font-variant-numeric: tabular-nums; font-size: 14px; }
     .roi { font-variant-numeric: tabular-nums; font-size: 13px; white-space: nowrap; }
-    .roi .price { color: #6b6560; }
+    .roi .price { color: var(--faint); }
     .roi .pct { font-weight: 500; }
-    .roi .pct.high { color: #5aad7d; }
-    .roi .pct.mid { color: #d4a03e; }
-    .roi .pct.low { color: #6b6560; }
-    .calls { color: #6b6560; font-size: 14px; }
+    .roi .pct.high { color: var(--success); }
+    .roi .pct.mid { color: var(--brand); }
+    .roi .pct.low { color: var(--faint); }
+    .calls { color: var(--muted); font-size: 14px; }
     .avg-turn { font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .avg-turn-main { color: #e8e4de; font-size: 14px; }
-    .avg-turn-sub { color: #6b6560; font-size: 11px; margin-top: 2px; }
+    .avg-turn-main { color: var(--text); font-size: 14px; }
+    .avg-turn-sub { color: var(--faint); font-size: 11px; margin-top: 2px; }
 
     /* Activity chart */
     .chart-section { margin-top: 32px; }
@@ -351,9 +385,9 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
       display: flex; align-items: center; justify-content: space-between;
       margin-bottom: 16px;
     }
-    .chart-title { font-size: 15px; font-weight: 500; color: #e8e4de; }
+    .chart-title { font-size: 15px; font-weight: 500; color: var(--text); }
     .chart-canvas {
-      background: #13110f; border-radius: 8px; padding: 16px;
+      background: var(--surface-deep); border-radius: 10px; padding: 16px;
       border: 1px solid rgba(255,255,255,0.06);
     }
     .chart-canvas svg { width: 100%; display: block; }
@@ -363,7 +397,7 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
     }
     .chart-legend-item {
       display: flex; align-items: center; gap: 5px;
-      font-size: 12px; color: #8a8480; cursor: pointer; user-select: none;
+      font-size: 12px; color: var(--muted); cursor: pointer; user-select: none;
     }
     .chart-legend-item.hidden { opacity: 0.4; }
     .chart-legend-dot {
@@ -372,38 +406,41 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
     .chart-canvas { position: relative; }
     .chart-tooltip {
       position: absolute; pointer-events: none; opacity: 0;
-      background: #1e1c1a; border: 1px solid rgba(255,255,255,0.12);
+      background: var(--surface); border: 1px solid rgba(255,255,255,0.12);
       border-radius: 6px; padding: 6px 10px; font-size: 12px;
-      color: #e8e4de; white-space: nowrap; z-index: 10;
+      color: var(--text); white-space: nowrap; z-index: 10;
       transition: opacity 0.15s;
     }
     .chart-tooltip.visible { opacity: 1; }
 
     /* Empty */
-    .empty { text-align: center; color: #5a5550; padding: 64px 0; font-size: 14px; line-height: 1.8; }
+    .empty { text-align: center; color: var(--faint); padding: 64px 0; font-size: 14px; line-height: 1.8; }
 
     /* Invite */
     .invite {
-      margin-top: 40px; padding: 20px; background: #242220; border-radius: 10px;
+      margin-top: 40px; padding: 20px; background: var(--surface-soft); border-radius: 10px;
       display: flex; align-items: center; justify-content: space-between;
+      border: 1px solid var(--line-soft);
     }
-    .invite-label { color: #6b6560; font-size: 13px; margin-bottom: 4px; }
+    .invite-label { color: var(--muted); font-size: 13px; margin-bottom: 4px; }
     .invite-code {
       font-family: "SF Mono", Menlo, monospace;
-      font-size: 14px; letter-spacing: 0.5px; font-weight: 600; color: #e8e4de;
+      font-size: 14px; letter-spacing: 0.5px; font-weight: 600; color: var(--text);
     }
     .copy-btn {
-      padding: 8px 16px; border-radius: 6px; border: 1px solid #363330;
-      background: transparent; color: #8a8480; cursor: pointer;
+      padding: 8px 16px; border-radius: 6px; border: 1px solid var(--line);
+      background: transparent; color: var(--muted); cursor: pointer;
       font-size: 13px; font-family: inherit; transition: all 0.15s ease;
     }
-    .copy-btn:hover { border-color: #5a5550; color: #c8c4be; }
+    .copy-btn:hover { border-color: var(--link); color: var(--text); }
 
     /* Footer */
-    .meta { color: #3a3835; font-size: 12px; margin-top: 24px; text-align: center; }
+    .meta { color: var(--faint); font-size: 12px; margin-top: 24px; text-align: center; }
 
     @media (max-width: 600px) {
       .wrap { padding: 32px 16px; }
+      .periods { align-items: stretch; }
+      .toggle-wrap { width: 100%; margin-left: 0; justify-content: flex-end; padding: 2px 6px 4px; }
       th:nth-last-child(1), td:nth-last-child(1) { display: none; }
       .hide-mobile { display: none; }
     }
@@ -452,9 +489,9 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
 
     <div class="meta" id="refresh-info"></div>
     <div class="meta" style="margin-top:16px;display:flex;align-items:center;justify-content:center;gap:12px">
-      <a href="/" style="color:#6b6560;text-decoration:none">\u2190 Home</a>
-      <a href="https://github.com/mazzzystar/ccclub" style="display:flex;align-items:center;opacity:0.5" aria-label="GitHub"><svg width="16" height="16" viewBox="0 0 24 24" fill="#6b6560"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg></a>
-      <a href="https://discord.gg/6QbGWJUVHq" style="display:flex;align-items:center;opacity:0.5" aria-label="Discord"><svg width="18" height="18" viewBox="0 0 24 24" fill="#6b6560"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.947 2.418-2.157 2.418z"/></svg></a>
+      <a href="/" style="color:var(--muted);text-decoration:none">\u2190 Home</a>
+      <a href="https://github.com/mazzzystar/ccclub" style="display:flex;align-items:center;opacity:0.58;color:var(--muted)" aria-label="GitHub"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg></a>
+      <a href="https://discord.gg/6QbGWJUVHq" style="display:flex;align-items:center;opacity:0.58;color:var(--muted)" aria-label="Discord"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.947 2.418-2.157 2.418z"/></svg></a>
     </div>
   </div>
 
@@ -639,20 +676,21 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
             return r.agents && r.agents.length > 0 && !(r.agents.length === 1 && r.agents[0] === "claude");
           });
           var PLAN_PRICES = { pro: 20, max100: 100, max200: 200, api: 0 };
-          var h = '<table><thead><tr><th>#</th><th>Member</th><th>Cost</th><th>Tokens</th><th>Turns</th><th title="Cost and tokens per turn">Avg Turn</th>';
+          var h = '<div class="table-shell"><table><thead><tr><th>#</th><th>Member</th><th>Cost</th><th>Tokens</th><th>Turns</th><th title="Cost and tokens per turn">Avg Turn</th>';
           if (hasPlan) h += '<th>ROI</th>';
           h += '</tr></thead><tbody>';
 
           data.rankings.forEach(function(r) {
             var pct = maxCost > 0 ? (r.costUSD / maxCost * 100) : 0;
-            var rankClass = r.rank <= 3 ? "rank top" : "rank";
+            var rowClass = r.rank === 1 ? "top-one" : r.rank === 2 ? "top-two" : r.rank === 3 ? "top-three" : "";
+            var rankClass = r.rank === 1 ? "rank gold" : r.rank === 2 ? "rank silver" : r.rank === 3 ? "rank bronze" : "rank";
             var isActive = r.lastSync && (now - new Date(r.lastSync).getTime()) < ACTIVE_THRESHOLD_MS;
             var agentLine = "";
             if (hasAgents && r.agents && r.agents.length > 0) {
               agentLine = agentMixHTML(r);
             }
             var displayedTokens = showCache ? r.totalTokens : (r.inputTokens + r.outputTokens + (r.reasoningTokens || 0));
-            h += '<tr>' +
+            h += '<tr class="' + rowClass + '">' +
               '<td class="' + rankClass + '">' + r.rank + '</td>' +
               '<td><div class="name-cell">' + avatarHTML(r.userId, r.displayName, r.avatar, isActive) +
                 '<div><div class="name-text">' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" rel="noopener" class="name-link">' + esc(r.displayName) + '</a>' : esc(r.displayName)) + activeBadgeHTML(r, isActive) + '</div>' +
@@ -680,7 +718,7 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
             }
             h += '</tr>';
           });
-          h += '</tbody></table>';
+          h += '</tbody></table></div>';
           document.getElementById("content").innerHTML = h;
           document.getElementById("refresh-info").textContent =
             "Last updated " + new Date().toLocaleTimeString();
@@ -702,7 +740,7 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
     }
 
     // Activity chart
-    var CHART_COLORS = ["#d4935e","#5aad7d","#4a8aaa","#d4a03e","#9a5aaa","#c45c5c","#8aaa5a","#c46a7a"];
+    var CHART_COLORS = ["#d4935e","#63b486","#7ab7c6","#d6b56d","#aeb7bf","#c58a61","#8aaa5a","#c46a7a"];
     var hiddenUsers = {};
 
     function periodToRange(p) {
@@ -723,7 +761,7 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
         })
         .then(function(data) { renderChart(data); })
         .catch(function() {
-          document.getElementById("chart").innerHTML = '<div style="color:#5a5550;text-align:center;padding:24px;font-size:13px">Couldn\\'t load activity chart</div>';
+          document.getElementById("chart").innerHTML = '<div style="color:var(--faint);text-align:center;padding:24px;font-size:13px">Couldn\\'t load activity chart</div>';
         });
     }
 
@@ -735,7 +773,7 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
       var range = data.range;
 
       if (!data.series || data.series.length === 0) {
-        el.innerHTML = '<div style="color:#5a5550;text-align:center;padding:24px;font-size:13px">No activity in this period</div>';
+        el.innerHTML = '<div style="color:var(--faint);text-align:center;padding:24px;font-size:13px">No activity in this period</div>';
         return;
       }
 
@@ -801,18 +839,18 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
         }
         var lx = PAD_L + (i / labelCount) * plotW;
         labels += '<text x="' + lx.toFixed(1) + '" y="' + (H - 2) + '" fill="#5a5550" font-size="10" text-anchor="middle">' + label + '</text>';
-        labels += '<line x1="' + lx.toFixed(1) + '" y1="' + PAD_T + '" x2="' + lx.toFixed(1) + '" y2="' + (PAD_T + plotH) + '" stroke="#2e2c2a" stroke-width="1"/>';
+        labels += '<line x1="' + lx.toFixed(1) + '" y1="' + PAD_T + '" x2="' + lx.toFixed(1) + '" y2="' + (PAD_T + plotH) + '" stroke="#332f2b" stroke-width="1" opacity="0.72"/>';
       }
 
       // Cost axis label (peak per bucket)
       var costLabel = globalMax >= 1 ? "$" + globalMax.toFixed(0) : "$" + globalMax.toFixed(2);
-      labels += '<text x="' + (W - 2) + '" y="' + (PAD_T + 10) + '" fill="#5a5550" font-size="10" text-anchor="end">' + costLabel + '</text>';
+      labels += '<text x="' + (W - 2) + '" y="' + (PAD_T + 10) + '" fill="#8a8480" font-size="10" text-anchor="end">' + costLabel + '</text>';
 
       // Crosshair line + dot markers (hidden by default) + hover overlay
-      var overlay = '<line id="chart-crosshair" x1="0" y1="' + PAD_T + '" x2="0" y2="' + (PAD_T + plotH) + '" stroke="#5a5550" stroke-width="1" stroke-dasharray="3,3" opacity="0"/>';
+      var overlay = '<line id="chart-crosshair" x1="0" y1="' + PAD_T + '" x2="0" y2="' + (PAD_T + plotH) + '" stroke="#7ab7c6" stroke-width="1" stroke-dasharray="3,3" opacity="0"/>';
       userSeries.forEach(function(us, idx) {
         var color = CHART_COLORS[idx % CHART_COLORS.length];
-        overlay += '<circle id="chart-dot-' + idx + '" cx="0" cy="0" r="3.5" fill="' + color + '" stroke="#1a1816" stroke-width="1.5" opacity="0"/>';
+        overlay += '<circle id="chart-dot-' + idx + '" cx="0" cy="0" r="3.5" fill="' + color + '" stroke="#13110f" stroke-width="1.5" opacity="0"/>';
       });
       overlay += '<rect x="' + PAD_L + '" y="' + PAD_T + '" width="' + plotW + '" height="' + plotH + '" fill="transparent" id="chart-overlay" style="cursor:crosshair"/>';
 
@@ -865,7 +903,7 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
           ? bt.getHours().toString().padStart(2, "0") + ":" + bt.getMinutes().toString().padStart(2, "0")
           : (bt.getMonth() + 1) + "/" + bt.getDate();
         // Position dots and build tooltip content
-        var tipLines = '<div style="color:#5a5550;margin-bottom:2px">' + timeLabel + '</div>';
+        var tipLines = '<div style="color:#8a8480;margin-bottom:2px">' + timeLabel + '</div>';
         var hasData = false;
         userSeries.forEach(function(us, idx) {
           var pt = us.points[bucketIdx];

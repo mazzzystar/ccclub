@@ -18,7 +18,7 @@ const program = new Command();
 
 program
   .name("ccclub")
-  .description("Coding agent usage leaderboard among friends")
+  .description("Claude Code, Codex, OpenCode, Amp, and pi-agent usage leaderboard among friends")
   .version(VERSION, "-v, -V, --version");
 
 // Default command — just running `ccclub` shows the leaderboard
@@ -56,9 +56,9 @@ program
 
 program
   .command("sync")
-  .description("Upload usage data (runs automatically on session end)")
+  .description("Upload local coding agent usage now (auto-sync also runs after setup)")
   .addOption(new Option("-s, --silent").hideHelp())
-  .option("-f, --force", "Force full re-sync of all data")
+  .option("-f, --force", "Re-scan and upload all local usage logs")
   .addOption(new Option("--full", "Same as --force").hideHelp())
   .action((options: { silent?: boolean; full?: boolean; force?: boolean }) =>
     syncCommand({ ...options, full: options.full || options.force }),
@@ -98,6 +98,13 @@ program
   .action(hookCommand);
 
 program.addHelpText("after", `
+Setup:
+  ccclub init             Create your group and enable auto-sync
+  ccclub join <code>      Join a friend's group
+
+Supported agents:
+  Claude Code, Codex, OpenCode, Amp, pi-agent
+
 Leaderboard options:
   -d <period>              Time window: 1 | 7 | 30 | all (default: today)
   -g <code>                Show a specific group
@@ -106,10 +113,11 @@ Leaderboard options:
   --all                    Show all members including inactive ones
 
 Examples:
+  $ npx ccclub init        First-time setup
   $ ccclub                 Show today's leaderboard (default)
   $ ccclub -d 1|7|30|all   Time window (default: today)
   $ ccclub --global        Global public leaderboard
-  $ ccclub sync --force    Force full re-sync of all data
+  $ ccclub show-data       Preview exactly what gets uploaded
 `);
 
 program.parse();

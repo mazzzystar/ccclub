@@ -308,7 +308,12 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
     .avatar .fallback { display: none; }
     .avatar img.errored + .fallback { display: flex; }
     .name-text { font-weight: 500; font-size: 14px; }
-    .agent-line { color: #6b6560; font-size: 11px; margin-top: 2px; }
+    .agent-line {
+      color: #6b6560; font-size: 11px; margin-top: 4px; min-height: 18px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .agent-source { color: #8a8480; }
+    .agent-percent { color: #6b6560; font-variant-numeric: tabular-nums; }
     .active-badge { color: #5aad7d; font-size: 12px; font-weight: 400; margin-left: 4px; }
     .active-count { color: #5aad7d; font-size: 13px; margin-top: 4px; }
     .name-link { color: #6ba3be; text-decoration: none; }
@@ -325,8 +330,10 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
     .roi .pct.high { color: #5aad7d; }
     .roi .pct.mid { color: #d4a03e; }
     .roi .pct.low { color: #6b6560; }
-    .usage { font-family: "SF Mono", "Fira Code", Menlo, Consolas, monospace; color: #8a8480; font-size: 13px; white-space: nowrap; }
     .calls { color: #6b6560; font-size: 14px; }
+    .avg-turn { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .avg-turn-main { color: #e8e4de; font-size: 14px; }
+    .avg-turn-sub { color: #6b6560; font-size: 11px; margin-top: 2px; }
 
     /* Activity chart */
     .chart-section { margin-top: 32px; }
@@ -510,6 +517,49 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
       return '<div class="avatar-wrap"><div class="avatar" style="background:' + color + '">' + initial + '</div>' + bubble + '</div>';
     }
 
+    var AGENT_ORDER = ["claude", "codex", "opencode", "amp", "pi"];
+    var AGENT_LABELS = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode", amp: "Amp", pi: "pi-agent" };
+    function orderedAgents(agents) {
+      agents = agents || [];
+      return AGENT_ORDER.filter(function(a) { return agents.indexOf(a) !== -1; })
+        .concat(agents.filter(function(a) { return AGENT_ORDER.indexOf(a) === -1; }));
+    }
+    function getAgentBreakdown(row) {
+      if (row.agentBreakdown && row.agentBreakdown.length > 0) return row.agentBreakdown;
+      return orderedAgents(row.agents).map(function(source) {
+        return { source: source, costUSD: 0, totalTokens: 0, chatCount: 0, entryCount: 0, percent: 0 };
+      });
+    }
+    function agentTooltip(row) {
+      if (!row.agentBreakdown || row.agentBreakdown.length === 0) {
+        return orderedAgents(row.agents).map(function(source) {
+          return AGENT_LABELS[source] || source;
+        }).join("\\n");
+      }
+      return getAgentBreakdown(row).map(function(agent) {
+        var label = AGENT_LABELS[agent.source] || agent.source;
+        var pct = agent.percent ? agent.percent + "% · " : "";
+        var cost = agent.costUSD ? "$" + agent.costUSD.toFixed(2) + " · " : "";
+        var tokens = agent.totalTokens ? formatTokens(agent.totalTokens) + " tokens · " : "";
+        var turns = (agent.chatCount || 0) + " turn" + ((agent.chatCount || 0) === 1 ? "" : "s");
+        return label + ": " + pct + cost + tokens + turns;
+      }).join("\\n");
+    }
+    function agentMixHTML(row) {
+      var breakdown = getAgentBreakdown(row);
+      if (breakdown.length === 0) return "";
+      var hasBreakdown = row.agentBreakdown && row.agentBreakdown.length > 0;
+      var text = breakdown.map(function(agent) {
+        var label = esc(AGENT_LABELS[agent.source] || agent.source);
+        if (hasBreakdown && breakdown.length > 1) {
+          return '<span class="agent-source">' + label + '</span> <span class="agent-percent">(' + agent.percent + '%)</span>';
+        }
+        return '<span class="agent-source">' + label + '</span>';
+      }).join('<span class="agent-percent">, </span>');
+      return '<div class="agent-line" title="' + esc(agentTooltip(row)) + '">' +
+        text + '</div>';
+    }
+
     document.querySelectorAll(".periods button[data-period]").forEach(function(btn) {
       btn.addEventListener("click", function() {
         document.querySelectorAll(".periods button").forEach(function(b) { b.classList.remove("active"); });
@@ -532,8 +582,6 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
             " \u00b7 " + data.group.memberCount + (IS_GLOBAL ? " public users" : " members");
 
           var now = Date.now();
-          var AGENT_ORDER = ["claude", "codex", "opencode", "amp", "pi"];
-          var AGENT_LABELS = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode", amp: "Amp", pi: "pi-agent" };
           var agentSet = {};
           data.rankings.forEach(function(r) {
             (r.agents || []).forEach(function(a) { agentSet[a] = true; });
@@ -563,15 +611,12 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
           var maxCost = 0;
           data.rankings.forEach(function(r) { if (r.costUSD > maxCost) maxCost = r.costUSD; });
           var hasPlan = data.rankings.some(function(r) { return r.plan; });
-          var hasUsage = data.rankings.some(function(r) { return r.usageSnapshot; });
           var hasAgents = data.rankings.some(function(r) {
             return r.agents && r.agents.length > 0 && !(r.agents.length === 1 && r.agents[0] === "claude");
           });
           var PLAN_PRICES = { pro: 20, max100: 100, max200: 200, api: 0 };
-          var h = '<table><thead><tr><th>#</th><th>Name</th><th>Cost</th><th>Tokens</th>';
-          if (hasPlan) h += '<th>Monthly ROI</th>';
-          h += '<th>Turns</th><th>$/Turn</th>';
-          if (hasUsage) h += '<th>Usage 7d</th>';
+          var h = '<table><thead><tr><th>#</th><th>Member</th><th>Cost</th><th>Tokens</th><th>Turns</th><th title="Cost and tokens per turn">Avg Turn</th>';
+          if (hasPlan) h += '<th>ROI</th>';
           h += '</tr></thead><tbody>';
 
           data.rankings.forEach(function(r) {
@@ -580,17 +625,22 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
             var isActive = r.lastSync && (now - new Date(r.lastSync).getTime()) < ACTIVE_THRESHOLD_MS;
             var agentLine = "";
             if (hasAgents && r.agents && r.agents.length > 0) {
-              var rowAgents = AGENT_ORDER.filter(function(a) { return r.agents.indexOf(a) !== -1; })
-                .concat(r.agents.filter(function(a) { return AGENT_ORDER.indexOf(a) === -1; }));
-              agentLine = '<div class="agent-line">' + rowAgents.map(function(a) { return AGENT_LABELS[a] || a; }).join(", ") + '</div>';
+              agentLine = agentMixHTML(r);
             }
+            var displayedTokens = showCache ? r.totalTokens : (r.inputTokens + r.outputTokens + (r.reasoningTokens || 0));
             h += '<tr>' +
               '<td class="' + rankClass + '">' + r.rank + '</td>' +
               '<td><div class="name-cell">' + avatarHTML(r.userId, r.displayName, r.avatar, isActive) +
                 '<div><div class="name-text">' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" rel="noopener" class="name-link">' + esc(r.displayName) + '</a>' : esc(r.displayName)) + (isActive ? '<span class="active-badge">(active)</span>' : '') + '</div>' +
                 agentLine + '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +
               '<td class="cost">$' + r.costUSD.toFixed(2) + '</td>' +
-              '<td class="tokens">' + formatTokens(showCache ? r.totalTokens : (r.inputTokens + r.outputTokens + (r.reasoningTokens || 0))) + '</td>';
+              '<td class="tokens">' + formatTokens(displayedTokens) + '</td>';
+            var chats = r.chatCount || 0;
+            var perChat = chats > 0 ? '$' + (r.costUSD / chats).toFixed(2) : '\u2014';
+            var tokensPerChat = chats > 0 ? formatTokens(Math.round(displayedTokens / chats)) + ' tok' : '';
+            h += '<td class="calls">' + chats + '</td>' +
+              '<td class="avg-turn"><div class="avg-turn-main">' + perChat + '</div>' +
+              (tokensPerChat ? '<div class="avg-turn-sub">' + tokensPerChat + '</div>' : '') + '</td>';
             if (hasPlan) {
               if (r.plan && r.plan !== "api") {
                 var price = PLAN_PRICES[r.plan] || 0;
@@ -602,17 +652,6 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
                 h += '<td class="roi"><span class="pct low">API</span></td>';
               } else {
                 h += '<td class="roi"><span class="pct low">\u2014</span></td>';
-              }
-            }
-            var chats = r.chatCount || 0;
-            var perChat = chats > 0 ? '$' + (r.costUSD / chats).toFixed(2) : '\u2014';
-            h += '<td class="calls">' + chats + '</td><td class="cost">' + perChat + '</td>';
-            if (hasUsage) {
-              if (r.usageSnapshot) {
-                var snapshotTitle = "7d rolling \u00b7 as of " + new Date(r.usageSnapshot.snapshotAt).toLocaleString();
-                h += '<td class="usage" title="' + esc(snapshotTitle) + '">' + Math.round(r.usageSnapshot.sevenDay) + '%</td>';
-              } else {
-                h += '<td class="usage"><span style="color:#4a4640">\u2014</span></td>';
               }
             }
             h += '</tr>';

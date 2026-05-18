@@ -5,7 +5,7 @@ const app = new Hono<{ Bindings: Env }>();
 
 export const GUIDE_MARKDOWN = `# ccclub — Claude Code & Codex Leaderboard Among Friends
 
-> Claude Code and Codex leaderboard among friends. Track coding agent token usage, costs, and active status across Claude Code, Codex, OpenCode, Amp, and pi-agent. No signup, no config.
+> Claude Code and Codex leaderboard among friends. Track coding agent token usage, costs, active status, and agent mix across Claude Code, Codex, OpenCode, Amp, and pi-agent. No signup, no config.
 
 Website: https://ccclub.dev
 GitHub: https://github.com/mazzzystar/ccclub
@@ -16,7 +16,7 @@ Discord: https://discord.gg/6QbGWJUVHq
 ## Quick Start
 
 \`\`\`bash
-# 1. Initialize (creates your group + installs auto-sync)
+# 1. Initialize (creates your group + enables auto-sync)
 npx ccclub init
 
 # 2. Share the invite link with friends
@@ -37,7 +37,8 @@ npx ccclub init
 This single command:
 - Asks for your display name (auto-detects from git config)
 - Creates your group with a 6-letter invite code
-- Installs automatic usage sync for supported coding agents
+- Detects supported coding agent logs on your machine
+- Installs automatic usage sync
 - Globally installs \`ccclub\` so you can run it without \`npx\`
 
 ---
@@ -54,7 +55,7 @@ ccclub automatically detects local usage logs from:
 | Amp | \`~/.local/share/amp/threads\` |
 | pi-agent | \`~/.pi/agent/sessions\` |
 
-Custom locations are supported with \`CLAUDE_CONFIG_DIR\`, \`CODEX_HOME\`, \`OPENCODE_DATA_DIR\`, \`AMP_DATA_DIR\`, and \`PI_AGENT_DIR\`.
+If you use the default locations, there is nothing to configure. Custom locations are supported with \`CLAUDE_CONFIG_DIR\`, \`CODEX_HOME\`, \`OPENCODE_DATA_DIR\`, \`AMP_DATA_DIR\`, and \`PI_AGENT_DIR\`.
 
 ---
 
@@ -97,7 +98,7 @@ Every group has a live web dashboard at:
     https://ccclub.dev/g/YHAW6P
 
 Features:
-- Real-time leaderboard with cost, tokens, turns, $/turn
+- Real-time leaderboard with cost, tokens, turns, $/turn, and agent mix
 - Monthly ROI calculation (for users with subscription plans)
 - Activity chart showing usage patterns over time
 - Active member indicators
@@ -123,8 +124,8 @@ Public users appear on the global leaderboard:
 | \`ccclub --all\` | Show all members including inactive ones |
 | \`ccclub create\` | Create an additional group |
 | \`ccclub leave [CODE]\` | Leave a group |
-| \`ccclub sync\` | Manual sync (auto-sync also runs in background) |
-| \`ccclub sync --force\` | Force full re-sync of all data |
+| \`ccclub sync\` | Manual sync; auto-sync also runs after setup |
+| \`ccclub sync --force\` | Re-scan and upload all local usage logs |
 | \`ccclub profile\` | View your profile |
 | \`ccclub profile --name <name>\` | Change display name |
 | \`ccclub profile --avatar <url>\` | Set avatar URL |
@@ -160,7 +161,7 @@ ccclub profile --avatar https://example.com/photo.jpg
 
 ## Privacy
 
-ccclub reads **only** token counts, cost estimates, model names, and number of calls from local usage logs written by Claude Code, Codex, OpenCode, Amp, and pi-agent.
+ccclub reads **only** agent source, token counts, cost estimates, model names, and number of calls from local usage logs written by Claude Code, Codex, OpenCode, Amp, and pi-agent.
 
 **Never uploaded:**
 - Prompts or responses
@@ -174,9 +175,9 @@ Run \`ccclub show-data\` to see exactly what gets uploaded.
 
 ## How Syncing Works
 
-- **Automatic**: A Claude Code hook runs \`ccclub sync\` at session end; background sync keeps other supported agents fresh
+- **Automatic**: \`ccclub init\` installs a Claude Code hook for session-end sync and a lightweight background sync for other supported agents
 - **Manual**: Run \`ccclub sync\` anytime
-- **Force**: Run \`ccclub sync --force\` to re-upload all historical data
+- **Full re-scan**: Run \`ccclub sync --force\` to re-scan local logs
 - Usage data is aggregated into 30-minute blocks before upload
 
 ---
@@ -216,7 +217,10 @@ A: No. It only reads usage metadata (token counts, costs, model names) from supp
 A: No. Just run \`npx ccclub init\`. No email, no password, no signup.
 
 **Q: How does auto-sync work?**
-A: ccclub installs a Claude Code hook for session-end sync and a lightweight background sync for other supported agents. You can also sync manually.
+A: \`ccclub init\` installs a Claude Code hook for session-end sync and a lightweight background sync for other supported agents. You can also sync manually.
+
+**Q: Do I need to configure each coding agent?**
+A: No. ccclub detects supported logs from their default local locations. Custom locations are optional.
 
 **Q: Can I be in multiple groups?**
 A: Yes. Run \`ccclub create\` for a new group or \`ccclub join <CODE>\` to join another.
@@ -237,7 +241,7 @@ MIT License · https://github.com/mazzzystar/ccclub
 
 export const LLMS_TXT = `# ccclub
 
-> Claude Code and Codex leaderboard among friends for coding agent tokens, costs, and active status
+> Claude Code and Codex leaderboard among friends for coding agent tokens, costs, active status, and agent mix
 
 ## Docs
 

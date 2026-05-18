@@ -179,7 +179,6 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   const hiddenCount = data.rankings.length - activeRankings.length;
 
   const hasPlan = activeRankings.some((r) => r.plan);
-  const hasUsage = activeRankings.some((r) => r.usageSnapshot);
   const hasAgents = activeRankings.some((r) =>
     r.agents && r.agents.length > 0 && !(r.agents.length === 1 && r.agents[0] === "claude")
   );
@@ -199,7 +198,6 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
       roi,
       turns: String(entry.chatCount),
       perTurn: entry.chatCount > 0 ? `$${(entry.costUSD / entry.chatCount).toFixed(2)}` : "—",
-      usage: entry.usageSnapshot ? `${Math.round(entry.usageSnapshot.sevenDay)}%` : "—",
     };
   });
 
@@ -212,7 +210,7 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   ];
   if (hasAgents) {
     head.splice(2, 0, "Agents");
-    widths.splice(2, 0, columnWidth("Agents", plainRows.map((r) => r.agents), 6, 24));
+    widths.splice(2, 0, columnWidth("Agents", plainRows.map((r) => r.agents), 6, 28));
   }
   if (hasPlan) {
     head.push("ROI");
@@ -223,10 +221,6 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
     columnWidth("Turns", plainRows.map((r) => r.turns), 3, 6),
     columnWidth("$/Turn", plainRows.map((r) => r.perTurn), 6, 7),
   );
-  if (hasUsage) {
-    head.push("Usage");
-    widths.push(columnWidth("Usage", plainRows.map((r) => r.usage), 5, 6));
-  }
 
   const table = new Table({
     head: head.map((h) => chalk.cyan(h)),
@@ -267,10 +261,6 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
 
     row.push(c(plain.turns));
     row.push(entry.chatCount > 0 ? c(plain.perTurn) : chalk.dim("—"));
-
-    if (hasUsage) {
-      row.push(entry.usageSnapshot ? c(plain.usage) : chalk.dim("—"));
-    }
 
     table.push(row);
   }
@@ -324,7 +314,7 @@ function formatAgents(entry: RankingEntry): string {
       return formatAgentLabel(entry.agentBreakdown[0].source);
     }
     const visible = entry.agentBreakdown.slice(0, 2)
-      .map((agent) => `${formatAgentLabel(agent.source)} ${agent.percent}%`);
+      .map((agent) => `${formatAgentLabel(agent.source)} (${agent.percent}%)`);
     if (entry.agentBreakdown.length > visible.length) {
       visible.push(`+${entry.agentBreakdown.length - visible.length}`);
     }

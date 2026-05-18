@@ -349,10 +349,10 @@ function landingHTML() {
           <p class="setup-subtitle" id="setup-subtitle">It will install ccclub, initialize your group, and keep supported agent usage fresh with almost no setup.</p>
           <div class="supported-card" aria-label="Supported coding agents">
             <div class="agent-stack">
-              <span class="agent-logo" title="Claude Code"><img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/claude-color.svg" alt="Claude Code" /></span>
-              <span class="agent-logo" title="Codex"><img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/codex.svg" alt="Codex" /></span>
-              <span class="agent-logo" title="OpenCode"><img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/opencode.svg" alt="OpenCode" /></span>
-              <span class="agent-logo" title="Amp"><img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/amp.svg" alt="Amp" /></span>
+              <span class="agent-logo" title="Claude Code"><img src="/agent-icons/claude.svg" alt="Claude Code" /></span>
+              <span class="agent-logo" title="Codex"><img src="/agent-icons/codex.svg" alt="Codex" /></span>
+              <span class="agent-logo" title="OpenCode"><img src="/agent-icons/opencode.svg" alt="OpenCode" /></span>
+              <span class="agent-logo" title="Amp"><img src="/agent-icons/amp.svg" alt="Amp" /></span>
               <span class="agent-logo pi" title="pi-agent">π</span>
             </div>
             <div class="supported-copy">

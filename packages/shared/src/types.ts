@@ -127,6 +127,8 @@ export interface RankingEntry {
     source: AgentSource;
     costUSD: number;
     totalTokens: number;
+    chatCount: number;
+    entryCount: number;
     percent: number;
   }>;
   entryCount: number;

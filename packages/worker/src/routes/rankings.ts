@@ -13,12 +13,15 @@ const app = new Hono<{ Bindings: Env }>();
 
 const VALID_PERIODS: RankingPeriod[] = ["daily", "yesterday", "weekly", "monthly", "all-time"];
 
-type AgentTotals = { costUSD: number; totalTokens: number };
+type AgentTotals = { costUSD: number; totalTokens: number; chatCount: number; entryCount: number };
 
-function addAgentTotals(totals: Map<AgentSource, AgentTotals>, source: AgentSource, costUSD: number, totalTokens: number): void {
-  const current = totals.get(source) ?? { costUSD: 0, totalTokens: 0 };
-  current.costUSD += costUSD;
-  current.totalTokens += totalTokens;
+function addAgentTotals(totals: Map<AgentSource, AgentTotals>, block: UsageData["blocks"][number]): void {
+  const source = block.source ?? "claude";
+  const current = totals.get(source) ?? { costUSD: 0, totalTokens: 0, chatCount: 0, entryCount: 0 };
+  current.costUSD += block.costUSD;
+  current.totalTokens += block.totalTokens;
+  current.chatCount += block.chatCount || 0;
+  current.entryCount += block.entryCount;
   totals.set(source, current);
 }
 
@@ -31,6 +34,8 @@ function buildAgentBreakdown(totals: Map<AgentSource, AgentTotals>, totalCostUSD
         source,
         costUSD: Math.round(value.costUSD * 10000) / 10000,
         totalTokens: value.totalTokens,
+        chatCount: value.chatCount,
+        entryCount: value.entryCount,
         percent: denominator > 0 ? Math.round((numerator / denominator) * 100) : 0,
       };
     })
@@ -179,7 +184,7 @@ app.get("/rank/global", async (c) => {
         chatCount += block.chatCount || 0;
         for (const m of block.models) models.add(m);
         agents.add(source);
-        addAgentTotals(agentTotals, source, block.costUSD, block.totalTokens);
+        addAgentTotals(agentTotals, block);
       }
       if (hasPlan && !isMonthly && blockTime >= monthStartMs && blockTime < monthEndMs) {
         monthlyCost += block.costUSD;
@@ -297,7 +302,7 @@ app.get("/rank/:code", async (c) => {
           chatCount += block.chatCount || 0;
           for (const m of block.models) models.add(m);
           agents.add(source);
-          addAgentTotals(agentTotals, source, block.costUSD, block.totalTokens);
+          addAgentTotals(agentTotals, block);
         }
         if (hasPlan && !isMonthly && blockTime >= monthStartMs && blockTime < monthEndMs) {
           monthlyCost += block.costUSD;

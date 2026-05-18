@@ -2,7 +2,7 @@
 
 # ccclub.dev
 
-Claude Code and Codex leaderboard among friends. Track coding agent token usage, costs, and active status across Claude Code, Codex, OpenCode, Amp, and pi-agent.
+Claude Code and Codex leaderboard among friends. Track coding agent token usage, costs, active status, and agent mix across Claude Code, Codex, OpenCode, Amp, and pi-agent.
 
 <img src="assets/demo.png" alt="ccclub" width="80%" />
 
@@ -18,7 +18,7 @@ It asks your name, gives you a 6-letter code. Send it to friends:
 npx ccclub join YHAW6P
 ```
 
-Done. Usage syncs automatically from supported coding agents. No config, no signup, no account.
+Done. ccclub automatically detects supported coding agent logs on your machine and keeps usage synced. No config, no signup, no account.
 
 Once a friend joins, check the leaderboard:
 
@@ -28,7 +28,7 @@ ccclub
 
 ## What gets uploaded
 
-ccclub reads local usage logs that supported coding agents already write, bundles them into 30-minute summaries (token counts + cost), and uploads those numbers. **No prompts, no code, no file paths, no project names** — just counters. Run `ccclub show-data` to audit exactly what gets sent.
+ccclub reads local usage logs that supported coding agents already write, bundles them into 30-minute summaries (agent source + token counts + cost), and uploads those numbers. **No prompts, no code, no file paths, no project names** — just counters. Run `ccclub show-data` to audit exactly what gets sent.
 
 Supported sources:
 
@@ -40,7 +40,7 @@ Supported sources:
 | Amp | `~/.local/share/amp/threads` |
 | pi-agent | `~/.pi/agent/sessions` |
 
-Custom locations are supported with `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_DATA_DIR`, `AMP_DATA_DIR`, and `PI_AGENT_DIR`.
+If you use the default locations, there is nothing to configure. Custom locations are supported with `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_DATA_DIR`, `AMP_DATA_DIR`, and `PI_AGENT_DIR`.
 
 ## Commands
 
@@ -49,7 +49,7 @@ Everyday use — these four are all you need:
 ```bash
 ccclub init                        # One-time setup, creates a group
 ccclub join <CODE>                 # Join a friend's group
-ccclub sync                        # Manual sync (auto-sync also runs in background)
+ccclub sync                        # Manual sync; auto-sync also runs after setup
 ccclub                             # Show the leaderboard
 ```
 
@@ -83,7 +83,7 @@ Every group gets a live page:
 https://ccclub.dev/g/YHAW6P
 ```
 
-Period switcher (today / 7d / 30d / all time), avatars, auto-refresh every 5 minutes. There's also a global page at `/g/global` for public users.
+Period switcher (today / 7d / 30d / all time), avatars, active status, agent mix, auto-refresh every 5 minutes. There's also a global page at `/g/global` for public users.
 
 ## Privacy
 
@@ -117,7 +117,7 @@ packages/
   worker/     Cloudflare Worker — Hono API + KV + dashboard
 ```
 
-Auto-sync: Claude Code `SessionEnd` + `Stop` hooks run `ccclub sync --silent`, and a lightweight background sync keeps other supported agents fresh (throttled to once per 5 minutes).
+Auto-sync: `ccclub init` installs Claude Code `SessionEnd` + `Stop` hooks and a lightweight background sync that keeps Codex, OpenCode, Amp, and pi-agent fresh (throttled to once per 5 minutes).
 
 ## Development
 

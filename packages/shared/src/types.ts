@@ -136,6 +136,7 @@ export interface RankingEntry {
   chatCount: number;
   usageSnapshot?: UsageSnapshot;
   lastSync?: string;
+  lastActiveSource?: AgentSource;
 }
 
 export type RankingPeriod = "daily" | "yesterday" | "weekly" | "monthly" | "all-time";

@@ -16,10 +16,16 @@ startUpdateCheck(VERSION);
 
 const program = new Command();
 
+// Keep the shorter -v alias while letting Commander own the standard -V/--version flags.
+if (process.argv.slice(2).includes("-v")) {
+  console.log(VERSION);
+  process.exit(0);
+}
+
 program
   .name("ccclub")
   .description("Claude Code, Codex, OpenCode, Amp, and pi-agent usage leaderboard among friends")
-  .version(VERSION, "-v, -V, --version");
+  .version(VERSION);
 
 // Default command — just running `ccclub` shows the leaderboard
 program

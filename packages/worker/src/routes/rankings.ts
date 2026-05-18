@@ -12,8 +12,20 @@ import type {
 const app = new Hono<{ Bindings: Env }>();
 
 const VALID_PERIODS: RankingPeriod[] = ["daily", "yesterday", "weekly", "monthly", "all-time"];
+const RANK_CACHE_VERSION = "v2";
 
 type AgentTotals = { costUSD: number; totalTokens: number; nonCacheTokens: number; chatCount: number; entryCount: number };
+
+function hasUsage(block: UsageData["blocks"][number]): boolean {
+  return block.entryCount > 0 || block.totalTokens > 0 || block.costUSD > 0;
+}
+
+function getBlockActivityTime(block: UsageData["blocks"][number]): number {
+  const blockEnd = new Date(block.blockEnd || block.blockStart).getTime();
+  if (Number.isFinite(blockEnd)) return blockEnd;
+  const blockStart = new Date(block.blockStart).getTime();
+  return Number.isFinite(blockStart) ? blockStart : 0;
+}
 
 function addAgentTotals(totals: Map<AgentSource, AgentTotals>, block: UsageData["blocks"][number]): void {
   const source = block.source ?? "claude";
@@ -169,11 +181,20 @@ app.get("/rank/global", async (c) => {
     let entryCount = 0;
     let chatCount = 0;
     let monthlyCost = 0;
+    let lastActiveTime = 0;
+    let lastActiveSource: AgentSource | undefined;
     const models = new Set<string>();
     const agents = new Set<AgentSource>();
     const agentTotals = new Map<AgentSource, AgentTotals>();
 
     for (const block of usage.blocks) {
+      if (hasUsage(block)) {
+        const activityTime = getBlockActivityTime(block);
+        if (activityTime > lastActiveTime) {
+          lastActiveTime = activityTime;
+          lastActiveSource = block.source ?? "claude";
+        }
+      }
       const blockTime = new Date(block.blockStart).getTime();
       if (blockTime >= startMs && blockTime < endMs) {
         const source = block.source ?? "claude";
@@ -217,6 +238,7 @@ app.get("/rank/global", async (c) => {
       }
       if (usage?.usageSnapshot) entry.usageSnapshot = usage.usageSnapshot;
       if (usage?.lastSync) entry.lastSync = usage.lastSync;
+      if (lastActiveSource) entry.lastActiveSource = lastActiveSource;
       entries.push(entry);
     }
   }
@@ -241,7 +263,7 @@ app.get("/rank/:code", async (c) => {
 
   // Check KV-backed cache before doing O(N) reads
   const tzBucket = Math.round(tz / 60);
-  const cacheKey = `rank_cache:${code}:${period}:${tzBucket}`;
+  const cacheKey = `rank_cache:${RANK_CACHE_VERSION}:${code}:${period}:${tzBucket}`;
   const [cacheEntry, lastSyncStr] = await Promise.all([
     c.env.KV.get<{ data: RankResponse; computedAt: number }>(cacheKey, "json"),
     c.env.KV.get(`last_sync:${code}`, "text"),
@@ -286,12 +308,21 @@ app.get("/rank/:code", async (c) => {
     let entryCount = 0;
     let chatCount = 0;
     let monthlyCost = 0;
+    let lastActiveTime = 0;
+    let lastActiveSource: AgentSource | undefined;
     const models = new Set<string>();
     const agents = new Set<AgentSource>();
     const agentTotals = new Map<AgentSource, AgentTotals>();
 
     if (usage) {
       for (const block of usage.blocks) {
+        if (hasUsage(block)) {
+          const activityTime = getBlockActivityTime(block);
+          if (activityTime > lastActiveTime) {
+            lastActiveTime = activityTime;
+            lastActiveSource = block.source ?? "claude";
+          }
+        }
         const blockTime = new Date(block.blockStart).getTime();
         if (blockTime >= startMs && blockTime < endMs) {
           const source = block.source ?? "claude";
@@ -335,6 +366,7 @@ app.get("/rank/:code", async (c) => {
     }
     if (usage?.usageSnapshot) entry.usageSnapshot = usage.usageSnapshot;
     if (usage?.lastSync) entry.lastSync = usage.lastSync;
+    if (lastActiveSource) entry.lastActiveSource = lastActiveSource;
     entries.push(entry);
   }
 

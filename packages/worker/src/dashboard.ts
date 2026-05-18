@@ -314,7 +314,17 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
     }
     .agent-source { color: #8a8480; }
     .agent-percent { color: #6b6560; font-variant-numeric: tabular-nums; }
-    .active-badge { color: #5aad7d; font-size: 12px; font-weight: 400; margin-left: 4px; }
+    .active-badge {
+      display: inline-flex; align-items: center; gap: 4px; vertical-align: -1px;
+      color: #5aad7d; font-size: 12px; font-weight: 400; margin-left: 6px; line-height: 1;
+    }
+    .active-agent-icon {
+      width: 12px; height: 12px; display: block; object-fit: contain; flex: 0 0 auto;
+    }
+    .active-agent-fallback {
+      width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 3px; background: rgba(90,173,125,0.12); color: #5aad7d; font-size: 10px; font-weight: 600;
+    }
     .active-count { color: #5aad7d; font-size: 13px; margin-top: 4px; }
     .name-link { color: #6ba3be; text-decoration: none; }
     .name-link:hover { text-decoration: underline; }
@@ -519,6 +529,7 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
 
     var AGENT_ORDER = ["claude", "codex", "opencode", "amp", "pi"];
     var AGENT_LABELS = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode", amp: "Amp", pi: "pi-agent" };
+    var AGENT_ICONS = { claude: "/agent-icons/claude.svg", codex: "/agent-icons/codex.svg", opencode: "/agent-icons/opencode.svg", amp: "/agent-icons/amp.svg" };
     function orderedAgents(agents) {
       agents = agents || [];
       return AGENT_ORDER.filter(function(a) { return agents.indexOf(a) !== -1; })
@@ -559,6 +570,18 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
       }).join('<span class="agent-percent">, </span>');
       return '<div class="agent-line" title="' + esc(agentTooltip(row)) + '">' +
         text + '</div>';
+    }
+    function activeBadgeHTML(row, isActive) {
+      if (!isActive) return "";
+      var source = row.lastActiveSource || (row.agents && row.agents[0]);
+      var label = (source && AGENT_LABELS[source]) || source || "active";
+      var icon = "";
+      if (source && AGENT_ICONS[source]) {
+        icon = '<img class="active-agent-icon" src="' + AGENT_ICONS[source] + '" alt="">';
+      } else if (source === "pi") {
+        icon = '<span class="active-agent-fallback">π</span>';
+      }
+      return '<span class="active-badge" title="' + esc(label + " active") + '">' + icon + '<span>active</span></span>';
     }
 
     document.querySelectorAll(".periods button[data-period]").forEach(function(btn) {
@@ -632,7 +655,7 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
             h += '<tr>' +
               '<td class="' + rankClass + '">' + r.rank + '</td>' +
               '<td><div class="name-cell">' + avatarHTML(r.userId, r.displayName, r.avatar, isActive) +
-                '<div><div class="name-text">' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" rel="noopener" class="name-link">' + esc(r.displayName) + '</a>' : esc(r.displayName)) + (isActive ? '<span class="active-badge">(active)</span>' : '') + '</div>' +
+                '<div><div class="name-text">' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" rel="noopener" class="name-link">' + esc(r.displayName) + '</a>' : esc(r.displayName)) + activeBadgeHTML(r, isActive) + '</div>' +
                 agentLine + '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +
               '<td class="cost">$' + r.costUSD.toFixed(2) + '</td>' +
               '<td class="tokens">' + formatTokens(displayedTokens) + '</td>';

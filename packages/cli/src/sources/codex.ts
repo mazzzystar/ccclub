@@ -39,7 +39,9 @@ function normalizeRawUsage(value: unknown): RawCodexUsage | null {
   const cachedInputTokens = asNumber(record.cached_input_tokens ?? record.cache_read_input_tokens);
   const outputTokens = asNumber(record.output_tokens);
   const reasoningTokens = asNumber(record.reasoning_output_tokens);
-  const fallbackTotal = inputTokens + outputTokens + reasoningTokens;
+  // Codex reports reasoning_output_tokens as a breakdown of output_tokens.
+  // total_tokens equals input_tokens + output_tokens in current session logs.
+  const fallbackTotal = inputTokens + outputTokens;
   const totalTokens = asNumber(record.total_tokens) || fallbackTotal;
 
   return { inputTokens, cachedInputTokens, outputTokens, reasoningTokens, totalTokens };
@@ -150,9 +152,9 @@ export async function collectCodexUsage(): Promise<SourceCollection> {
           outputTokens: rawUsage.outputTokens,
           cacheCreationTokens: 0,
           cacheReadTokens,
-          reasoningTokens: rawUsage.reasoningTokens,
+          reasoningTokens: 0,
           totalTokens,
-          costUSD: calculateCost(model, inputTokens, rawUsage.outputTokens, 0, cacheReadTokens, rawUsage.reasoningTokens),
+          costUSD: calculateCost(model, inputTokens, rawUsage.outputTokens, 0, cacheReadTokens),
         });
         turns.push({ source, timestamp, key: dedupeKey });
       });

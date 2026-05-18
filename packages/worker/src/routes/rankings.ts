@@ -13,13 +13,14 @@ const app = new Hono<{ Bindings: Env }>();
 
 const VALID_PERIODS: RankingPeriod[] = ["daily", "yesterday", "weekly", "monthly", "all-time"];
 
-type AgentTotals = { costUSD: number; totalTokens: number; chatCount: number; entryCount: number };
+type AgentTotals = { costUSD: number; totalTokens: number; nonCacheTokens: number; chatCount: number; entryCount: number };
 
 function addAgentTotals(totals: Map<AgentSource, AgentTotals>, block: UsageData["blocks"][number]): void {
   const source = block.source ?? "claude";
-  const current = totals.get(source) ?? { costUSD: 0, totalTokens: 0, chatCount: 0, entryCount: 0 };
+  const current = totals.get(source) ?? { costUSD: 0, totalTokens: 0, nonCacheTokens: 0, chatCount: 0, entryCount: 0 };
   current.costUSD += block.costUSD;
   current.totalTokens += block.totalTokens;
+  current.nonCacheTokens += block.inputTokens + block.outputTokens + (block.reasoningTokens || 0);
   current.chatCount += block.chatCount || 0;
   current.entryCount += block.entryCount;
   totals.set(source, current);
@@ -34,6 +35,7 @@ function buildAgentBreakdown(totals: Map<AgentSource, AgentTotals>, totalCostUSD
         source,
         costUSD: Math.round(value.costUSD * 10000) / 10000,
         totalTokens: value.totalTokens,
+        nonCacheTokens: value.nonCacheTokens,
         chatCount: value.chatCount,
         entryCount: value.entryCount,
         percent: denominator > 0 ? Math.round((numerator / denominator) * 100) : 0,

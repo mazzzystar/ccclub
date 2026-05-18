@@ -41,7 +41,7 @@ describe("multi-agent collection", () => {
               cached_input_tokens: 25,
               output_tokens: 10,
               reasoning_output_tokens: 5,
-              total_tokens: 115,
+              total_tokens: 110,
             },
           },
         },
@@ -58,8 +58,8 @@ describe("multi-agent collection", () => {
       inputTokens: 75,
       outputTokens: 10,
       cacheReadTokens: 25,
-      reasoningTokens: 5,
-      totalTokens: 115,
+      reasoningTokens: 0,
+      totalTokens: 110,
     });
   });
 

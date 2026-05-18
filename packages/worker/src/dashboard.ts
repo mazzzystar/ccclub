@@ -527,7 +527,7 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
     function getAgentBreakdown(row) {
       if (row.agentBreakdown && row.agentBreakdown.length > 0) return row.agentBreakdown;
       return orderedAgents(row.agents).map(function(source) {
-        return { source: source, costUSD: 0, totalTokens: 0, chatCount: 0, entryCount: 0, percent: 0 };
+        return { source: source, costUSD: 0, totalTokens: 0, nonCacheTokens: 0, chatCount: 0, entryCount: 0, percent: 0 };
       });
     }
     function agentTooltip(row) {
@@ -540,7 +540,8 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
         var label = AGENT_LABELS[agent.source] || agent.source;
         var pct = agent.percent ? agent.percent + "% · " : "";
         var cost = agent.costUSD ? "$" + agent.costUSD.toFixed(2) + " · " : "";
-        var tokens = agent.totalTokens ? formatTokens(agent.totalTokens) + " tokens · " : "";
+        var tokenCount = showCache ? agent.totalTokens : (agent.nonCacheTokens != null ? agent.nonCacheTokens : agent.totalTokens);
+        var tokens = tokenCount ? formatTokens(tokenCount) + " tokens · " : "";
         var turns = (agent.chatCount || 0) + " turn" + ((agent.chatCount || 0) === 1 ? "" : "s");
         return label + ": " + pct + cost + tokens + turns;
       }).join("\\n");

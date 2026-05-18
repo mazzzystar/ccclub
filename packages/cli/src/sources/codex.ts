@@ -81,6 +81,13 @@ export async function collectCodexUsage(): Promise<SourceCollection> {
   const entries: UsageEntry[] = [];
   const turns: UsageTurn[] = [];
   const seen = new Set<string>();
+  const seenTurns = new Set<string>();
+
+  function addTurn(timestamp: string, key: string): void {
+    if (seenTurns.has(key)) return;
+    seenTurns.add(key);
+    turns.push({ source, timestamp, key });
+  }
 
   for (const sessionDir of sessionDirs) {
     const sessionFiles = files.filter((file) => file.startsWith(`${sessionDir}${sep}`));
@@ -88,6 +95,9 @@ export async function collectCodexUsage(): Promise<SourceCollection> {
       const sessionId = sessionIdForFile(sessionDir, file);
       let previousTotal: RawCodexUsage | null = null;
       let currentModel: string | undefined;
+      let sawTaskStarted = false;
+      const fallbackUserTurns: UsageTurn[] = [];
+      const seenFallbackUserTurns = new Set<string>();
 
       await readJsonlFile(file, (value) => {
         const record = asRecord(value);
@@ -97,6 +107,29 @@ export async function collectCodexUsage(): Promise<SourceCollection> {
 
         if (type === "turn_context") {
           currentModel = extractModelFromPayload(payload) ?? currentModel;
+          return;
+        }
+
+        if (type === "event_msg" && payload?.type === "task_started") {
+          const timestamp = toIsoTimestamp(payload.started_at ?? record.timestamp);
+          if (timestamp == null) return;
+          const turnId = asString(payload.turn_id);
+          const key = turnId != null
+            ? `${source}:${sessionId}:${turnId}`
+            : `${source}:${sessionId}:${timestamp}:task_started`;
+          sawTaskStarted = true;
+          addTurn(timestamp, key);
+          return;
+        }
+
+        if (type === "event_msg" && payload?.type === "user_message") {
+          const timestamp = toIsoTimestamp(record.timestamp);
+          if (timestamp == null) return;
+          const key = `${source}:${sessionId}:${timestamp}:user_message`;
+          if (!seenFallbackUserTurns.has(key)) {
+            seenFallbackUserTurns.add(key);
+            fallbackUserTurns.push({ source, timestamp, key });
+          }
           return;
         }
 
@@ -156,8 +189,11 @@ export async function collectCodexUsage(): Promise<SourceCollection> {
           totalTokens,
           costUSD: calculateCost(model, inputTokens, rawUsage.outputTokens, 0, cacheReadTokens),
         });
-        turns.push({ source, timestamp, key: dedupeKey });
       });
+
+      if (!sawTaskStarted) {
+        for (const turn of fallbackUserTurns) addTurn(turn.timestamp, turn.key);
+      }
     }
   }
 

@@ -63,6 +63,50 @@ describe("multi-agent collection", () => {
     });
   });
 
+  it("counts Codex turns from task starts, not token count events", async () => {
+    const codexHome = await makeTempDir();
+    const sessionsDir = join(codexHome, "sessions");
+    await mkdir(sessionsDir, { recursive: true });
+    await writeFile(join(sessionsDir, "session.jsonl"), [
+      JSON.stringify({
+        timestamp: "2026-05-01T00:00:00.000Z",
+        type: "turn_context",
+        payload: { model: "gpt-5" },
+      }),
+      JSON.stringify({
+        timestamp: "2026-05-01T00:00:01.000Z",
+        type: "event_msg",
+        payload: { type: "task_started", turn_id: "turn-a", started_at: "2026-05-01T00:00:01.000Z" },
+      }),
+      JSON.stringify({
+        timestamp: "2026-05-01T00:00:02.000Z",
+        type: "event_msg",
+        payload: {
+          type: "token_count",
+          info: { last_token_usage: { input_tokens: 100, output_tokens: 10, total_tokens: 110 } },
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-05-01T00:00:03.000Z",
+        type: "event_msg",
+        payload: {
+          type: "token_count",
+          info: { last_token_usage: { input_tokens: 50, output_tokens: 5, total_tokens: 55 } },
+        },
+      }),
+    ].join("\n"));
+    vi.stubEnv("CODEX_HOME", codexHome);
+
+    const result = await collectUsageEntries({ sources: ["codex"] });
+    const blocks = aggregateToBlocks(result.entries, result.humanTurns);
+
+    expect(result.entries).toHaveLength(2);
+    expect(result.humanTurns).toHaveLength(1);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].entryCount).toBe(2);
+    expect(blocks[0].chatCount).toBe(1);
+  });
+
   it("loads OpenCode JSON message usage", async () => {
     const openCodeDir = await makeTempDir();
     const messageDir = join(openCodeDir, "storage", "message");

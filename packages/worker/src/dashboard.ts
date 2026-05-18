@@ -229,6 +229,7 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
     /* Header */
     h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.5px; color: #f0ece6; }
     .subtitle { color: #6b6560; font-size: 13px; margin-top: 4px; }
+    .agent-summary { color: #8a8480; font-size: 12px; margin-top: 5px; min-height: 18px; }
 
     /* Period selector */
     .periods { display: flex; gap: 6px; margin: 28px 0; flex-wrap: wrap; align-items: center; }
@@ -399,6 +400,7 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
     </div>
     <h1 id="title"></h1>
     <div class="subtitle" id="date-range"></div>
+    <div class="agent-summary" id="agent-summary"></div>
     <div class="active-count" id="active-count"></div>
 
     <div class="periods">
@@ -530,6 +532,20 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
             " \u00b7 " + data.group.memberCount + (IS_GLOBAL ? " public users" : " members");
 
           var now = Date.now();
+          var AGENT_ORDER = ["claude", "codex", "opencode", "amp", "pi"];
+          var AGENT_LABELS = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode", amp: "Amp", pi: "pi-agent" };
+          var agentSet = {};
+          data.rankings.forEach(function(r) {
+            (r.agents || []).forEach(function(a) { agentSet[a] = true; });
+          });
+          var agentKeys = AGENT_ORDER.filter(function(a) { return agentSet[a]; })
+            .concat(Object.keys(agentSet).filter(function(a) { return AGENT_ORDER.indexOf(a) === -1; }));
+          var agentNames = agentKeys.map(function(a) { return AGENT_LABELS[a] || a; });
+          var agentSummaryEl = document.getElementById("agent-summary");
+          agentSummaryEl.textContent = agentNames.length > 0
+            ? "Sources this period: " + agentNames.join(" \u00b7 ")
+            : "Supports Claude Code \u00b7 Codex \u00b7 OpenCode \u00b7 Amp \u00b7 pi-agent";
+
           var activeCount = data.rankings.filter(function(r) {
             return r.lastSync && (now - new Date(r.lastSync).getTime()) < ACTIVE_THRESHOLD_MS;
           }).length;
@@ -551,7 +567,6 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
           var hasAgents = data.rankings.some(function(r) {
             return r.agents && r.agents.length > 0 && !(r.agents.length === 1 && r.agents[0] === "claude");
           });
-          var AGENT_LABELS = { claude: "Claude", codex: "Codex", opencode: "OpenCode", amp: "Amp", pi: "pi-agent" };
           var PLAN_PRICES = { pro: 20, max100: 100, max200: 200, api: 0 };
           var h = '<table><thead><tr><th>#</th><th>Name</th><th>Cost</th><th>Tokens</th>';
           if (hasPlan) h += '<th>Monthly ROI</th>';
@@ -565,7 +580,9 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
             var isActive = r.lastSync && (now - new Date(r.lastSync).getTime()) < ACTIVE_THRESHOLD_MS;
             var agentLine = "";
             if (hasAgents && r.agents && r.agents.length > 0) {
-              agentLine = '<div class="agent-line">' + r.agents.map(function(a) { return AGENT_LABELS[a] || a; }).join(", ") + '</div>';
+              var rowAgents = AGENT_ORDER.filter(function(a) { return r.agents.indexOf(a) !== -1; })
+                .concat(r.agents.filter(function(a) { return AGENT_ORDER.indexOf(a) === -1; }));
+              agentLine = '<div class="agent-line">' + rowAgents.map(function(a) { return AGENT_LABELS[a] || a; }).join(", ") + '</div>';
             }
             h += '<tr>' +
               '<td class="' + rankClass + '">' + r.rank + '</td>' +

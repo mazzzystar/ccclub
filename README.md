@@ -2,7 +2,7 @@
 
 # ccclub.dev
 
-Claude Code leaderboard among friends.
+Coding agent leaderboard among friends.
 
 <img src="assets/demo.png" alt="ccclub" width="80%" />
 
@@ -18,7 +18,7 @@ It asks your name, gives you a 6-letter code. Send it to friends:
 npx ccclub join YHAW6P
 ```
 
-Done. Usage syncs automatically via Claude Code hook. No config, no signup, no account.
+Done. Usage syncs automatically from supported coding agents. No config, no signup, no account.
 
 Once a friend joins, check the leaderboard:
 
@@ -28,7 +28,19 @@ ccclub
 
 ## What gets uploaded
 
-ccclub reads the local usage logs (`~/.claude/projects/`) that Claude Code already writes, bundles them into 30-minute summaries (token counts + cost), and uploads those numbers. **No prompts, no code, no file paths, no project names** — just counters. Run `ccclub show-data` to audit exactly what gets sent.
+ccclub reads local usage logs that supported coding agents already write, bundles them into 30-minute summaries (token counts + cost), and uploads those numbers. **No prompts, no code, no file paths, no project names** — just counters. Run `ccclub show-data` to audit exactly what gets sent.
+
+Supported sources:
+
+| Agent | Default location |
+|-------|------------------|
+| Claude Code | `~/.config/claude/projects`, `~/.claude/projects` |
+| Codex | `~/.codex/sessions` |
+| OpenCode | `~/.local/share/opencode` |
+| Amp | `~/.local/share/amp/threads` |
+| pi-agent | `~/.pi/agent/sessions` |
+
+Custom locations are supported with `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_DATA_DIR`, `AMP_DATA_DIR`, and `PI_AGENT_DIR`.
 
 ## Commands
 
@@ -37,7 +49,7 @@ Everyday use — these four are all you need:
 ```bash
 ccclub init                        # One-time setup, creates a group
 ccclub join <CODE>                 # Join a friend's group
-ccclub sync                        # Manual sync (also runs on session end)
+ccclub sync                        # Manual sync (auto-sync also runs in background)
 ccclub                             # Show the leaderboard
 ```
 
@@ -81,10 +93,12 @@ Uploads **only** this:
 {
   "blockStart": "2025-02-13T00:00:00Z",
   "blockEnd": "2025-02-13T00:30:00Z",
+  "source": "claude",
   "inputTokens": 48210,
   "outputTokens": 12050,
   "cacheCreationTokens": 0,
   "cacheReadTokens": 31200,
+  "reasoningTokens": 0,
   "totalTokens": 91460,
   "costUSD": 0.2184,
   "models": ["claude-sonnet-4-5-20250929"],
@@ -103,7 +117,7 @@ packages/
   worker/     Cloudflare Worker — Hono API + KV + dashboard
 ```
 
-Auto-sync: Claude Code `SessionEnd` + `Stop` hooks run `ccclub sync --silent` (throttled to once per 5 minutes).
+Auto-sync: Claude Code `SessionEnd` + `Stop` hooks run `ccclub sync --silent`, and a lightweight background sync keeps other supported agents fresh (throttled to once per 5 minutes).
 
 ## Development
 

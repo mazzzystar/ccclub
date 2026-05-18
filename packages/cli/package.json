@@ -1,6 +1,6 @@
 {
   "name": "ccclub",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "type": "module",
   "description": "Coding agent usage leaderboard among friends",
   "bin": {
@@ -35,6 +35,10 @@
   "keywords": [
     "claude",
     "claude-code",
+    "codex",
+    "opencode",
+    "amp",
+    "coding-agent",
     "usage",
     "ranking",
     "leaderboard"

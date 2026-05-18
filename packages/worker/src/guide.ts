@@ -43,6 +43,22 @@ This single command:
 
 ---
 
+## Supported Coding Agents
+
+ccclub automatically detects local usage logs from:
+
+| Agent | Default location |
+|-------|------------------|
+| Claude Code | \`~/.config/claude/projects\`, \`~/.claude/projects\` |
+| Codex | \`~/.codex/sessions\` |
+| OpenCode | \`~/.local/share/opencode\` |
+| Amp | \`~/.local/share/amp/threads\` |
+| pi-agent | \`~/.pi/agent/sessions\` |
+
+Custom locations are supported with \`CLAUDE_CONFIG_DIR\`, \`CODEX_HOME\`, \`OPENCODE_DATA_DIR\`, \`AMP_DATA_DIR\`, and \`PI_AGENT_DIR\`.
+
+---
+
 ## Inviting Friends
 
 After init, you get an invite link like:
@@ -108,7 +124,7 @@ Public users appear on the global leaderboard:
 | \`ccclub --all\` | Show all members including inactive ones |
 | \`ccclub create\` | Create an additional group |
 | \`ccclub leave [CODE]\` | Leave a group |
-| \`ccclub sync\` | Manual sync (auto-syncs on session end) |
+| \`ccclub sync\` | Manual sync (auto-sync also runs in background) |
 | \`ccclub sync --force\` | Force full re-sync of all data |
 | \`ccclub profile\` | View your profile |
 | \`ccclub profile --name <name>\` | Change display name |
@@ -340,6 +356,7 @@ function buildLandingOgSvg(): string {
   <text x="${TX + 24}" y="${TY + BAR_H + 52}" fill="#d4935e" font-size="15" font-weight="600" ${F}>mazzystar's club</text>
   <text x="${TX + 24}" y="${TY + BAR_H + 72}" fill="#5a5550" font-size="12" ${F}>TODAY · 44 members</text>
   <text x="${TX + 160}" y="${TY + BAR_H + 72}" fill="#5aad7d" font-size="12" ${F}>3 active</text>
+  <text x="${TX + 240}" y="${TY + BAR_H + 72}" fill="#6b6560" font-size="12" ${F}>Claude Code · Codex · OpenCode · Amp · pi-agent</text>
 
   <!-- Table header -->
   ${headerSvg}

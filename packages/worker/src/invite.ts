@@ -30,7 +30,7 @@ function inviteHTML(group: GroupRecord) {
   const n = group.members.length;
   const code = group.code;
   const ogTitle = `${esc(creator)} invites you to join ${esc(truncate(group.name, 40))}`;
-  const ogDesc = `${n} member${n !== 1 ? "s" : ""} competing on Claude Code usage. Join with one command.`;
+  const ogDesc = `${n} member${n !== 1 ? "s" : ""} competing on coding agent usage. Join with one command.`;
 
   const MAX_SHOW = 10;
   const shown = group.members.slice(0, MAX_SHOW);
@@ -395,7 +395,7 @@ function buildOgSvg(group: GroupRecord): string {
   <text x="${W / 2}" y="230" text-anchor="middle" fill="#d4935e" font-size="48" font-weight="700" font-family="Inter, sans-serif" letter-spacing="-1">${groupName}</text>
 
   <!-- Member count -->
-  <text x="${W / 2}" y="290" text-anchor="middle" fill="#6b6560" font-size="20" font-family="Inter, sans-serif">${memberLabel} competing on Claude Code</text>
+  <text x="${W / 2}" y="290" text-anchor="middle" fill="#6b6560" font-size="20" font-family="Inter, sans-serif">${memberLabel} competing on coding agents</text>
 
   <!-- Avatars -->
   ${avatarsSvg}
@@ -406,7 +406,7 @@ function buildOgSvg(group: GroupRecord): string {
   <text x="${W / 2 + 8}" y="482" text-anchor="start" fill="#e8e4de" font-size="16" font-family="Inter, monospace" xml:space="preserve"> npx ccclub join ${code}</text>
 
   <!-- Footer -->
-  <text x="${W / 2}" y="560" text-anchor="middle" fill="#4a4640" font-size="16" font-family="Inter, sans-serif">Claude Code leaderboard among friends</text>
+  <text x="${W / 2}" y="560" text-anchor="middle" fill="#4a4640" font-size="16" font-family="Inter, sans-serif">Claude Code · Codex · OpenCode · Amp · pi-agent</text>
 </svg>`;
 }
 

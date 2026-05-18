@@ -21,7 +21,7 @@ function landingHTML() {
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://ccclub.dev/" />
   <meta property="og:title" content="ccclub — coding agent leaderboard among friends" />
-  <meta property="og:description" content="Share a code, see how your friends are doing. Just for fun." />
+  <meta property="og:description" content="Track Claude Code, Codex, OpenCode, Amp, and pi-agent usage with friends. Just for fun." />
   <meta property="og:image" content="https://ccclub.dev/og.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
@@ -29,7 +29,7 @@ function landingHTML() {
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="ccclub — coding agent leaderboard among friends" />
-  <meta name="twitter:description" content="Share a code, see how your friends are doing. Just for fun." />
+  <meta name="twitter:description" content="Track Claude Code, Codex, OpenCode, Amp, and pi-agent usage with friends. Just for fun." />
   <meta name="twitter:image" content="https://ccclub.dev/og.png" />
 
   <meta name="theme-color" content="#1a1816" />
@@ -84,17 +84,80 @@ function landingHTML() {
       font-size: 18px; color: #9b9590; line-height: 1.6;
       max-width: 560px; margin: 0 auto; font-weight: 400;
     }
-    .hero-links {
-      display: flex; gap: 16px; justify-content: center; margin-top: 20px;
-    }
-    .hero-links a {
-      display: flex; align-items: center; opacity: 0.6;
-      transition: opacity 0.15s ease;
-    }
+    .hero-links { display: flex; gap: 16px; justify-content: center; margin-top: 18px; }
+    .hero-links a { display: flex; align-items: center; opacity: 0.6; transition: opacity 0.15s ease; }
     .hero-links a:hover { opacity: 1; }
+    .setup-panel {
+      margin: 28px auto 0; max-width: 620px; padding: 10px;
+      border-radius: 18px; background: #f4f1ed; color: #181615;
+      box-shadow: 0 24px 70px rgba(0,0,0,0.28), 0 0 0 1px rgba(255,255,255,0.08);
+    }
+    .setup-tabs {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+      padding: 4px; border-radius: 13px; background: #e9e5df;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.04);
+    }
+    .setup-tab {
+      border: none; border-radius: 10px; padding: 12px 14px;
+      background: transparent; color: #766f68; cursor: pointer;
+      display: flex; justify-content: center; align-items: center; gap: 8px;
+      font: inherit; font-size: 16px; line-height: 1; transition: all 0.18s ease;
+    }
+    .setup-tab svg { width: 18px; height: 18px; }
+    .setup-tab.active {
+      background: #fff; color: #151312;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.08), inset 0 0 0 1px rgba(0,0,0,0.04);
+    }
+    .setup-body { padding: 24px 16px 18px; text-align: center; }
+    .setup-title {
+      font-size: 21px; line-height: 1.45; font-weight: 700;
+      letter-spacing: -0.2px; max-width: 470px; margin: 0 auto;
+    }
+    .setup-subtitle {
+      color: #7b746e; font-size: 13px; line-height: 1.5;
+      max-width: 480px; margin: 8px auto 0;
+    }
+    .supported-card {
+      display: flex; align-items: center; justify-content: center; gap: 14px;
+      margin: 22px auto 0; color: #605951;
+    }
+    .agent-stack { display: flex; align-items: center; flex-shrink: 0; padding-left: 12px; }
+    .agent-logo {
+      width: 36px; height: 36px; border-radius: 50%; background: #fff;
+      border: 2px solid #f4f1ed; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 5px 18px rgba(0,0,0,0.12); margin-left: -12px; overflow: hidden;
+    }
+    .agent-logo img { width: 20px; height: 20px; display: block; }
+    .agent-logo.pi { background: #181615; color: #f4f1ed; font-size: 15px; font-weight: 700; }
+    .supported-copy { text-align: left; min-width: 0; }
+    .supported-copy strong {
+      display: block; color: #181615; font-size: 13px; line-height: 1.2;
+    }
+    .supported-copy span {
+      display: block; color: #7b746e; font-size: 12px; line-height: 1.4; margin-top: 2px;
+    }
+    .setup-command {
+      width: 100%; margin-top: 22px; border: none; border-radius: 13px;
+      background: #ebe8e3; color: #1a1816; padding: 14px 16px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      cursor: pointer; font: inherit; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.03);
+    }
+    .setup-command code {
+      color: #3f8f5a; font-size: 13px; line-height: 1.4;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .copy-icon {
+      width: 20px; height: 20px; color: #8c8680; flex: 0 0 auto;
+    }
+    .copy-feedback {
+      min-height: 18px; margin-top: 9px; color: #3f8f5a;
+      font-size: 12px; opacity: 0; transition: opacity 0.18s ease;
+    }
+    .copy-feedback.show { opacity: 1; }
+    .setup-after-demo { padding: 0 0 64px; }
 
     /* Terminal */
-    .terminal-wrap { padding: 24px 0 48px; }
+    .terminal-wrap { padding: 24px 0 28px; }
     .terminal {
       background: #13110f; border: none; border-radius: 10px;
       overflow: hidden;
@@ -143,25 +206,13 @@ function landingHTML() {
     .dash-link { color: #5aad7d; text-decoration: none; }
     .dash-link:hover { text-decoration: underline; }
 
-    /* CTA */
-    .cta { padding: 16px 0 80px; text-align: center; }
-    .cta-cmd {
-      display: inline-block; background: #242220; border: 1px solid #363330;
-      border-radius: 8px; padding: 14px 28px; font-size: 16px;
-      color: #e8e4de; cursor: pointer; transition: border-color 0.2s;
-      position: relative;
-    }
-    .cta-cmd:hover { border-color: #d4935e; }
-    .cta-cmd .dollar { color: #5aad7d; margin-right: 8px; }
-    .cta-hint { margin-top: 14px; color: #6b6560; font-size: 14px; }
-    .cta-hint code { color: #9b9590; }
     .guide-btn {
-      display: inline-block; background: #5aad7d; border: none;
+      display: inline-block; background: #181615; border: none;
       border-radius: 6px; padding: 8px 18px; font-size: 13px;
-      color: #1a1816; cursor: pointer; transition: background 0.2s;
+      color: #f4f1ed; cursor: pointer; transition: background 0.2s;
       font-family: inherit; font-weight: 600; margin-top: 14px;
     }
-    .guide-btn:hover { background: #6dc08e; }
+    .guide-btn:hover { background: #2a2724; }
 
     /* Divider */
     .divider {
@@ -228,6 +279,16 @@ function landingHTML() {
     @media (max-width: 600px) {
       .hero { padding: 32px 0; }
       .hero h1 { font-size: 24px; }
+      .setup-panel { border-radius: 16px; }
+      .setup-tab { font-size: 14px; padding: 11px 8px; }
+      .setup-title { font-size: 18px; }
+      .supported-card { flex-direction: column; gap: 8px; }
+      .supported-copy { text-align: center; }
+      .setup-command { align-items: flex-start; }
+      .setup-command code {
+        font-size: 12px; white-space: normal; overflow: visible;
+        text-overflow: clip; text-align: left;
+      }
       .cmd-row { flex-direction: column; gap: 2px; }
     }
   </style>
@@ -238,7 +299,7 @@ function landingHTML() {
     <a href="/" class="brand"><img src="https://raw.githubusercontent.com/mazzzystar/ccclub/main/assets/icon.png" alt="ccclub" width="28" height="28" /><span>ccclub</span></a>
     <div class="hero">
       <h1>Coding agent leaderboard among friends.</h1>
-      <p class="tagline">Share a code, see how your friends are doing. Just for fun.</p>
+      <p class="tagline">Track token usage and cost across the coding agents your group actually uses.</p>
       <div class="hero-links">
         <a href="https://github.com/mazzzystar/ccclub" aria-label="GitHub"><svg width="20" height="20" viewBox="0 0 24 24" fill="#6b6560"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg></a>
         <a href="https://discord.gg/6QbGWJUVHq" aria-label="Discord"><svg width="22" height="22" viewBox="0 0 24 24" fill="#6b6560"><path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></a>
@@ -259,6 +320,7 @@ function landingHTML() {
   <span class="accent">mazzystar's club</span>
   <span class="dim">TODAY \u00b7 44 members</span>
   <span class="active-tag">3 active <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span>
+  <span class="dim">Sources: Claude Code \u00b7 Codex \u00b7 OpenCode \u00b7 Amp \u00b7 pi-agent</span>
 
   <table class="rank-tbl"><thead><tr class="dim"><td>#</td><td>Name</td><td>Cost</td><td>Tokens</td><td>ROI</td><td>Turns</td><td>$/Turn</td></tr></thead><tbody>
   <tr class="gold"><td>1</td><td>Tiger <span class="active-tag">(active)</span></td><td>$110.57</td><td>339K</td><td class="dim">\u2014</td><td>17</td><td>$6.50</td></tr>
@@ -274,13 +336,42 @@ function landingHTML() {
       </div>
     </div>
 
-    <div class="cta">
-      <div class="cta-cmd mono" onclick="navigator.clipboard.writeText('npx ccclub init');this.querySelector('.copy-msg').style.opacity=1;setTimeout(()=>this.querySelector('.copy-msg').style.opacity=0,2000)">
-        <span class="dollar">$</span>npx ccclub init
-        <span class="copy-msg" style="position:absolute;right:-60px;top:50%;transform:translateY(-50%);font-size:12px;color:#5aad7d;opacity:0;transition:opacity .2s">Copied</span>
+    <div class="setup-after-demo">
+      <div class="setup-panel">
+        <div class="setup-tabs" role="tablist" aria-label="Setup mode">
+          <button class="setup-tab active" type="button" data-setup-mode="agent" role="tab" aria-selected="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="6" y="8" width="12" height="9" rx="2"/><path d="M12 5v3M9 17v2m6-2v2M8.5 12h.01M15.5 12h.01M4 11v3m16-3v3"/></svg>
+            I'm Agent
+          </button>
+          <button class="setup-tab" type="button" data-setup-mode="human" role="tab" aria-selected="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>
+            I'm Human
+          </button>
+        </div>
+        <div class="setup-body">
+          <p class="setup-title" id="setup-title">Send this prompt to your coding agent.</p>
+          <p class="setup-subtitle" id="setup-subtitle">It will install ccclub, initialize your group, and keep supported agent usage fresh with almost no setup.</p>
+          <div class="supported-card" aria-label="Supported coding agents">
+            <div class="agent-stack">
+              <span class="agent-logo" title="Claude Code"><img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/claude-color.svg" alt="Claude Code" /></span>
+              <span class="agent-logo" title="Codex"><img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/codex.svg" alt="Codex" /></span>
+              <span class="agent-logo" title="OpenCode"><img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/opencode.svg" alt="OpenCode" /></span>
+              <span class="agent-logo" title="Amp"><img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/amp.svg" alt="Amp" /></span>
+              <span class="agent-logo pi" title="pi-agent">π</span>
+            </div>
+            <div class="supported-copy">
+              <strong>Supported agents</strong>
+              <span>Claude Code · Codex · OpenCode · Amp · pi-agent</span>
+            </div>
+          </div>
+          <button class="setup-command" id="copy-setup" type="button" data-copy="Read https://ccclub.dev/llms-full.txt">
+            <code class="mono" id="setup-code">Read https://ccclub.dev/llms-full.txt</code>
+            <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 16H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+          <div class="copy-feedback" id="copy-feedback">Copied</div>
+          <button class="guide-btn" id="copy-guide">Copy full guide for coding agents</button>
+        </div>
       </div>
-      <div class="cta-hint">One command to start. After that just use <code class="mono">ccclub</code> directly.</div>
-      <button class="guide-btn" id="copy-guide">Guide for coding agents</button>
     </div>
 
     <hr class="divider" />
@@ -306,7 +397,7 @@ function landingHTML() {
           <div class="step-num">3</div>
           <div class="step-content">
             <h3>See the leaderboard</h3>
-            <p>Usage syncs automatically after each session. Run <code class="mono">ccclub</code> or open the web dashboard to see the leaderboard.</p>
+            <p>Claude Code syncs at session end, and background sync picks up Codex, OpenCode, Amp, and pi-agent. Run <code class="mono">ccclub</code> or open the web dashboard.</p>
           </div>
         </div>
       </div>
@@ -327,7 +418,7 @@ function landingHTML() {
         <div class="cmd-row"><code class="mono">ccclub --all</code><span>Show everyone, including those with no activity</span></div>
         <div class="cmd-row"><code class="mono">ccclub --cache</code><span>Include cache tokens in count</span></div>
         <div class="cmd-row"><code class="mono">ccclub -d 1</code><span>Yesterday / 7 / 30 / all</span></div>
-        <div class="cmd-row"><code class="mono">ccclub sync</code><span>Manual sync (auto-syncs on session end)</span></div>
+        <div class="cmd-row"><code class="mono">ccclub sync</code><span>Manual sync (auto-sync also runs in background)</span></div>
         <div class="cmd-row"><code class="mono">ccclub show-data</code><span>Privacy audit</span></div>
       </div>
     </div>
@@ -341,12 +432,49 @@ function landingHTML() {
   </div>
 
   <script>
+    var setupModes = {
+      agent: {
+        title: "Send this prompt to your coding agent.",
+        subtitle: "It will install ccclub, initialize your group, and keep supported agent usage fresh with almost no setup.",
+        copy: "Read https://ccclub.dev/llms-full.txt"
+      },
+      human: {
+        title: "Run one command and start your club.",
+        subtitle: "ccclub auto-detects supported local agent logs. Friends can join with the invite code it prints.",
+        copy: "npx ccclub init"
+      }
+    };
+    function setSetupMode(mode) {
+      var data = setupModes[mode];
+      if (!data) return;
+      document.querySelectorAll(".setup-tab").forEach(function(tab) {
+        var active = tab.getAttribute("data-setup-mode") === mode;
+        tab.classList.toggle("active", active);
+        tab.setAttribute("aria-selected", active ? "true" : "false");
+      });
+      document.getElementById("setup-title").textContent = data.title;
+      document.getElementById("setup-subtitle").textContent = data.subtitle;
+      document.getElementById("setup-code").textContent = data.copy;
+      document.getElementById("copy-setup").setAttribute("data-copy", data.copy);
+    }
+    document.querySelectorAll(".setup-tab").forEach(function(tab) {
+      tab.addEventListener("click", function() {
+        setSetupMode(tab.getAttribute("data-setup-mode"));
+      });
+    });
+    document.getElementById("copy-setup").addEventListener("click", function() {
+      var feedback = document.getElementById("copy-feedback");
+      navigator.clipboard.writeText(this.getAttribute("data-copy") || "").then(function() {
+        feedback.classList.add("show");
+        setTimeout(function() { feedback.classList.remove("show"); }, 1800);
+      });
+    });
     document.getElementById("copy-guide").addEventListener("click", function() {
       var btn = this;
       fetch("/llms-full.txt").then(function(r) { return r.text(); }).then(function(text) {
         navigator.clipboard.writeText(text);
         btn.textContent = "Copied!";
-        setTimeout(function() { btn.textContent = "Guide for coding agents"; }, 2000);
+        setTimeout(function() { btn.textContent = "Copy full guide for coding agents"; }, 2000);
       });
     });
   </script>

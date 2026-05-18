@@ -4,7 +4,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "dev:worker": "pnpm --filter @ccclub/worker dev",
-    "deploy": "pnpm --filter @ccclub/worker deploy"
+    "deploy": "pnpm --filter @ccclub/worker run deploy"
   },
   "engines": {
     "node": ">=20"

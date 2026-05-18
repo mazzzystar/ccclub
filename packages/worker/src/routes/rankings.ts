@@ -12,7 +12,7 @@ import type {
 const app = new Hono<{ Bindings: Env }>();
 
 const VALID_PERIODS: RankingPeriod[] = ["daily", "yesterday", "weekly", "monthly", "all-time"];
-const RANK_CACHE_VERSION = "v2";
+const RANK_CACHE_VERSION = "v3";
 
 type AgentTotals = { costUSD: number; totalTokens: number; nonCacheTokens: number; chatCount: number; entryCount: number };
 
@@ -21,6 +21,8 @@ function hasUsage(block: UsageData["blocks"][number]): boolean {
 }
 
 function getBlockActivityTime(block: UsageData["blocks"][number]): number {
+  const lastActivity = new Date(block.lastActivityAt || "").getTime();
+  if (Number.isFinite(lastActivity)) return lastActivity;
   const blockEnd = new Date(block.blockEnd || block.blockStart).getTime();
   if (Number.isFinite(blockEnd)) return blockEnd;
   const blockStart = new Date(block.blockStart).getTime();

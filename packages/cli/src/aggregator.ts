@@ -44,6 +44,7 @@ function aggregateSourceToBlocks(source: AgentSource, entries: UsageEntry[], hum
     let reasoningTokens = 0;
     let totalTokens = 0;
     let costUSD = 0;
+    let lastActivityMs = 0;
 
     for (const entry of currentBlock) {
       inputTokens += entry.inputTokens;
@@ -66,12 +67,15 @@ function aggregateSourceToBlocks(source: AgentSource, entries: UsageEntry[], hum
           entry.reasoningTokens || 0,
         );
       }
+      const entryMs = new Date(entry.timestamp).getTime();
+      if (Number.isFinite(entryMs) && entryMs > lastActivityMs) lastActivityMs = entryMs;
     }
 
     blocks.push({
       source,
       blockStart: blockStart.toISOString(),
       blockEnd: blockEnd.toISOString(),
+      lastActivityAt: new Date(lastActivityMs || blockEnd.getTime()).toISOString(),
       inputTokens,
       outputTokens,
       cacheCreationTokens,

@@ -33,6 +33,9 @@ app.post("/sync", async (c) => {
     if (typeof b.blockStart !== "string" || !b.blockStart) {
       return c.json({ error: "invalid block: missing blockStart" }, 400);
     }
+    if (b.lastActivityAt !== undefined && typeof b.lastActivityAt !== "string") {
+      return c.json({ error: "invalid block: invalid lastActivityAt" }, 400);
+    }
     if (typeof b.totalTokens !== "number" || !isFinite(b.totalTokens) ||
         typeof b.costUSD !== "number" || !isFinite(b.costUSD) ||
         typeof b.inputTokens !== "number" || !isFinite(b.inputTokens) ||

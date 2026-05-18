@@ -52,6 +52,7 @@ export interface UsageBlock {
   source?: AgentSource; // Missing on pre-multi-agent uploads; treat as "claude"
   blockStart: string;
   blockEnd: string;
+  lastActivityAt?: string; // Last real usage event in this block; absent in older uploads.
   inputTokens: number;
   outputTokens: number;
   cacheCreationTokens: number;

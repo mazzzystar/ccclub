@@ -124,4 +124,38 @@ describe("multi-agent collection", () => {
     expect(blocks.map((block) => block.source).sort()).toEqual(["claude", "codex"]);
     expect(blocks.every((block) => block.chatCount === 1)).toBe(true);
   });
+
+  it("stores the latest real activity time inside each aggregate block", () => {
+    const blocks = aggregateToBlocks([
+      {
+        source: "codex",
+        timestamp: "2026-05-01T00:02:00.000Z",
+        sessionId: "s",
+        model: "gpt-5",
+        inputTokens: 10,
+        outputTokens: 5,
+        cacheCreationTokens: 0,
+        cacheReadTokens: 0,
+        totalTokens: 15,
+        costUSD: 0.01,
+      },
+      {
+        source: "codex",
+        timestamp: "2026-05-01T00:27:30.000Z",
+        sessionId: "s",
+        model: "gpt-5",
+        inputTokens: 10,
+        outputTokens: 5,
+        cacheCreationTokens: 0,
+        cacheReadTokens: 0,
+        totalTokens: 15,
+        costUSD: 0.01,
+      },
+    ]);
+
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].blockStart).toBe("2026-05-01T00:00:00.000Z");
+    expect(blocks[0].blockEnd).toBe("2026-05-01T00:30:00.000Z");
+    expect(blocks[0].lastActivityAt).toBe("2026-05-01T00:27:30.000Z");
+  });
 });

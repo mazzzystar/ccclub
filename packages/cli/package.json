@@ -43,6 +43,6 @@
   "homepage": "https://ccclub.dev",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mazzzystar/ccclub"
+    "url": "git+https://github.com/mazzzystar/ccclub.git"
   }
 }

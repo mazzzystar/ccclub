@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { html, raw } from "hono/html";
 import type { Env } from "./types.js";
 import type { GroupRecord } from "@ccclub/shared";
-import { getColor, svgEsc, htmlEsc, truncate, renderToPng, sanitizeCode, latinOnly } from "./og-utils.js";
+import { cachedPngResponse, getColor, hashCode, htmlEsc, latinOnly, ogCacheUrl, renderToPng, sanitizeCode, svgEsc, truncate } from "./og-utils.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -327,12 +327,15 @@ app.get("/invite/:code/og.png", async (c) => {
     return c.text("Not found", 404);
   }
 
-  const svg = buildOgSvg(group);
-  const png = await renderToPng(svg);
-
-  return c.body(png, 200, {
-    "Content-Type": "image/png",
-    "Cache-Control": "public, max-age=600",
+  const version = hashCode(`${group.name}:${group.members.map((m) => `${m.userId}:${m.displayName}:${m.avatar || ""}:${m.joinedAt}`).join("|")}`);
+  const cacheUrl = ogCacheUrl(c.req.url, `invite/v2/${code}/${version}.png`);
+  return cachedPngResponse(cacheUrl, async () => {
+    const svg = buildOgSvg(group);
+    return renderToPng(svg);
+  }, {
+    maxAge: 86_400,
+    staleWhileRevalidate: 604_800,
+    executionCtx: c.executionCtx,
   });
 });
 
@@ -349,11 +352,10 @@ function buildOgSvg(group: GroupRecord): string {
   const shown = group.members.slice(0, MAX_AVATARS);
   const overflow = n - MAX_AVATARS;
 
-  const avatarR = 28;
-  const avatarSpacing = 52;
-  const totalAvatarWidth = (shown.length + (overflow > 0 ? 1 : 0) - 1) * avatarSpacing;
-  const avatarStartX = (W - totalAvatarWidth) / 2;
-  const avatarY = 370;
+  const avatarR = 30;
+  const avatarSpacing = 46;
+  const avatarStartX = 86;
+  const avatarY = 382;
 
   let avatarsSvg = "";
   shown.forEach((m, i) => {
@@ -361,14 +363,14 @@ function buildOgSvg(group: GroupRecord): string {
     const color = getColor(m.userId);
     const latin = latinOnly(m.displayName);
     const initial = svgEsc((latin || "?").charAt(0).toUpperCase());
-    avatarsSvg += `<circle cx="${cx}" cy="${avatarY}" r="${avatarR}" fill="${color}" stroke="#1a1816" stroke-width="3"/>`;
-    avatarsSvg += `<text x="${cx}" y="${avatarY + 6}" text-anchor="middle" fill="#1a1816" font-size="20" font-weight="600" font-family="Inter, sans-serif">${initial}</text>`;
+    avatarsSvg += `<circle cx="${cx}" cy="${avatarY}" r="${avatarR}" fill="${color}" stroke="#181512" stroke-width="4"/>`;
+    avatarsSvg += `<text x="${cx}" y="${avatarY + 7}" text-anchor="middle" fill="#161412" font-size="21" font-weight="700" font-family="Inter, sans-serif">${initial}</text>`;
   });
 
   if (overflow > 0) {
     const cx = avatarStartX + shown.length * avatarSpacing;
-    avatarsSvg += `<circle cx="${cx}" cy="${avatarY}" r="${avatarR}" fill="#2e2c2a" stroke="#1a1816" stroke-width="3"/>`;
-    avatarsSvg += `<text x="${cx}" y="${avatarY + 5}" text-anchor="middle" fill="#8a8480" font-size="14" font-weight="500" font-family="Inter, sans-serif">+${overflow}</text>`;
+    avatarsSvg += `<circle cx="${cx}" cy="${avatarY}" r="${avatarR}" fill="#27231f" stroke="#181512" stroke-width="4"/>`;
+    avatarsSvg += `<text x="${cx}" y="${avatarY + 5}" text-anchor="middle" fill="#a8a19a" font-size="14" font-weight="700" font-family="Inter, sans-serif">+${overflow}</text>`;
   }
 
   const memberLabel = `${n} member${n !== 1 ? "s" : ""}`;
@@ -376,37 +378,55 @@ function buildOgSvg(group: GroupRecord): string {
   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#201e1c"/>
-      <stop offset="100%" stop-color="#161412"/>
+      <stop offset="0%" stop-color="#201d19"/>
+      <stop offset="100%" stop-color="#13110f"/>
     </linearGradient>
   </defs>
 
   <!-- Background -->
   <rect width="${W}" height="${H}" fill="url(#bg)" rx="0"/>
-  <rect x="1" y="1" width="${W - 2}" height="${H - 2}" rx="0" fill="none" stroke="#2e2c2a" stroke-width="1"/>
+  <rect x="42" y="34" width="${W - 84}" height="${H - 68}" rx="24" fill="#181512" stroke="#2b2723"/>
 
   <!-- Brand -->
-  <text x="${W / 2}" y="80" text-anchor="middle" fill="#6b6560" font-size="22" font-weight="600" font-family="Inter, sans-serif">ccclub</text>
+  <text x="86" y="78" fill="#746f69" font-size="20" font-weight="700" font-family="Inter, sans-serif">ccclub</text>
+  <rect x="86" y="106" width="144" height="34" rx="17" fill="#201d19" stroke="#2c2824"/>
+  <circle cx="106" cy="123" r="5" fill="#5fdc8f"/>
+  <text x="122" y="128" fill="#a8a19a" font-size="14" font-weight="700" font-family="Inter, sans-serif">Invite link</text>
 
   <!-- "invites you to join" -->
-  <text x="${W / 2}" y="160" text-anchor="middle" fill="#8a8480" font-size="22" font-family="Inter, sans-serif">${creatorName} invites you to join</text>
+  <text x="86" y="186" fill="#8a8480" font-size="22" font-family="Inter, sans-serif">${creatorName} invites you to join</text>
 
   <!-- Group name -->
-  <text x="${W / 2}" y="230" text-anchor="middle" fill="#d4935e" font-size="48" font-weight="700" font-family="Inter, sans-serif" letter-spacing="-1">${groupName}</text>
+  <text x="86" y="250" fill="#f3eee7" font-size="54" font-weight="700" font-family="Inter, sans-serif" letter-spacing="-1">${groupName}</text>
 
   <!-- Member count -->
-  <text x="${W / 2}" y="290" text-anchor="middle" fill="#6b6560" font-size="20" font-family="Inter, sans-serif">${memberLabel} competing on coding agents</text>
+  <text x="86" y="292" fill="#8a8480" font-size="20" font-family="Inter, sans-serif">${memberLabel} competing on coding agents</text>
 
   <!-- Avatars -->
   ${avatarsSvg}
 
   <!-- Join command -->
-  <rect x="${W / 2 - 200}" y="450" width="400" height="50" rx="8" fill="#242220" stroke="#363330" stroke-width="1"/>
-  <text x="${W / 2 - 6}" y="482" text-anchor="middle" fill="#5aad7d" font-size="16" font-family="Inter, monospace">$</text>
-  <text x="${W / 2 + 8}" y="482" text-anchor="start" fill="#e8e4de" font-size="16" font-family="Inter, monospace" xml:space="preserve"> npx ccclub join ${code}</text>
+  <rect x="86" y="454" width="512" height="62" rx="14" fill="#080807" stroke="#26221e" stroke-width="1"/>
+  <text x="112" y="493" fill="#5fdc8f" font-size="18" font-weight="700" font-family="Inter, monospace">$</text>
+  <text x="136" y="493" fill="#f1ede7" font-size="18" font-family="Inter, monospace" xml:space="preserve">npx ccclub join ${code}</text>
+
+  <!-- Preview panel -->
+  <rect x="684" y="110" width="430" height="406" rx="20" fill="#201d19" stroke="#2c2824"/>
+  <text x="716" y="158" fill="#d6b56d" font-size="15" font-weight="700" font-family="Inter, sans-serif">Claude Code &amp; Codex leaderboard</text>
+  <rect x="716" y="190" width="334" height="46" rx="8" fill="#d6b56d" fill-opacity="0.075"/>
+  <rect x="716" y="252" width="278" height="46" rx="8" fill="#aeb7bf" fill-opacity="0.045"/>
+  <rect x="716" y="314" width="364" height="46" rx="8" fill="#c58a61" fill-opacity="0.05"/>
+  <text x="742" y="219" fill="#d6b56d" font-size="18" font-weight="700" font-family="Inter, sans-serif">1</text>
+  <text x="782" y="219" fill="#f1ede7" font-size="17" font-weight="600" font-family="Inter, sans-serif">friends</text>
+  <text x="742" y="281" fill="#aeb7bf" font-size="18" font-weight="700" font-family="Inter, sans-serif">2</text>
+  <text x="782" y="281" fill="#f1ede7" font-size="17" font-weight="600" font-family="Inter, sans-serif">agents</text>
+  <text x="742" y="343" fill="#c58a61" font-size="18" font-weight="700" font-family="Inter, sans-serif">3</text>
+  <text x="782" y="343" fill="#f1ede7" font-size="17" font-weight="600" font-family="Inter, sans-serif">tokens</text>
+  <text x="716" y="430" fill="#8a8480" font-size="17" font-family="Inter, sans-serif">No signup. Local logs only.</text>
 
   <!-- Footer -->
-  <text x="${W / 2}" y="560" text-anchor="middle" fill="#4a4640" font-size="16" font-family="Inter, sans-serif">Claude Code · Codex · OpenCode · Amp · pi-agent</text>
+  <text x="86" y="560" fill="#4f4942" font-size="16" font-family="Inter, sans-serif">Claude Code · Codex · OpenCode · Amp · pi-agent</text>
+  <text x="${W - 86}" y="560" text-anchor="end" fill="#4f4942" font-size="16" font-family="Inter, sans-serif">ccclub.dev/invite/${svgEsc(code)}</text>
 </svg>`;
 }
 

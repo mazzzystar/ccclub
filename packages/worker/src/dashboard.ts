@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { html } from "hono/html";
 import type { Env } from "./types.js";
-import type { GroupRecord, UsageData } from "@ccclub/shared";
-import { getColor, svgEsc, htmlEsc, truncate, renderToPng, sanitizeCode, latinOnly } from "./og-utils.js";
+import type { AgentSource, GroupRecord, UsageData } from "@ccclub/shared";
+import { cachedPngResponse, getColor, hashCode, htmlEsc, latinOnly, ogCacheUrl, renderToPng, sanitizeCode, svgEsc, truncate } from "./og-utils.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -32,67 +32,144 @@ app.get("/g/:code/og.png", async (c) => {
   let groupName: string;
   let members: Array<{ userId: string; displayName: string }>;
   let totalMembers: number;
+  let cacheVersion: string;
 
   if (isGlobal) {
     groupName = "Global Rankings";
     const publicUsers = (await c.env.KV.get<string[]>("public_users", "json")) || [];
     totalMembers = publicUsers.length;
     members = publicUsers.slice(0, 30).map((id) => ({ userId: id, displayName: id.slice(0, 8) }));
+    cacheVersion = `global:${totalMembers}:${Math.floor(Date.now() / 300_000)}`;
   } else {
-    const group = await c.env.KV.get<GroupRecord>(`group:${code}`, "json");
+    const [group, lastSync] = await Promise.all([
+      c.env.KV.get<GroupRecord>(`group:${code}`, "json"),
+      c.env.KV.get(`last_sync:${code}`, "text"),
+    ]);
     if (!group) return c.text("Not found", 404);
     groupName = group.name;
     members = group.members.map((m) => ({ userId: m.userId, displayName: m.displayName }));
     totalMembers = members.length;
+    cacheVersion = `${lastSync || "0"}:${hashCode(`${group.name}:${group.members.map((m) => `${m.userId}:${m.displayName}:${m.avatar || ""}:${m.joinedAt}`).join("|")}`)}`;
   }
 
-  const usageResults = await Promise.all(
-    members.map((m) => c.env.KV.get<UsageData>(`usage:${m.userId}`, "json")),
-  );
+  const cacheUrl = ogCacheUrl(c.req.url, `g/v2/${code}/${cacheVersion}.png`);
+  return cachedPngResponse(cacheUrl, async () => {
+    const usageResults = await Promise.all(
+      members.map((m) => c.env.KV.get<UsageData>(`usage:${m.userId}`, "json")),
+    );
 
-  const now = new Date();
-  const todayStart = new Date(now);
-  todayStart.setUTCHours(0, 0, 0, 0);
-  const startMs = todayStart.getTime();
-  const endMs = startMs + 86_400_000;
+    const now = Date.now();
+    const todayStart = new Date(now);
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const startMs = todayStart.getTime();
+    const endMs = startMs + 86_400_000;
+    const agentSet = new Set<AgentSource>();
+    let activeCount = 0;
 
-  const ranked: Array<{ displayName: string; userId: string; costUSD: number }> = [];
-  for (let i = 0; i < members.length; i++) {
-    const usage = usageResults[i];
-    let cost = 0;
-    if (usage) {
-      for (const block of usage.blocks) {
-        const t = new Date(block.blockStart).getTime();
-        if (t >= startMs && t < endMs) cost += block.costUSD;
+    const ranked: DashboardOgEntry[] = [];
+    for (let i = 0; i < members.length; i++) {
+      const usage = usageResults[i];
+      let cost = 0;
+      let tokens = 0;
+      let turns = 0;
+      const agents = new Set<AgentSource>();
+
+      if (usage?.lastSync && now - new Date(usage.lastSync).getTime() < 15 * 60 * 1000) {
+        activeCount++;
       }
+      if (usage) {
+        for (const block of usage.blocks) {
+          const t = new Date(block.blockStart).getTime();
+          if (t < startMs || t >= endMs) continue;
+          const source = block.source ?? "claude";
+          cost += block.costUSD;
+          tokens += block.inputTokens + block.outputTokens + (block.reasoningTokens || 0);
+          turns += block.chatCount || 0;
+          agents.add(source);
+          agentSet.add(source);
+        }
+      }
+      ranked.push({
+        ...members[i],
+        agents: Array.from(agents),
+        costUSD: Math.round(cost * 100) / 100,
+        tokens,
+        turns,
+      });
     }
-    ranked.push({ ...members[i], costUSD: Math.round(cost * 100) / 100 });
-  }
-  ranked.sort((a, b) => b.costUSD - a.costUSD);
+    ranked.sort((a, b) => b.costUSD - a.costUSD);
 
-  const svg = buildDashboardOgSvg(groupName, ranked.slice(0, 5), totalMembers, code);
-  const png = await renderToPng(svg);
-
-  return c.body(png, 200, {
-    "Content-Type": "image/png",
-    "Cache-Control": "public, max-age=300",
+    const svg = buildDashboardOgSvg(
+      groupName,
+      ranked.slice(0, 5),
+      totalMembers,
+      activeCount,
+      formatAgentSummary(Array.from(agentSet)),
+      code,
+    );
+    return renderToPng(svg);
+  }, {
+    maxAge: 300,
+    staleWhileRevalidate: 86_400,
+    executionCtx: c.executionCtx,
   });
 });
 
+type DashboardOgEntry = {
+  displayName: string;
+  userId: string;
+  costUSD: number;
+  tokens: number;
+  turns: number;
+  agents: AgentSource[];
+};
+
+const AGENT_LABELS_OG: Record<AgentSource, string> = {
+  claude: "Claude Code",
+  codex: "Codex",
+  opencode: "OpenCode",
+  amp: "Amp",
+  pi: "pi-agent",
+};
+
+const AGENT_ORDER_OG: AgentSource[] = ["claude", "codex", "opencode", "amp", "pi"];
+
+function formatAgentSummary(agents: AgentSource[]): string {
+  const ordered = AGENT_ORDER_OG.filter((a) => agents.includes(a));
+  return ordered.length > 0 ? ordered.map((a) => AGENT_LABELS_OG[a]).join(" · ") : "Claude Code · Codex · OpenCode · Amp · pi-agent";
+}
+
+function formatAgentCell(agents: AgentSource[]): string {
+  const ordered = AGENT_ORDER_OG.filter((a) => agents.includes(a));
+  if (ordered.length === 0) return "—";
+  return ordered.slice(0, 2).map((a) => AGENT_LABELS_OG[a].replace(" Code", "")).join(", ");
+}
+
+function formatCompactNumber(n: number): string {
+  if (n >= 1_000_000_000) return `${parseFloat((n / 1_000_000_000).toFixed(1))}B`;
+  if (n >= 1_000_000) return `${parseFloat((n / 1_000_000).toFixed(1))}M`;
+  if (n >= 1_000) return `${parseFloat((n / 1_000).toFixed(1))}K`;
+  return String(Math.round(n));
+}
+
 function buildDashboardOgSvg(
   groupName: string,
-  top5: Array<{ displayName: string; userId: string; costUSD: number }>,
+  top5: DashboardOgEntry[],
   totalMembers: number,
+  activeCount: number,
+  agentSummary: string,
   code: string,
 ): string {
   const W = 1200;
   const H = 630;
   const name = svgEsc(truncate(latinOnly(groupName) || code, 32));
 
-  const ROW_H = 52;
-  const TABLE_X = 240;
-  const TABLE_W = 720;
-  const TABLE_Y = 220;
+  const ROW_H = 56;
+  const TABLE_X = 86;
+  const TABLE_W = 1028;
+  const TABLE_Y = 238;
+  const memberLabel = `${totalMembers} member${totalMembers !== 1 ? "s" : ""}`;
+  const activeLabel = `${activeCount} active`;
 
   let tableRows = "";
   top5.forEach((entry, i) => {
@@ -100,55 +177,67 @@ function buildDashboardOgSvg(
     const color = getColor(entry.userId);
     const latin = latinOnly(entry.displayName);
     const initial = svgEsc((latin || "?").charAt(0).toUpperCase());
-    const displayName = svgEsc(truncate(latin || entry.userId.slice(0, 8), 20));
-    const rankColor = i < 3 ? "#d4a03e" : "#6b6560";
+    const displayName = svgEsc(truncate(latin || entry.userId.slice(0, 8), 22));
+    const rankColor = i === 0 ? "#d6b56d" : i === 1 ? "#aeb7bf" : i === 2 ? "#c58a61" : "#746f69";
+    const tint = i === 0 ? "#d6b56d" : i === 1 ? "#aeb7bf" : i === 2 ? "#c58a61" : "#ffffff";
+    const tintOpacity = i === 0 ? "0.075" : i === 1 ? "0.045" : i === 2 ? "0.05" : i % 2 === 0 ? "0.026" : "0.018";
     const costStr = entry.costUSD > 0 ? `$${entry.costUSD.toFixed(2)}` : "$0.00";
+    const agentStr = svgEsc(formatAgentCell(entry.agents));
 
     tableRows += `
-      <rect x="${TABLE_X}" y="${y}" width="${TABLE_W}" height="${ROW_H - 2}" rx="6" fill="${i % 2 === 0 ? "#1e1c1a" : "#1a1816"}"/>
-      <text x="${TABLE_X + 24}" y="${y + 32}" fill="${rankColor}" font-size="18" font-weight="600" font-family="Inter, sans-serif">${i + 1}</text>
-      <circle cx="${TABLE_X + 68}" cy="${y + 26}" r="16" fill="${color}"/>
-      <text x="${TABLE_X + 68}" y="${y + 32}" text-anchor="middle" fill="#1a1816" font-size="14" font-weight="600" font-family="Inter, sans-serif">${initial}</text>
-      <text x="${TABLE_X + 100}" y="${y + 32}" fill="#e8e4de" font-size="17" font-weight="500" font-family="Inter, sans-serif">${displayName}</text>
-      <text x="${TABLE_X + TABLE_W - 24}" y="${y + 32}" text-anchor="end" fill="#d4935e" font-size="17" font-weight="600" font-family="Inter, sans-serif">${costStr}</text>`;
+      <rect x="${TABLE_X}" y="${y}" width="${TABLE_W}" height="${ROW_H - 4}" rx="8" fill="${tint}" fill-opacity="${tintOpacity}" stroke="#2a2723" stroke-width="1"/>
+      <text x="${TABLE_X + 24}" y="${y + 34}" fill="${rankColor}" font-size="18" font-weight="700" font-family="Inter, sans-serif">${i + 1}</text>
+      <circle cx="${TABLE_X + 72}" cy="${y + 27}" r="17" fill="${color}"/>
+      <text x="${TABLE_X + 72}" y="${y + 33}" text-anchor="middle" fill="#161412" font-size="14" font-weight="700" font-family="Inter, sans-serif">${initial}</text>
+      <text x="${TABLE_X + 104}" y="${y + 34}" fill="#f1ede7" font-size="18" font-weight="600" font-family="Inter, sans-serif">${displayName}</text>
+      <text x="${TABLE_X + 460}" y="${y + 34}" fill="#a8a19a" font-size="15" font-weight="500" font-family="Inter, sans-serif">${agentStr}</text>
+      <text x="${TABLE_X + 700}" y="${y + 34}" text-anchor="end" fill="#d4935e" font-size="17" font-weight="700" font-family="Inter, sans-serif">${costStr}</text>
+      <text x="${TABLE_X + 850}" y="${y + 34}" text-anchor="end" fill="#cfc8c0" font-size="16" font-weight="600" font-family="Inter, sans-serif">${formatCompactNumber(entry.tokens)}</text>
+      <text x="${TABLE_X + TABLE_W - 28}" y="${y + 34}" text-anchor="end" fill="#cfc8c0" font-size="16" font-weight="600" font-family="Inter, sans-serif">${formatCompactNumber(entry.turns)}</text>`;
   });
 
   if (top5.length === 0) {
-    tableRows = `<text x="${W / 2}" y="${TABLE_Y + 60}" text-anchor="middle" fill="#4a4640" font-size="18" font-family="Inter, sans-serif">No activity yet today</text>`;
+    tableRows = `<rect x="${TABLE_X}" y="${TABLE_Y}" width="${TABLE_W}" height="170" rx="12" fill="#1f1c18" stroke="#2a2723"/><text x="${W / 2}" y="${TABLE_Y + 94}" text-anchor="middle" fill="#6b6560" font-size="20" font-family="Inter, sans-serif">No activity yet today</text>`;
   }
-
-  const memberLabel = `${totalMembers} member${totalMembers !== 1 ? "s" : ""}`;
 
   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#201e1c"/>
-      <stop offset="100%" stop-color="#161412"/>
+      <stop offset="0%" stop-color="#201d19"/>
+      <stop offset="100%" stop-color="#13110f"/>
     </linearGradient>
   </defs>
 
   <rect width="${W}" height="${H}" fill="url(#bg)"/>
-  <rect x="1" y="1" width="${W - 2}" height="${H - 2}" fill="none" stroke="#2e2c2a" stroke-width="1"/>
+  <rect x="42" y="34" width="${W - 84}" height="${H - 68}" rx="24" fill="#181512" stroke="#2b2723"/>
 
   <!-- Brand -->
-  <text x="${W / 2}" y="60" text-anchor="middle" fill="#6b6560" font-size="20" font-weight="600" font-family="Inter, sans-serif">ccclub</text>
+  <text x="86" y="78" fill="#746f69" font-size="20" font-weight="700" font-family="Inter, sans-serif">ccclub</text>
+  <circle cx="86" cy="118" r="5" fill="#5fdc8f"/>
+  <text x="102" y="124" fill="#8a8480" font-size="15" font-weight="600" font-family="Inter, sans-serif">Live leaderboard preview</text>
 
   <!-- Group name -->
-  <text x="${W / 2}" y="120" text-anchor="middle" fill="#f0ece6" font-size="40" font-weight="700" font-family="Inter, sans-serif" letter-spacing="-1">${name}</text>
+  <text x="86" y="166" fill="#f3eee7" font-size="44" font-weight="700" font-family="Inter, sans-serif" letter-spacing="-1">${name}</text>
 
   <!-- Subtitle -->
-  <text x="${W / 2}" y="160" text-anchor="middle" fill="#6b6560" font-size="18" font-family="Inter, sans-serif">Today's leaderboard · ${memberLabel}</text>
+  <text x="86" y="194" fill="#8a8480" font-size="17" font-family="Inter, sans-serif">Today · ${memberLabel} · ${activeLabel}</text>
+  <rect x="748" y="72" width="366" height="52" rx="14" fill="#201d19" stroke="#2c2824"/>
+  <text x="770" y="105" fill="#a8a19a" font-size="15" font-weight="600" font-family="Inter, sans-serif">${svgEsc(truncate(agentSummary, 44))}</text>
 
   <!-- Header row -->
-  <text x="${TABLE_X + 24}" y="${TABLE_Y - 12}" fill="#5a5550" font-size="12" font-weight="500" font-family="Inter, sans-serif" letter-spacing="0.5">#</text>
-  <text x="${TABLE_X + 100}" y="${TABLE_Y - 12}" fill="#5a5550" font-size="12" font-weight="500" font-family="Inter, sans-serif" letter-spacing="0.5">NAME</text>
-  <text x="${TABLE_X + TABLE_W - 24}" y="${TABLE_Y - 12}" text-anchor="end" fill="#5a5550" font-size="12" font-weight="500" font-family="Inter, sans-serif" letter-spacing="0.5">COST</text>
+  <text x="${TABLE_X + 24}" y="${TABLE_Y - 14}" fill="#6d6760" font-size="12" font-weight="700" font-family="Inter, sans-serif" letter-spacing="0.8">#</text>
+  <text x="${TABLE_X + 104}" y="${TABLE_Y - 14}" fill="#6d6760" font-size="12" font-weight="700" font-family="Inter, sans-serif" letter-spacing="0.8">MEMBER</text>
+  <text x="${TABLE_X + 460}" y="${TABLE_Y - 14}" fill="#6d6760" font-size="12" font-weight="700" font-family="Inter, sans-serif" letter-spacing="0.8">AGENTS</text>
+  <text x="${TABLE_X + 700}" y="${TABLE_Y - 14}" text-anchor="end" fill="#6d6760" font-size="12" font-weight="700" font-family="Inter, sans-serif" letter-spacing="0.8">COST</text>
+  <text x="${TABLE_X + 850}" y="${TABLE_Y - 14}" text-anchor="end" fill="#6d6760" font-size="12" font-weight="700" font-family="Inter, sans-serif" letter-spacing="0.8">TOKENS</text>
+  <text x="${TABLE_X + TABLE_W - 28}" y="${TABLE_Y - 14}" text-anchor="end" fill="#6d6760" font-size="12" font-weight="700" font-family="Inter, sans-serif" letter-spacing="0.8">TURNS</text>
 
   <!-- Ranking rows -->
   ${tableRows}
 
   <!-- Footer -->
-  <text x="${W / 2}" y="${H - 40}" text-anchor="middle" fill="#4a4640" font-size="15" font-family="Inter, sans-serif">ccclub.dev/g/${svgEsc(code)}</text>
+  <text x="86" y="${H - 70}" fill="#4f4942" font-size="15" font-family="Inter, sans-serif">ccclub.dev/g/${svgEsc(code)}</text>
+  <text x="${W - 86}" y="${H - 70}" text-anchor="end" fill="#4f4942" font-size="15" font-family="Inter, sans-serif">Claude Code · Codex leaderboard among friends</text>
 </svg>`;
 }
 

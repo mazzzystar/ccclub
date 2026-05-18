@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "./types.js";
+import { svgEsc, renderToPng } from "./og-utils.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -251,6 +252,106 @@ export const LLMS_TXT = `# ccclub
 - /g/global: Global public leaderboard
 - /invite/:code: Invite page with OG social cards
 `;
+
+// ── Landing page OG image (static terminal leaderboard) ──────
+
+app.get("/og.png", async (c) => {
+  const svg = buildLandingOgSvg();
+  const png = await renderToPng(svg);
+  return c.body(png, 200, {
+    "Content-Type": "image/png",
+    "Cache-Control": "public, max-age=86400",
+  });
+});
+
+function buildLandingOgSvg(): string {
+  const W = 1200;
+  const H = 630;
+  const F = 'font-family="Inter, sans-serif"';
+  const FM = 'font-family="Courier New, monospace"';
+
+  const rows = [
+    { rank: "1", name: "Tiger", cost: "$110.57", tokens: "339K", roi: "", chats: "17", perChat: "$6.50", color: "#d4a03e", active: true },
+    { rank: "2", name: "mazzystar", cost: "$101.88", tokens: "206K", roi: "$200/1610%", chats: "66", perChat: "$1.54", color: "#5aad7d", active: true },
+    { rank: "3", name: "Darkrayon", cost: "$96.08", tokens: "219K", roi: "$200/3560%", chats: "26", perChat: "$3.70", color: "#e8e4de", active: false },
+    { rank: "4", name: "BryantChen", cost: "$53.38", tokens: "284K", roi: "", chats: "39", perChat: "$1.37", color: "#e8e4de", active: false },
+    { rank: "5", name: "Owen", cost: "$42.87", tokens: "232K", roi: "", chats: "31", perChat: "$1.38", color: "#e8e4de", active: false },
+    { rank: "6", name: "ventuss", cost: "$42.54", tokens: "188K", roi: "$200/1987%", chats: "48", perChat: "$0.89", color: "#e8e4de", active: true },
+    { rank: "7", name: "junyu", cost: "$21.19", tokens: "81K", roi: "$200/558%", chats: "18", perChat: "$1.18", color: "#6b6560", active: false },
+  ];
+
+  // Terminal window
+  const TX = 60, TY = 40, TW = W - 120, TH = H - 80;
+  const BAR_H = 36;
+
+  // Table layout
+  const TABLE_Y = TY + BAR_H + 90;
+  const ROW_H = 36;
+  const cols = [TX + 30, TX + 60, TX + 240, TX + 420, TX + 530, TX + 700, TX + 790, TX + 900];
+  const headers = ["#", "Name", "Cost", "Tokens", "ROI", "Chats", "$/Chat"];
+
+  let headerSvg = "";
+  headers.forEach((h, i) => {
+    const anchor = i === 0 ? "middle" : i >= 5 ? "end" : "start";
+    headerSvg += `<text x="${cols[i]}" y="${TABLE_Y - 8}" text-anchor="${anchor}" fill="#5a5550" font-size="11" font-weight="500" ${F} letter-spacing="0.5">${h}</text>`;
+  });
+
+  let rowsSvg = "";
+  rows.forEach((r, i) => {
+    const y = TABLE_Y + i * ROW_H + 20;
+    const nameColor = r.color;
+    const activeTag = r.active ? `<tspan fill="#5aad7d" font-size="10"> (active)</tspan>` : "";
+    const roiText = r.roi ? `<tspan fill="#5aad7d">${svgEsc(r.roi)}</tspan>` : `<tspan fill="#5a5550">—</tspan>`;
+
+    rowsSvg += `
+      <text x="${cols[0]}" y="${y}" text-anchor="middle" fill="${r.rank === "2" ? "#5aad7d" : r.rank === "1" ? "#d4a03e" : "#6b6560"}" font-size="14" font-weight="600" ${F}>${r.rank === "2" ? "→" + r.rank : r.rank}</text>
+      <text x="${cols[1]}" y="${y}" fill="${nameColor}" font-size="14" font-weight="${r.rank <= "2" ? "600" : "400"}" ${F}>${svgEsc(r.name)}${activeTag}</text>
+      <text x="${cols[2]}" y="${y}" fill="${nameColor}" font-size="14" ${F}>${r.cost}</text>
+      <text x="${cols[3]}" y="${y}" fill="#8a8480" font-size="14" ${F}>${r.tokens}</text>
+      <text x="${cols[4]}" y="${y}" fill="#5a5550" font-size="13" ${F}>${roiText}</text>
+      <text x="${cols[5]}" y="${y}" text-anchor="end" fill="#6b6560" font-size="14" ${F}>${r.chats}</text>
+      <text x="${cols[6]}" y="${y}" text-anchor="end" fill="#8a8480" font-size="14" ${F}>${r.perChat}</text>`;
+  });
+
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#201e1c"/>
+      <stop offset="100%" stop-color="#161412"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="${W}" height="${H}" fill="url(#bg)"/>
+
+  <!-- Terminal window -->
+  <rect x="${TX}" y="${TY}" width="${TW}" height="${TH}" rx="10" fill="#13110f" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+
+  <!-- Terminal bar -->
+  <circle cx="${TX + 20}" cy="${TY + BAR_H / 2}" r="5" fill="#e05555"/>
+  <circle cx="${TX + 38}" cy="${TY + BAR_H / 2}" r="5" fill="#d4a03e"/>
+  <circle cx="${TX + 56}" cy="${TY + BAR_H / 2}" r="5" fill="#5aad7d"/>
+  <line x1="${TX}" y1="${TY + BAR_H}" x2="${TX + TW}" y2="${TY + BAR_H}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+
+  <!-- Prompt -->
+  <text x="${TX + 24}" y="${TY + BAR_H + 28}" fill="#5aad7d" font-size="14" ${FM}>$</text>
+  <text x="${TX + 40}" y="${TY + BAR_H + 28}" fill="#e8e4de" font-size="14" ${FM}>ccclub</text>
+
+  <!-- Group header -->
+  <text x="${TX + 24}" y="${TY + BAR_H + 52}" fill="#d4935e" font-size="15" font-weight="600" ${F}>mazzystar's club</text>
+  <text x="${TX + 24}" y="${TY + BAR_H + 72}" fill="#5a5550" font-size="12" ${F}>TODAY · 44 members</text>
+  <text x="${TX + 160}" y="${TY + BAR_H + 72}" fill="#5aad7d" font-size="12" ${F}>3 active</text>
+
+  <!-- Table header -->
+  ${headerSvg}
+
+  <!-- Table rows -->
+  ${rowsSvg}
+
+  <!-- Footer -->
+  <text x="${TX + 24}" y="${TY + TH - 16}" fill="#5a5550" font-size="12" ${F}>Dashboard: </text>
+  <text x="${TX + 104}" y="${TY + TH - 16}" fill="#5aad7d" font-size="12" ${F}>https://ccclub.dev/g/YHAW6P</text>
+</svg>`;
+}
 
 app.get("/llms.txt", (c) => {
   return c.text(LLMS_TXT, 200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" });

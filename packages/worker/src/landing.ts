@@ -22,11 +22,15 @@ function landingHTML() {
   <meta property="og:url" content="https://ccclub.dev/" />
   <meta property="og:title" content="ccclub — Claude Code leaderboard among friends" />
   <meta property="og:description" content="Share a code, see how your friends are doing. Just for fun." />
+  <meta property="og:image" content="https://ccclub.dev/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
 
   <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="ccclub — Claude Code leaderboard among friends" />
   <meta name="twitter:description" content="Share a code, see how your friends are doing. Just for fun." />
+  <meta name="twitter:image" content="https://ccclub.dev/og.png" />
 
   <meta name="theme-color" content="#1a1816" />
   <link rel="canonical" href="https://ccclub.dev/" />

@@ -3,6 +3,10 @@ main = "src/index.ts"
 compatibility_date = "2024-12-30"
 workers_dev = true
 
+[[rules]]
+type = "Data"
+globs = ["**/*.ttf"]
+
 [[kv_namespaces]]
 binding = "KV"
 id = "04ff7a30114d42f9bd986d692d888f96"

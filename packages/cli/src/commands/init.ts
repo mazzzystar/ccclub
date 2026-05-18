@@ -76,16 +76,15 @@ export async function initCommand(): Promise<void> {
     const hookOk = await installHook();
     spinner.succeed("ccclub initialized!");
 
-    console.log("");
-    console.log(chalk.bold("  Your invite code:"));
-    console.log(chalk.cyan.bold(`\n    ${data.groupCode}\n`));
-    console.log(chalk.dim("  Share with friends: ") + chalk.white(`npx ccclub join ${data.groupCode}`));
-
-    if (hookOk) {
-      console.log(chalk.dim("  Auto-sync: on (via Claude Code hook)"));
-    } else {
+    if (!hookOk) {
       console.log(chalk.dim('  Tip: run "ccclub hook" to set up auto-sync'));
     }
+    console.log("");
+    console.log(chalk.bold("  Invite friends to compete:"));
+    console.log("");
+    console.log(`    ${chalk.cyan.underline(`${apiUrl}/invite/${data.groupCode}`)}`);
+    console.log("");
+    console.log(chalk.dim(`    or: npx ccclub join ${data.groupCode}`));
 
     // First sync
     console.log("");
@@ -94,30 +93,15 @@ export async function initCommand(): Promise<void> {
     // Auto-install globally so `ccclub` works without npx
     await ensureGlobalInstall();
 
-    printQuickStart(data.groupCode);
+    printQuickStart();
 
   } finally {
     rl.close();
   }
 }
 
-function printQuickStart(groupCode: string): void {
+function printQuickStart(): void {
   console.log("");
-  console.log(chalk.bold("  What's next?"));
-  console.log("");
-  console.log(chalk.dim("  See the leaderboard:"));
-  console.log(chalk.white("    ccclub"));
-  console.log("");
-  console.log(chalk.dim("  Yesterday / 7 days / 30 days / all time:"));
-  console.log(chalk.white("    ccclub -d 1"));
-  console.log("");
-  console.log(chalk.dim("  Open the dashboard in browser:"));
-  console.log(chalk.white(`    https://ccclub.dev/g/${groupCode}`));
-  console.log("");
-  console.log(chalk.dim("  Check what data gets uploaded:"));
-  console.log(chalk.white("    ccclub show-data"));
-  console.log("");
-  console.log(chalk.dim("  All commands:"));
-  console.log(chalk.white("    ccclub -h"));
+  console.log(chalk.dim("  Run ") + chalk.white("ccclub") + chalk.dim(" to see the leaderboard. ") + chalk.white("ccclub -h") + chalk.dim(" for all commands."));
   console.log("");
 }

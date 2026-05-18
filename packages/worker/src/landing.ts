@@ -262,14 +262,14 @@ function landingHTML() {
           <div class="step-num">1</div>
           <div class="step-content">
             <h3>Initialize</h3>
-            <p>Run <code class="mono">npx ccclub init</code> and enter your name. You get a 6-letter invite code.</p>
+            <p>Run <code class="mono">npx ccclub init</code> and enter your name. You get an invite link to share.</p>
           </div>
         </div>
         <div class="step">
           <div class="step-num">2</div>
           <div class="step-content">
             <h3>Invite</h3>
-            <p>Friends run <code class="mono">npx ccclub join CODE</code>. No account needed.</p>
+            <p>Share your invite link or have friends run <code class="mono">npx ccclub join CODE</code>. No account needed.</p>
           </div>
         </div>
         <div class="step">

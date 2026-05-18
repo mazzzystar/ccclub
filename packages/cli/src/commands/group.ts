@@ -48,9 +48,10 @@ export async function createGroupCommand(): Promise<void> {
     }
 
     spinner.succeed(`Created "${data.groupName}"`);
-    console.log(chalk.bold(`\n  Invite code: `) + chalk.cyan.bold(data.groupCode));
-    console.log(chalk.dim(`  Share: npx ccclub join ${data.groupCode}`));
-    console.log(chalk.dim(`  Dashboard: ${config.apiUrl}/g/${data.groupCode}`));
+    console.log("");
+    console.log(`    ${chalk.cyan.underline(`${config.apiUrl}/invite/${data.groupCode}`)}`);
+    console.log("");
+    console.log(chalk.dim(`    or: npx ccclub join ${data.groupCode}`));
   } finally {
     rl.close();
   }

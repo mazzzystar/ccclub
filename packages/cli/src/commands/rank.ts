@@ -254,8 +254,10 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
     console.log(chalk.dim(`  ${hiddenCount} inactive member${hiddenCount > 1 ? "s" : ""} hidden · ccclub --all to show`));
   }
   console.log(chalk.dim(`  Dashboard: ${config.apiUrl}/g/${code}`));
+  if (code !== "global" && data.group.memberCount < 5) {
+    console.log(chalk.dim("  Invite: ") + chalk.cyan.underline(`${config.apiUrl}/invite/${code}`));
+  }
 
-  // Hint if the group has plan users but current user hasn't set one
   if (hasPlan) {
     const me = data.rankings.find((r) => r.userId === config.userId);
     if (me && !me.plan) {

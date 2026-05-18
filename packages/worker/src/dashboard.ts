@@ -1,37 +1,185 @@
 import { Hono } from "hono";
 import { html } from "hono/html";
 import type { Env } from "./types.js";
+import type { GroupRecord, UsageData } from "@ccclub/shared";
+import { getColor, svgEsc, htmlEsc, truncate, renderToPng, sanitizeCode } from "./og-utils.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
-function sanitizeCode(raw: string): string {
-  return raw.replace(/[^a-zA-Z0-9]/g, "");
-}
-
-app.get("/g/:code", (c) => {
+app.get("/g/:code", async (c) => {
   const code = sanitizeCode(c.req.param("code"));
   if (!code) return c.text("Invalid code", 400);
-  return c.html(dashboardHTML(code));
+  const isGlobal = code.toLowerCase() === "global";
+  let groupName = "";
+  let memberCount = 0;
+  if (!isGlobal) {
+    const group = await c.env.KV.get<GroupRecord>(`group:${code}`, "json");
+    if (group) {
+      groupName = group.name;
+      memberCount = group.members.length;
+    }
+  }
+  return c.html(dashboardHTML(code, groupName, memberCount));
 });
 
-function dashboardHTML(code: string) {
+// ── Dashboard OG image with ranking table ────────────────────
+
+app.get("/g/:code/og.png", async (c) => {
+  const code = sanitizeCode(c.req.param("code"));
+  if (!code) return c.text("Invalid code", 400);
   const isGlobal = code.toLowerCase() === "global";
+
+  let groupName: string;
+  let members: Array<{ userId: string; displayName: string }>;
+  let totalMembers: number;
+
+  if (isGlobal) {
+    groupName = "Global Rankings";
+    const publicUsers = (await c.env.KV.get<string[]>("public_users", "json")) || [];
+    totalMembers = publicUsers.length;
+    members = publicUsers.slice(0, 30).map((id) => ({ userId: id, displayName: id.slice(0, 8) }));
+  } else {
+    const group = await c.env.KV.get<GroupRecord>(`group:${code}`, "json");
+    if (!group) return c.text("Not found", 404);
+    groupName = group.name;
+    members = group.members.map((m) => ({ userId: m.userId, displayName: m.displayName }));
+    totalMembers = members.length;
+  }
+
+  const usageResults = await Promise.all(
+    members.map((m) => c.env.KV.get<UsageData>(`usage:${m.userId}`, "json")),
+  );
+
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setUTCHours(0, 0, 0, 0);
+  const startMs = todayStart.getTime();
+  const endMs = startMs + 86_400_000;
+
+  const ranked: Array<{ displayName: string; userId: string; costUSD: number }> = [];
+  for (let i = 0; i < members.length; i++) {
+    const usage = usageResults[i];
+    let cost = 0;
+    if (usage) {
+      for (const block of usage.blocks) {
+        const t = new Date(block.blockStart).getTime();
+        if (t >= startMs && t < endMs) cost += block.costUSD;
+      }
+    }
+    ranked.push({ ...members[i], costUSD: Math.round(cost * 100) / 100 });
+  }
+  ranked.sort((a, b) => b.costUSD - a.costUSD);
+
+  const svg = buildDashboardOgSvg(groupName, ranked.slice(0, 5), totalMembers, code);
+  const png = await renderToPng(svg);
+
+  return c.body(png, 200, {
+    "Content-Type": "image/png",
+    "Cache-Control": "public, max-age=300",
+  });
+});
+
+function buildDashboardOgSvg(
+  groupName: string,
+  top5: Array<{ displayName: string; userId: string; costUSD: number }>,
+  totalMembers: number,
+  code: string,
+): string {
+  const W = 1200;
+  const H = 630;
+  const name = svgEsc(truncate(groupName, 32));
+
+  const ROW_H = 52;
+  const TABLE_X = 240;
+  const TABLE_W = 720;
+  const TABLE_Y = 220;
+
+  let tableRows = "";
+  top5.forEach((entry, i) => {
+    const y = TABLE_Y + i * ROW_H;
+    const color = getColor(entry.userId);
+    const initial = svgEsc((entry.displayName || "?").charAt(0).toUpperCase());
+    const displayName = svgEsc(truncate(entry.displayName, 20));
+    const rankColor = i < 3 ? "#d4a03e" : "#6b6560";
+    const costStr = entry.costUSD > 0 ? `$${entry.costUSD.toFixed(2)}` : "$0.00";
+
+    tableRows += `
+      <rect x="${TABLE_X}" y="${y}" width="${TABLE_W}" height="${ROW_H - 2}" rx="6" fill="${i % 2 === 0 ? "#1e1c1a" : "#1a1816"}"/>
+      <text x="${TABLE_X + 24}" y="${y + 32}" fill="${rankColor}" font-size="18" font-weight="600" font-family="Inter, sans-serif">${i + 1}</text>
+      <circle cx="${TABLE_X + 68}" cy="${y + 26}" r="16" fill="${color}"/>
+      <text x="${TABLE_X + 68}" y="${y + 32}" text-anchor="middle" fill="#1a1816" font-size="14" font-weight="600" font-family="Inter, sans-serif">${initial}</text>
+      <text x="${TABLE_X + 100}" y="${y + 32}" fill="#e8e4de" font-size="17" font-weight="500" font-family="Inter, sans-serif">${displayName}</text>
+      <text x="${TABLE_X + TABLE_W - 24}" y="${y + 32}" text-anchor="end" fill="#d4935e" font-size="17" font-weight="600" font-family="Inter, sans-serif">${costStr}</text>`;
+  });
+
+  if (top5.length === 0) {
+    tableRows = `<text x="${W / 2}" y="${TABLE_Y + 60}" text-anchor="middle" fill="#4a4640" font-size="18" font-family="Inter, sans-serif">No activity yet today</text>`;
+  }
+
+  const memberLabel = `${totalMembers} member${totalMembers !== 1 ? "s" : ""}`;
+
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#201e1c"/>
+      <stop offset="100%" stop-color="#161412"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="${W}" height="${H}" fill="url(#bg)"/>
+  <rect x="1" y="1" width="${W - 2}" height="${H - 2}" fill="none" stroke="#2e2c2a" stroke-width="1"/>
+
+  <!-- Brand -->
+  <text x="${W / 2}" y="60" text-anchor="middle" fill="#6b6560" font-size="20" font-weight="600" font-family="Inter, sans-serif">ccclub</text>
+
+  <!-- Group name -->
+  <text x="${W / 2}" y="120" text-anchor="middle" fill="#f0ece6" font-size="40" font-weight="700" font-family="Inter, sans-serif" letter-spacing="-1">${name}</text>
+
+  <!-- Subtitle -->
+  <text x="${W / 2}" y="160" text-anchor="middle" fill="#6b6560" font-size="18" font-family="Inter, sans-serif">Today's leaderboard · ${memberLabel}</text>
+
+  <!-- Header row -->
+  <text x="${TABLE_X + 24}" y="${TABLE_Y - 12}" fill="#5a5550" font-size="12" font-weight="500" font-family="Inter, sans-serif" letter-spacing="0.5">#</text>
+  <text x="${TABLE_X + 100}" y="${TABLE_Y - 12}" fill="#5a5550" font-size="12" font-weight="500" font-family="Inter, sans-serif" letter-spacing="0.5">NAME</text>
+  <text x="${TABLE_X + TABLE_W - 24}" y="${TABLE_Y - 12}" text-anchor="end" fill="#5a5550" font-size="12" font-weight="500" font-family="Inter, sans-serif" letter-spacing="0.5">COST</text>
+
+  <!-- Ranking rows -->
+  ${tableRows}
+
+  <!-- Footer -->
+  <text x="${W / 2}" y="${H - 40}" text-anchor="middle" fill="#4a4640" font-size="15" font-family="Inter, sans-serif">ccclub.dev/g/${svgEsc(code)}</text>
+</svg>`;
+}
+
+
+function dashboardHTML(code: string, groupName: string, memberCount: number) {
+  const isGlobal = code.toLowerCase() === "global";
+  const ogTitle = groupName
+    ? `${htmlEsc(truncate(groupName, 40))} \u2014 ccclub`
+    : "ccclub \u2014 Leaderboard";
+  const ogDesc = groupName
+    ? `${memberCount} member${memberCount !== 1 ? "s" : ""} competing on Claude Code usage.`
+    : "Claude Code leaderboard among friends. See how you're all doing.";
   return html`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ccclub \u2014 Leaderboard</title>
-  <meta name="description" content="Claude Code leaderboard among friends" />
+  <title>${ogTitle}</title>
+  <meta name="description" content="${ogDesc}" />
 
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="ccclub \u2014 Leaderboard" />
-  <meta property="og:description" content="Claude Code leaderboard among friends. See how you're all doing." />
+  <meta property="og:title" content="${ogTitle}" />
+  <meta property="og:description" content="${ogDesc}" />
   <meta property="og:url" content="https://ccclub.dev/g/${code}" />
+  <meta property="og:image" content="https://ccclub.dev/g/${code}/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
 
-  <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="ccclub \u2014 Leaderboard" />
-  <meta name="twitter:description" content="Claude Code leaderboard among friends. See how you're all doing." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${ogTitle}" />
+  <meta name="twitter:description" content="${ogDesc}" />
+  <meta name="twitter:image" content="https://ccclub.dev/g/${code}/og.png" />
 
   <meta name="theme-color" content="#1a1816" />
   <link rel="canonical" href="https://ccclub.dev/g/${code}" />

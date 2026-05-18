@@ -119,11 +119,25 @@ function landingHTML() {
     .rank-tbl { border-collapse: collapse; font: inherit; line-height: inherit; display: inline-table; vertical-align: top; }
     .rank-tbl td { padding: 0; text-align: right; padding-left: 4ch; }
     .rank-tbl td:first-child { text-align: right; padding-left: 0; width: 2.5ch; }
-    .rank-tbl td:nth-child(2) { text-align: left; padding-left: 1.5ch; min-width: 10ch; }
+    .rank-tbl td:nth-child(2) { text-align: left; padding-left: 1.5ch; min-width: 14ch; }
     .rank-tbl tr.gold td { color: #d4a03e; }
     .rank-tbl tr.me td { color: #5aad7d; }
     .rank-tbl tr.dim td { color: #5a5550; }
     .rank-tbl thead td { color: #5a5550; }
+    .active-tag { color: #5aad7d; font-size: 12px; }
+    .typing-dot {
+      display: inline-block; width: 3px; height: 3px; border-radius: 50%;
+      background: #5aad7d; margin-left: 1px; vertical-align: middle;
+      animation: blink 1.2s infinite ease-in-out;
+    }
+    .typing-dot:nth-child(2) { animation-delay: 0.3s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.6s; }
+    @keyframes blink { 0%, 100% { opacity: 0.15; } 30%, 50% { opacity: 1; } }
+    .roi-high { color: #5aad7d; }
+    .roi-mid { color: #d4a03e; }
+    .roi-low { color: #5a5550; }
+    .dash-link { color: #5aad7d; text-decoration: none; }
+    .dash-link:hover { text-decoration: underline; }
 
     /* CTA */
     .cta { padding: 16px 0 80px; text-align: center; }
@@ -232,16 +246,20 @@ function landingHTML() {
         <div class="terminal-body"><span class="prompt">$</span> <span class="cmd">ccclub</span>
 
   <span class="accent">mazzystar's club</span>
-  <span class="dim">TODAY \u00b7 2026-02-16 \u2192 2026-02-17 \u00b7 4 members</span>
+  <span class="dim">TODAY \u00b7 44 members</span>
+  <span class="active-tag">3 active <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span>
 
-  <table class="rank-tbl"><thead><tr class="dim"><td>#</td><td>Name</td><td>Cost</td><td>Tokens</td><td>Chats</td><td>$/Chat</td></tr></thead><tbody>
-  <tr class="gold"><td>1</td><td>BryantChen</td><td>$132.68</td><td>226K</td><td>273</td><td>$0.49</td></tr>
-  <tr class="me"><td>\u21922</td><td>mazzystar</td><td>$9.76</td><td>2.3K</td><td>29</td><td>$0.34</td></tr>
-  <tr><td>3</td><td>ventuss</td><td>$5.42</td><td>8.5K</td><td>12</td><td>$0.45</td></tr>
-  <tr class="dim"><td>4</td><td>Ash</td><td>$1.08</td><td>1.6K</td><td>3</td><td>$0.36</td></tr>
+  <table class="rank-tbl"><thead><tr class="dim"><td>#</td><td>Name</td><td>Cost</td><td>Tokens</td><td>ROI</td><td>Chats</td><td>$/Chat</td></tr></thead><tbody>
+  <tr class="gold"><td>1</td><td>Tiger <span class="active-tag">(active)</span></td><td>$110.57</td><td>339K</td><td class="dim">\u2014</td><td>17</td><td>$6.50</td></tr>
+  <tr class="me"><td>\u21922</td><td>mazzystar <span class="active-tag">(active)</span></td><td>$101.88</td><td>206K</td><td><span class="roi-high">$200/1610%</span></td><td>66</td><td>$1.54</td></tr>
+  <tr><td>3</td><td>Darkrayon</td><td>$96.08</td><td>219K</td><td><span class="roi-high">$200/3560%</span></td><td>26</td><td>$3.70</td></tr>
+  <tr><td>4</td><td>BryantChen</td><td>$53.38</td><td>284K</td><td class="dim">\u2014</td><td>39</td><td>$1.37</td></tr>
+  <tr><td>5</td><td>Owen</td><td>$42.87</td><td>232K</td><td class="dim">\u2014</td><td>31</td><td>$1.38</td></tr>
+  <tr><td>6</td><td>ventuss <span class="active-tag">(active)</span></td><td>$42.54</td><td>188K</td><td><span class="roi-high">$200/1987%</span></td><td>48</td><td>$0.89</td></tr>
+  <tr class="dim"><td>7</td><td>junyu</td><td>$21.19</td><td>81K</td><td><span class="roi-mid">$200/558%</span></td><td>18</td><td>$1.18</td></tr>
   </tbody></table>
 
-  <span class="dim">Dashboard: https://ccclub.dev/g/YHAW6P</span></div>
+  <span class="dim">Dashboard: </span><a href="/g/YHAW6P" class="dash-link">https://ccclub.dev/g/YHAW6P</a></div>
       </div>
     </div>
 

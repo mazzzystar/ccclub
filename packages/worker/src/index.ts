@@ -8,6 +8,7 @@ import { usageRoute } from "./routes/usage.js";
 import { dashboardRoute } from "./dashboard.js";
 import { landingRoute } from "./landing.js";
 import { inviteRoute } from "./invite.js";
+import { guideRoute } from "./guide.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -20,6 +21,7 @@ app.route("/api", syncRoutes);
 app.route("/api", rankRoutes);
 app.post("/api/usage", usageRoute);
 app.route("/", landingRoute);
+app.route("/", guideRoute);
 app.route("/", inviteRoute);
 app.route("/", dashboardRoute);
 

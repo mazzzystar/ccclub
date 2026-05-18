@@ -151,6 +151,15 @@ function landingHTML() {
     .cta-cmd .dollar { color: #5aad7d; margin-right: 8px; }
     .cta-hint { margin-top: 14px; color: #6b6560; font-size: 14px; }
     .cta-hint code { color: #9b9590; }
+    .cta-secondary {
+      display: flex; gap: 16px; justify-content: center; margin-top: 20px;
+    }
+    .guide-btn {
+      padding: 8px 18px; border-radius: 6px; border: 1px solid #363330;
+      background: transparent; color: #8a8480; cursor: pointer;
+      font-size: 13px; font-family: inherit; transition: all 0.15s;
+    }
+    .guide-btn:hover { border-color: #5a5550; color: #c8c4be; }
 
     /* Divider */
     .divider {
@@ -269,6 +278,9 @@ function landingHTML() {
         <span class="copy-msg" style="position:absolute;right:-60px;top:50%;transform:translateY(-50%);font-size:12px;color:#5aad7d;opacity:0;transition:opacity .2s">Copied</span>
       </div>
       <div class="cta-hint">One command to start. After that just use <code class="mono">ccclub</code> directly.</div>
+      <div class="cta-secondary">
+        <button class="guide-btn" id="copy-guide">Copy full guide</button>
+      </div>
     </div>
 
     <hr class="divider" />
@@ -328,6 +340,16 @@ function landingHTML() {
     </div>
   </div>
 
+  <script>
+    document.getElementById("copy-guide").addEventListener("click", function() {
+      var btn = this;
+      fetch("/llms-full.txt").then(function(r) { return r.text(); }).then(function(text) {
+        navigator.clipboard.writeText(text);
+        btn.textContent = "Copied!";
+        setTimeout(function() { btn.textContent = "Copy full guide"; }, 2000);
+      });
+    });
+  </script>
 </body>
 </html>`;
 }

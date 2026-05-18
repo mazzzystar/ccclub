@@ -417,11 +417,11 @@ function buildOgSvg(group: GroupRecord): string {
   <rect x="716" y="252" width="278" height="46" rx="8" fill="#aeb7bf" fill-opacity="0.045"/>
   <rect x="716" y="314" width="364" height="46" rx="8" fill="#c58a61" fill-opacity="0.05"/>
   <text x="742" y="219" fill="#d6b56d" font-size="18" font-weight="700" font-family="Inter, sans-serif">1</text>
-  <text x="782" y="219" fill="#f1ede7" font-size="17" font-weight="600" font-family="Inter, sans-serif">friends</text>
+  <text x="782" y="219" fill="#f1ede7" font-size="17" font-weight="600" font-family="Inter, sans-serif">Live leaderboard</text>
   <text x="742" y="281" fill="#aeb7bf" font-size="18" font-weight="700" font-family="Inter, sans-serif">2</text>
-  <text x="782" y="281" fill="#f1ede7" font-size="17" font-weight="600" font-family="Inter, sans-serif">agents</text>
+  <text x="782" y="281" fill="#f1ede7" font-size="17" font-weight="600" font-family="Inter, sans-serif">Agent mix &amp; costs</text>
   <text x="742" y="343" fill="#c58a61" font-size="18" font-weight="700" font-family="Inter, sans-serif">3</text>
-  <text x="782" y="343" fill="#f1ede7" font-size="17" font-weight="600" font-family="Inter, sans-serif">tokens</text>
+  <text x="782" y="343" fill="#f1ede7" font-size="17" font-weight="600" font-family="Inter, sans-serif">Local logs only</text>
   <text x="716" y="430" fill="#8a8480" font-size="17" font-family="Inter, sans-serif">No signup. Local logs only.</text>
 
   <!-- Footer -->

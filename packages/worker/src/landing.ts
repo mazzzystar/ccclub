@@ -127,6 +127,7 @@ function landingHTML() {
       text-decoration: none;
     }
     .preview-frame:hover { text-decoration: none; border-color: rgba(122,183,198,0.32); }
+    .preview-frame:hover .preview-title { color: var(--link); }
     .preview-frame img {
       display: block; width: 100%; height: auto; aspect-ratio: 1264 / 756; object-fit: cover;
     }
@@ -135,7 +136,20 @@ function landingHTML() {
       padding: 12px 16px; color: var(--muted); font-size: 12px;
       border-top: 1px solid rgba(255,255,255,0.06); background: #151310;
     }
-    .preview-caption strong { color: var(--text); font-weight: 500; }
+    .preview-title {
+      display: inline-flex; align-items: center; gap: 8px;
+      color: var(--text); font-weight: 500; transition: color 0.15s ease;
+    }
+    .live-dot {
+      width: 7px; height: 7px; border-radius: 999px; flex: 0 0 auto;
+      background: #5fdc8f; box-shadow: 0 0 0 0 rgba(95,220,143,0.5);
+      animation: livePulse 1.8s ease-out infinite;
+    }
+    @keyframes livePulse {
+      0% { box-shadow: 0 0 0 0 rgba(95,220,143,0.42); }
+      70% { box-shadow: 0 0 0 7px rgba(95,220,143,0); }
+      100% { box-shadow: 0 0 0 0 rgba(95,220,143,0); }
+    }
     .setup-panel {
       margin: 28px auto 0; max-width: 620px; padding: 10px;
       border-radius: 18px; background: var(--paper); color: var(--ink);
@@ -303,10 +317,10 @@ function landingHTML() {
 
   <div class="wrap">
     <div class="preview-wrap">
-      <a class="preview-frame" href="/g/global" aria-label="Open the global ccclub dashboard">
+      <a class="preview-frame" href="https://ccclub.dev/g/YHAW6P" aria-label="Open the live ccclub leaderboard preview">
         <img src="/og.png" alt="ccclub leaderboard preview" width="1264" height="756" />
         <div class="preview-caption">
-          <strong>Live leaderboard preview</strong>
+          <strong class="preview-title"><span class="live-dot" aria-hidden="true"></span>Live leaderboard preview</strong>
           <span>Cost · tokens · turns · active friends · agent mix</span>
         </div>
       </a>

@@ -13,6 +13,30 @@ const app = new Hono<{ Bindings: Env }>();
 
 const VALID_PERIODS: RankingPeriod[] = ["daily", "yesterday", "weekly", "monthly", "all-time"];
 
+type AgentTotals = { costUSD: number; totalTokens: number };
+
+function addAgentTotals(totals: Map<AgentSource, AgentTotals>, source: AgentSource, costUSD: number, totalTokens: number): void {
+  const current = totals.get(source) ?? { costUSD: 0, totalTokens: 0 };
+  current.costUSD += costUSD;
+  current.totalTokens += totalTokens;
+  totals.set(source, current);
+}
+
+function buildAgentBreakdown(totals: Map<AgentSource, AgentTotals>, totalCostUSD: number, totalTokens: number): RankingEntry["agentBreakdown"] {
+  const denominator = totalCostUSD > 0 ? totalCostUSD : totalTokens;
+  return Array.from(totals.entries())
+    .map(([source, value]) => {
+      const numerator = totalCostUSD > 0 ? value.costUSD : value.totalTokens;
+      return {
+        source,
+        costUSD: Math.round(value.costUSD * 10000) / 10000,
+        totalTokens: value.totalTokens,
+        percent: denominator > 0 ? Math.round((numerator / denominator) * 100) : 0,
+      };
+    })
+    .sort((a, b) => b.percent - a.percent || b.costUSD - a.costUSD);
+}
+
 function parsePeriod(raw: string | undefined): RankingPeriod {
   if (raw && VALID_PERIODS.includes(raw as RankingPeriod)) return raw as RankingPeriod;
   return "daily";
@@ -140,10 +164,12 @@ app.get("/rank/global", async (c) => {
     let monthlyCost = 0;
     const models = new Set<string>();
     const agents = new Set<AgentSource>();
+    const agentTotals = new Map<AgentSource, AgentTotals>();
 
     for (const block of usage.blocks) {
       const blockTime = new Date(block.blockStart).getTime();
       if (blockTime >= startMs && blockTime < endMs) {
+        const source = block.source ?? "claude";
         totalTokens += block.totalTokens;
         inputTokens += block.inputTokens;
         outputTokens += block.outputTokens;
@@ -152,7 +178,8 @@ app.get("/rank/global", async (c) => {
         entryCount += block.entryCount;
         chatCount += block.chatCount || 0;
         for (const m of block.models) models.add(m);
-        agents.add(block.source ?? "claude");
+        agents.add(source);
+        addAgentTotals(agentTotals, source, block.costUSD, block.totalTokens);
       }
       if (hasPlan && !isMonthly && blockTime >= monthStartMs && blockTime < monthEndMs) {
         monthlyCost += block.costUSD;
@@ -172,6 +199,7 @@ app.get("/rank/global", async (c) => {
         costUSD: Math.round(costUSD * 10000) / 10000,
         models: Array.from(models),
         agents: Array.from(agents),
+        agentBreakdown: buildAgentBreakdown(agentTotals, costUSD, totalTokens),
         entryCount,
         chatCount,
       };
@@ -253,11 +281,13 @@ app.get("/rank/:code", async (c) => {
     let monthlyCost = 0;
     const models = new Set<string>();
     const agents = new Set<AgentSource>();
+    const agentTotals = new Map<AgentSource, AgentTotals>();
 
     if (usage) {
       for (const block of usage.blocks) {
         const blockTime = new Date(block.blockStart).getTime();
         if (blockTime >= startMs && blockTime < endMs) {
+          const source = block.source ?? "claude";
           totalTokens += block.totalTokens;
           inputTokens += block.inputTokens;
           outputTokens += block.outputTokens;
@@ -266,7 +296,8 @@ app.get("/rank/:code", async (c) => {
           entryCount += block.entryCount;
           chatCount += block.chatCount || 0;
           for (const m of block.models) models.add(m);
-          agents.add(block.source ?? "claude");
+          agents.add(source);
+          addAgentTotals(agentTotals, source, block.costUSD, block.totalTokens);
         }
         if (hasPlan && !isMonthly && blockTime >= monthStartMs && blockTime < monthEndMs) {
           monthlyCost += block.costUSD;
@@ -286,6 +317,7 @@ app.get("/rank/:code", async (c) => {
       costUSD: Math.round(costUSD * 10000) / 10000,
       models: Array.from(models),
       agents: Array.from(agents),
+      agentBreakdown: buildAgentBreakdown(agentTotals, costUSD, totalTokens),
       entryCount,
       chatCount,
     };

@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import Table from "cli-table3";
 import ora from "ora";
-import type { RankingPeriod, RankResponse } from "@ccclub/shared";
+import type { RankingEntry, RankingPeriod, RankResponse } from "@ccclub/shared";
 import { AGENT_LABELS, PLAN_PRICES } from "@ccclub/shared";
 import { requireConfig } from "../config.js";
 import { formatFetchError } from "../fetch-error.js";
@@ -184,22 +184,48 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
     r.agents && r.agents.length > 0 && !(r.agents.length === 1 && r.agents[0] === "claude")
   );
 
+  const plainRows = activeRankings.map((entry) => {
+    const isActive = isEntryActive(entry, now);
+    const tokens = showCache ? entry.totalTokens : entry.inputTokens + entry.outputTokens + (entry.reasoningTokens || 0);
+    const roi = formatRoi(entry, hasPlan);
+    return {
+      entry,
+      isActive,
+      rank: `${entry.userId === config.userId ? "→" : " "}${entry.rank}`,
+      name: `${isActive ? "● " : ""}${entry.displayName}`,
+      agents: formatAgents(entry),
+      cost: `$${entry.costUSD.toFixed(2)}`,
+      tokens: formatTokens(tokens),
+      roi,
+      turns: String(entry.chatCount),
+      perTurn: entry.chatCount > 0 ? `$${(entry.costUSD / entry.chatCount).toFixed(2)}` : "—",
+      usage: entry.usageSnapshot ? `${Math.round(entry.usageSnapshot.sevenDay)}%` : "—",
+    };
+  });
+
   const head = ["#", "Name", "Cost", "Tokens"];
-  const hasActive = activeRankings.some((r) => r.lastSync && now - new Date(r.lastSync).getTime() < ACTIVE_THRESHOLD_MS);
-  const widths = [5, hasActive ? 30 : 20, 12, 10];
+  const widths = [
+    columnWidth("#", plainRows.map((r) => r.rank), 2, 3),
+    columnWidth("Name", plainRows.map((r) => r.name), 10, 18),
+    columnWidth("Cost", plainRows.map((r) => r.cost), 5, 9),
+    columnWidth("Tokens", plainRows.map((r) => r.tokens), 6, 8),
+  ];
   if (hasAgents) {
     head.splice(2, 0, "Agents");
-    widths.splice(2, 0, 16);
+    widths.splice(2, 0, columnWidth("Agents", plainRows.map((r) => r.agents), 6, 24));
   }
   if (hasPlan) {
-    head.push("Monthly ROI");
-    widths.push(15);
+    head.push("ROI");
+    widths.push(columnWidth("ROI", plainRows.map((r) => r.roi), 3, 11));
   }
   head.push("Turns", "$/Turn");
-  widths.push(8, 9);
+  widths.push(
+    columnWidth("Turns", plainRows.map((r) => r.turns), 3, 6),
+    columnWidth("$/Turn", plainRows.map((r) => r.perTurn), 6, 7),
+  );
   if (hasUsage) {
-    head.push("Usage 7d");
-    widths.push(10);
+    head.push("Usage");
+    widths.push(columnWidth("Usage", plainRows.map((r) => r.usage), 5, 6));
   }
 
   const table = new Table({
@@ -208,55 +234,42 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
     colWidths: widths,
   });
 
-  for (const entry of activeRankings) {
+  for (const plain of plainRows) {
+    const { entry } = plain;
     const isMe = entry.userId === config.userId;
-    const tokens = showCache ? entry.totalTokens : entry.inputTokens + entry.outputTokens + (entry.reasoningTokens || 0);
     const marker = isMe ? chalk.green("→") : " ";
-    const isActive = entry.lastSync && now - new Date(entry.lastSync).getTime() < ACTIVE_THRESHOLD_MS;
 
     // Only two highlights: #1 gold, self green. Everything else default.
     const id = (s: string) => s;
     const c = isMe ? chalk.green : entry.rank === 1 ? chalk.yellow : id;
     const nameC = isMe ? chalk.green.bold : entry.rank === 1 ? chalk.yellow.bold : id;
 
-    const displayName = isActive ? `${entry.displayName} ${chalk.green("(active)")}` : entry.displayName;
+    const nameWidth = Math.max(widths[1] - 2, 4);
+    const displayName = plain.isActive
+      ? `${chalk.green("●")} ${nameC(truncateDisplay(entry.displayName, Math.max(nameWidth - 2, 1)))}`
+      : nameC(truncateDisplay(entry.displayName, nameWidth));
 
     const row: string[] = [
       `${marker}${c(String(entry.rank))}`,
-      nameC(displayName),
+      displayName,
     ];
 
     if (hasAgents) {
-      row.push(c(formatAgents(entry.agents)));
+      const agentWidth = Math.max(widths[2] - 2, 4);
+      row.push(c(truncateDisplay(plain.agents, agentWidth)));
     }
 
-    row.push(c(`$${entry.costUSD.toFixed(2)}`), c(formatTokens(tokens)));
+    row.push(c(plain.cost), c(plain.tokens));
 
     if (hasPlan) {
-      if (entry.plan && entry.plan !== "api") {
-        const price = PLAN_PRICES[entry.plan as keyof typeof PLAN_PRICES];
-        const monthly = entry.monthlyCostUSD || 0;
-        const roi = price > 0 ? Math.round((monthly / price) * 100) : 0;
-        const roiStr = `$${price}/${roi}%`;
-        const roiC = roi >= 100 ? chalk.green.bold(roiStr) : roi >= 50 ? chalk.yellow(roiStr) : chalk.dim(roiStr);
-        row.push(roiC);
-      } else if (entry.plan === "api") {
-        row.push(chalk.dim("API"));
-      } else {
-        row.push(chalk.dim("—"));
-      }
+      row.push(colorRoi(plain.roi, entry));
     }
 
-    row.push(c(String(entry.chatCount)));
-    row.push(entry.chatCount > 0 ? c(`$${(entry.costUSD / entry.chatCount).toFixed(2)}`) : chalk.dim("—"));
+    row.push(c(plain.turns));
+    row.push(entry.chatCount > 0 ? c(plain.perTurn) : chalk.dim("—"));
 
     if (hasUsage) {
-      if (entry.usageSnapshot) {
-        const { sevenDay } = entry.usageSnapshot;
-        row.push(c(`${Math.round(sevenDay)}%`));
-      } else {
-        row.push(chalk.dim("—"));
-      }
+      row.push(entry.usageSnapshot ? c(plain.usage) : chalk.dim("—"));
     }
 
     table.push(row);
@@ -279,9 +292,100 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   }
 }
 
-function formatAgents(agents?: string[]): string {
-  if (!agents || agents.length === 0) return "—";
-  return agents.map((agent) => AGENT_LABELS[agent as keyof typeof AGENT_LABELS] ?? agent).join(", ");
+function isEntryActive(entry: RankingEntry, now: number): boolean {
+  return Boolean(entry.lastSync && now - new Date(entry.lastSync).getTime() < ACTIVE_THRESHOLD_MS);
+}
+
+function formatRoi(entry: RankingEntry, hasPlan: boolean): string {
+  if (!hasPlan) return "";
+  if (entry.plan && entry.plan !== "api") {
+    const price = PLAN_PRICES[entry.plan as keyof typeof PLAN_PRICES];
+    const monthly = entry.monthlyCostUSD || 0;
+    const roi = price > 0 ? Math.round((monthly / price) * 100) : 0;
+    return `$${price}/${roi}%`;
+  }
+  if (entry.plan === "api") return "API";
+  return "—";
+}
+
+function colorRoi(roiStr: string, entry: RankingEntry): string {
+  if (entry.plan && entry.plan !== "api") {
+    const price = PLAN_PRICES[entry.plan as keyof typeof PLAN_PRICES];
+    const monthly = entry.monthlyCostUSD || 0;
+    const roi = price > 0 ? Math.round((monthly / price) * 100) : 0;
+    return roi >= 100 ? chalk.green.bold(roiStr) : roi >= 50 ? chalk.yellow(roiStr) : chalk.dim(roiStr);
+  }
+  return chalk.dim(roiStr);
+}
+
+function formatAgents(entry: RankingEntry): string {
+  if (entry.agentBreakdown && entry.agentBreakdown.length > 0) {
+    if (entry.agentBreakdown.length === 1) {
+      return formatAgentLabel(entry.agentBreakdown[0].source);
+    }
+    const visible = entry.agentBreakdown.slice(0, 2)
+      .map((agent) => `${formatAgentLabel(agent.source)} ${agent.percent}%`);
+    if (entry.agentBreakdown.length > visible.length) {
+      visible.push(`+${entry.agentBreakdown.length - visible.length}`);
+    }
+    return visible.join(", ");
+  }
+
+  if (!entry.agents || entry.agents.length === 0) return "—";
+  return entry.agents.map(formatAgentLabel).join(", ");
+}
+
+function formatAgentLabel(agent: string): string {
+  return AGENT_LABELS[agent as keyof typeof AGENT_LABELS] ?? agent;
+}
+
+function columnWidth(header: string, values: string[], minContent: number, maxContent: number): number {
+  const contentWidth = Math.max(visualWidth(header), ...values.map(visualWidth));
+  return Math.min(Math.max(contentWidth, minContent), maxContent) + 2;
+}
+
+function visualWidth(value: string): number {
+  let width = 0;
+  for (const char of value) width += charWidth(char);
+  return width;
+}
+
+function charWidth(char: string): number {
+  const code = char.codePointAt(0) ?? 0;
+  if (code === 0 || code < 32 || (code >= 0x7f && code < 0xa0)) return 0;
+  if (
+    code >= 0x1100 && (
+      code <= 0x115f ||
+      code === 0x2329 ||
+      code === 0x232a ||
+      (code >= 0x2e80 && code <= 0xa4cf && code !== 0x303f) ||
+      (code >= 0xac00 && code <= 0xd7a3) ||
+      (code >= 0xf900 && code <= 0xfaff) ||
+      (code >= 0xfe10 && code <= 0xfe19) ||
+      (code >= 0xfe30 && code <= 0xfe6f) ||
+      (code >= 0xff00 && code <= 0xff60) ||
+      (code >= 0xffe0 && code <= 0xffe6)
+    )
+  ) {
+    return 2;
+  }
+  return 1;
+}
+
+function truncateDisplay(value: string, maxWidth: number): string {
+  if (visualWidth(value) <= maxWidth) return value;
+  if (maxWidth <= 1) return "…";
+
+  let result = "";
+  let width = 0;
+  const limit = maxWidth - 1;
+  for (const char of value) {
+    const next = charWidth(char);
+    if (width + next > limit) break;
+    result += char;
+    width += next;
+  }
+  return `${result}…`;
 }
 
 interface ActivityResponse {

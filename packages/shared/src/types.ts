@@ -123,6 +123,12 @@ export interface RankingEntry {
   monthlyCostUSD?: number;
   models: string[];
   agents?: AgentSource[];
+  agentBreakdown?: Array<{
+    source: AgentSource;
+    costUSD: number;
+    totalTokens: number;
+    percent: number;
+  }>;
   entryCount: number;
   chatCount: number;
   usageSnapshot?: UsageSnapshot;

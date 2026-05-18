@@ -153,10 +153,9 @@ function landingHTML() {
     .cta-hint code { color: #9b9590; }
     .guide-btn {
       display: inline-block; background: #5aad7d; border: none;
-      border-radius: 8px; padding: 14px 28px; font-size: 16px;
+      border-radius: 6px; padding: 8px 18px; font-size: 13px;
       color: #1a1816; cursor: pointer; transition: background 0.2s;
-      font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace;
-      font-weight: 600; margin-top: 12px;
+      font-family: inherit; font-weight: 600; margin-top: 14px;
     }
     .guide-btn:hover { background: #6dc08e; }
 

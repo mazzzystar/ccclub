@@ -328,7 +328,7 @@ app.get("/invite/:code/og.png", async (c) => {
   }
 
   const version = hashCode(`${group.name}:${group.members.map((m) => `${m.userId}:${m.displayName}:${m.avatar || ""}:${m.joinedAt}`).join("|")}`);
-  const cacheUrl = ogCacheUrl(c.req.url, `invite/v2/${code}/${version}.png`);
+  const cacheUrl = ogCacheUrl(c.req.url, `invite/v3/${code}/${version}.png`);
   return cachedPngResponse(cacheUrl, async () => {
     const svg = buildOgSvg(group);
     return renderToPng(svg);

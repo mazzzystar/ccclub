@@ -253,9 +253,9 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   if (hiddenCount > 0) {
     console.log(chalk.dim(`  ${hiddenCount} inactive member${hiddenCount > 1 ? "s" : ""} hidden · ccclub --all to show`));
   }
-  console.log(chalk.dim(`  Dashboard: ${config.apiUrl}/g/${code}`));
-  if (code !== "global" && data.group.memberCount < 5) {
-    console.log(chalk.dim("  Invite: ") + chalk.cyan.underline(`${config.apiUrl}/invite/${code}`));
+  console.log(chalk.dim("  Dashboard: ") + chalk.blue(`${config.apiUrl}/g/${code}`));
+  if (code !== "global") {
+    console.log(chalk.dim("  Invite:    ") + chalk.cyan.underline(`${config.apiUrl}/invite/${code}`));
   }
 
   if (hasPlan) {

@@ -1,5 +1,6 @@
 import { BLOCK_DURATION_MS, calculateCost } from "@ccclub/shared";
-import type { UsageEntry, UsageBlock } from "@ccclub/shared";
+import type { AgentSource, UsageEntry, UsageBlock } from "@ccclub/shared";
+import type { UsageTurn } from "./sources/index.js";
 
 function floorToBlock(date: Date): Date {
   const floored = new Date(date);
@@ -8,11 +9,11 @@ function floorToBlock(date: Date): Date {
   return floored;
 }
 
-export function aggregateToBlocks(entries: UsageEntry[], humanTurns: string[] = []): UsageBlock[] {
+function aggregateSourceToBlocks(source: AgentSource, entries: UsageEntry[], humanTurns: UsageTurn[]): UsageBlock[] {
   if (entries.length === 0) return [];
 
   // Pre-convert human turn timestamps to ms for fast lookup
-  const humanTurnMs = humanTurns.map((t) => new Date(t).getTime());
+  const humanTurnMs = humanTurns.map((t) => new Date(t.timestamp).getTime());
 
   const blocks: UsageBlock[] = [];
   let blockStart = floorToBlock(new Date(entries[0].timestamp));
@@ -40,6 +41,7 @@ export function aggregateToBlocks(entries: UsageEntry[], humanTurns: string[] = 
     let outputTokens = 0;
     let cacheCreationTokens = 0;
     let cacheReadTokens = 0;
+    let reasoningTokens = 0;
     let totalTokens = 0;
     let costUSD = 0;
 
@@ -48,6 +50,7 @@ export function aggregateToBlocks(entries: UsageEntry[], humanTurns: string[] = 
       outputTokens += entry.outputTokens;
       cacheCreationTokens += entry.cacheCreationTokens;
       cacheReadTokens += entry.cacheReadTokens;
+      reasoningTokens += entry.reasoningTokens || 0;
       totalTokens += entry.totalTokens;
       models.add(entry.model);
 
@@ -60,17 +63,20 @@ export function aggregateToBlocks(entries: UsageEntry[], humanTurns: string[] = 
           entry.outputTokens,
           entry.cacheCreationTokens,
           entry.cacheReadTokens,
+          entry.reasoningTokens || 0,
         );
       }
     }
 
     blocks.push({
+      source,
       blockStart: blockStart.toISOString(),
       blockEnd: blockEnd.toISOString(),
       inputTokens,
       outputTokens,
       cacheCreationTokens,
       cacheReadTokens,
+      reasoningTokens,
       totalTokens,
       costUSD: Math.round(costUSD * 10000) / 10000,
       models: Array.from(models),
@@ -94,4 +100,39 @@ export function aggregateToBlocks(entries: UsageEntry[], humanTurns: string[] = 
 
   flushBlock();
   return blocks;
+}
+
+export function aggregateToBlocks(entries: UsageEntry[], humanTurns: UsageTurn[] = []): UsageBlock[] {
+  if (entries.length === 0) return [];
+
+  const entriesBySource = new Map<AgentSource, UsageEntry[]>();
+  for (const entry of entries) {
+    const group = entriesBySource.get(entry.source) ?? [];
+    group.push(entry);
+    entriesBySource.set(entry.source, group);
+  }
+
+  const turnsBySource = new Map<AgentSource, UsageTurn[]>();
+  for (const turn of humanTurns) {
+    const group = turnsBySource.get(turn.source) ?? [];
+    group.push(turn);
+    turnsBySource.set(turn.source, group);
+  }
+
+  const blocks: UsageBlock[] = [];
+
+  for (const [source, sourceEntries] of entriesBySource) {
+    blocks.push(
+      ...aggregateSourceToBlocks(
+        source,
+        sourceEntries.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()),
+        turnsBySource.get(source) ?? [],
+      ),
+    );
+  }
+
+  return blocks.sort((a, b) =>
+    new Date(a.blockStart).getTime() - new Date(b.blockStart).getTime() ||
+    (a.source ?? "claude").localeCompare(b.source ?? "claude")
+  );
 }

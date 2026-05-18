@@ -119,21 +119,25 @@ app.post("/join", async (c) => {
     user = { userId, displayName, avatar: "", visibility: "private", createdAt: now };
     await c.env.KV.put(`token:${token}`, JSON.stringify(user));
   }
+  if (!user) {
+    return c.json({ error: "failed to create user" }, 500);
+  }
+  const userRecord = user;
 
   // Add to group if not already member
-  if (!group.members.some((m) => m.userId === user.userId)) {
-    group.members.push({ userId: user.userId, displayName: user.displayName, avatar: user.avatar || "", joinedAt: now });
+  if (!group.members.some((m) => m.userId === userRecord.userId)) {
+    group.members.push({ userId: userRecord.userId, displayName: userRecord.displayName, avatar: userRecord.avatar || "", joinedAt: now });
     await c.env.KV.put(`group:${code}`, JSON.stringify(group));
   }
 
   // Track user's groups
-  const userGroups = (await c.env.KV.get<string[]>(`user_groups:${user.userId}`, "json")) || [];
+  const userGroups = (await c.env.KV.get<string[]>(`user_groups:${userRecord.userId}`, "json")) || [];
   if (!userGroups.includes(code)) {
     userGroups.push(code);
-    await c.env.KV.put(`user_groups:${user.userId}`, JSON.stringify(userGroups));
+    await c.env.KV.put(`user_groups:${userRecord.userId}`, JSON.stringify(userGroups));
   }
 
-  return c.json<JoinResponse>({ userId: user.userId, groupCode: code, groupName: group.name });
+  return c.json<JoinResponse>({ userId: userRecord.userId, groupCode: code, groupName: group.name });
 });
 
 // POST /api/group/create - Create a new group (for existing users)

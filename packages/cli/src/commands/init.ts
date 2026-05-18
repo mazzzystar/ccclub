@@ -4,6 +4,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { loadConfig, saveConfig, generateDeviceToken, getApiUrl, getDefaultDisplayName } from "../config.js";
 import { installHook, isHookInstalled } from "../hook.js";
+import { installHeartbeat, isHeartbeatInstalled } from "../heartbeat.js";
 import { doSync } from "./sync.js";
 import { ensureGlobalInstall } from "../global-install.js";
 import { formatFetchError } from "../fetch-error.js";
@@ -19,6 +20,10 @@ export async function initCommand(): Promise<void> {
     if (!isHookInstalled()) {
       const hookOk = await installHook();
       if (hookOk) console.log(chalk.green("  Auto-sync hook installed!"));
+    }
+    if (!isHeartbeatInstalled()) {
+      const heartbeatOk = await installHeartbeat();
+      if (heartbeatOk) console.log(chalk.green("  Background sync installed!"));
     }
     console.log(chalk.dim('\n  Run "ccclub" to see the leaderboard'));
     return;
@@ -72,12 +77,18 @@ export async function initCommand(): Promise<void> {
       groups: [data.groupCode],
     });
 
-    // Install Claude Code hook (silent, best-effort)
-    const hookOk = await installHook();
+    // Install Claude Code hook and background sync (silent, best-effort)
+    const [hookOk, heartbeatOk] = await Promise.all([
+      installHook(),
+      installHeartbeat(),
+    ]);
     spinner.succeed("ccclub initialized!");
 
     if (!hookOk) {
       console.log(chalk.dim('  Tip: run "ccclub hook" to set up auto-sync'));
+    }
+    if (!heartbeatOk) {
+      console.log(chalk.dim('  Tip: run "ccclub sync" manually to refresh non-Claude agent usage'));
     }
     console.log("");
     console.log(chalk.bold("  Invite friends to compete:"));

@@ -1,8 +1,8 @@
 {
   "name": "ccclub",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "type": "module",
-  "description": "Claude Code leaderboard among friends",
+  "description": "Coding agent usage leaderboard among friends",
   "bin": {
     "ccclub": "dist/index.js"
   },

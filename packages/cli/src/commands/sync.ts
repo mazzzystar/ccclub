@@ -8,15 +8,20 @@ import { requireConfig, loadConfig, getLastSyncPath, getLastSyncTimePath } from 
 import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
 import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
-import type { SyncRequest, SyncResponse, UsageBlock } from "@ccclub/shared";
+import { AGENT_LABELS, AGENT_SOURCES } from "@ccclub/shared";
+import type { AgentSource, SyncRequest, SyncResponse, UsageBlock } from "@ccclub/shared";
 import { formatFetchError } from "../fetch-error.js";
 import { fetchUsageLimits } from "../usage-limits.js";
 
 // Bump this when block format changes to auto-trigger full re-sync
-const SYNC_FORMAT_VERSION = "6";
+const SYNC_FORMAT_VERSION = "7";
 
 function getSyncVersionPath(): string {
   return join(homedir(), CCCLUB_CONFIG_DIR, "sync-version");
+}
+
+function getLastSyncBySourcePath(): string {
+  return join(homedir(), CCCLUB_CONFIG_DIR, "last-sync-sources.json");
 }
 
 export function needsFullSync(): boolean {
@@ -68,14 +73,18 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
   const spinner = silent ? null : ora("Collecting usage data...").start();
 
   try {
-    const [{ entries, humanTurns }, usageSnapshot] = await Promise.all([
+    const [{ entries, humanTurns, sources, warnings }, usageSnapshot] = await Promise.all([
       collectUsageEntries(),
       fetchUsageLimits().catch(() => null),
     ]);
-    if (spinner) spinner.text = `Found ${entries.length} entries`;
+    const activeSources = sources.filter((source) => source.entries.length > 0).map((source) => AGENT_LABELS[source.source]);
+    if (spinner) spinner.text = `Found ${entries.length} entries${activeSources.length > 0 ? ` from ${activeSources.join(", ")}` : ""}`;
 
     if (entries.length === 0) {
-      if (spinner) spinner.warn("No usage data found in ~/.claude/projects/");
+      if (spinner) spinner.warn("No usage data found for supported coding agents");
+      if (!silent && warnings.length > 0) {
+        for (const warning of warnings) log(chalk.dim(`  ${warning}`));
+      }
       return;
     }
 
@@ -88,16 +97,29 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
       lastSync = (await readFile(lastSyncPath, "utf-8")).trim() || null;
     }
 
+    let lastSyncBySource: Partial<Record<AgentSource, string>> = {};
+    if (existsSync(getLastSyncBySourcePath())) {
+      try {
+        lastSyncBySource = JSON.parse(await readFile(getLastSyncBySourcePath(), "utf-8")) as Partial<Record<AgentSource, string>>;
+      } catch {
+        lastSyncBySource = {};
+      }
+    }
+
     let blocksToSync: UsageBlock[];
     if (lastSync && !firstSync) {
-      const lastSyncTime = new Date(lastSync).getTime();
-      blocksToSync = allBlocks.filter((b) => new Date(b.blockStart).getTime() >= lastSyncTime);
+      blocksToSync = allBlocks.filter((b) => {
+        const source = b.source ?? "claude";
+        const sourceLastSync = lastSyncBySource[source] ?? lastSync;
+        return new Date(b.blockStart).getTime() >= new Date(sourceLastSync).getTime();
+      });
     } else {
       blocksToSync = allBlocks;
     }
 
     if (blocksToSync.length === 0) {
       if (spinner) spinner.succeed("Already up to date");
+      await writeFile(getLastSyncBySourcePath(), JSON.stringify(getLatestBlockStartBySource(allBlocks), null, 2));
       await writeFile(getSyncVersionPath(), SYNC_FORMAT_VERSION);
       // Even with no new blocks, upload usage snapshot so others see fresh data
       if (usageSnapshot) {
@@ -138,6 +160,7 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
     // Save last sync timestamp and format version
     const latest = blocksToSync[blocksToSync.length - 1];
     await writeFile(lastSyncPath, latest.blockStart);
+    await writeFile(getLastSyncBySourcePath(), JSON.stringify(getLatestBlockStartBySource(allBlocks), null, 2));
     await writeFile(getSyncVersionPath(), SYNC_FORMAT_VERSION);
     await writeFile(getLastSyncTimePath(), String(Date.now()));
 
@@ -147,9 +170,24 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
     if (spinner) {
       spinner.succeed(`Synced ${data.synced} blocks`);
       log(chalk.dim(`  Tokens: ${totalTokens.toLocaleString()}  Cost: $${totalCost.toFixed(4)}`));
+      if (warnings.length > 0) {
+        for (const warning of warnings) log(chalk.dim(`  ${warning}`));
+      }
     }
   } catch (err) {
     if (spinner) spinner.fail(`Sync error: ${formatFetchError(err)}`);
     if (silent) throw err; // Re-throw so hook caller can reset throttle
   }
+}
+
+function getLatestBlockStartBySource(blocks: UsageBlock[]): Partial<Record<AgentSource, string>> {
+  const latest: Partial<Record<AgentSource, string>> = {};
+  for (const block of blocks) {
+    const source = block.source ?? "claude";
+    if (!AGENT_SOURCES.includes(source)) continue;
+    if (latest[source] == null || block.blockStart > latest[source]) {
+      latest[source] = block.blockStart;
+    }
+  }
+  return latest;
 }

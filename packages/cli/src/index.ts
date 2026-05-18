@@ -18,7 +18,7 @@ const program = new Command();
 
 program
   .name("ccclub")
-  .description("Claude Code leaderboard among friends")
+  .description("Coding agent usage leaderboard among friends")
   .version(VERSION, "-v, -V, --version");
 
 // Default command — just running `ccclub` shows the leaderboard

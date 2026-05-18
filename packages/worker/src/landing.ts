@@ -14,13 +14,13 @@ function landingHTML() {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ccclub \u2014 Claude Code leaderboard among friends</title>
-  <meta name="description" content="See how your friends are doing with Claude Code. Share a code, check the leaderboard. No signup, no config." />
+  <title>ccclub \u2014 coding agent leaderboard among friends</title>
+  <meta name="description" content="See how your friends are doing across Claude Code, Codex, OpenCode, Amp, and pi-agent. Share a code, check the leaderboard. No signup, no config." />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://ccclub.dev/" />
-  <meta property="og:title" content="ccclub — Claude Code leaderboard among friends" />
+  <meta property="og:title" content="ccclub — coding agent leaderboard among friends" />
   <meta property="og:description" content="Share a code, see how your friends are doing. Just for fun." />
   <meta property="og:image" content="https://ccclub.dev/og.png" />
   <meta property="og:image:width" content="1200" />
@@ -28,7 +28,7 @@ function landingHTML() {
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="ccclub — Claude Code leaderboard among friends" />
+  <meta name="twitter:title" content="ccclub — coding agent leaderboard among friends" />
   <meta name="twitter:description" content="Share a code, see how your friends are doing. Just for fun." />
   <meta name="twitter:image" content="https://ccclub.dev/og.png" />
 
@@ -237,7 +237,7 @@ function landingHTML() {
   <div class="wrap">
     <a href="/" class="brand"><img src="https://raw.githubusercontent.com/mazzzystar/ccclub/main/assets/icon.png" alt="ccclub" width="28" height="28" /><span>ccclub</span></a>
     <div class="hero">
-      <h1>Claude Code leaderboard among friends.</h1>
+      <h1>Coding agent leaderboard among friends.</h1>
       <p class="tagline">Share a code, see how your friends are doing. Just for fun.</p>
       <div class="hero-links">
         <a href="https://github.com/mazzzystar/ccclub" aria-label="GitHub"><svg width="20" height="20" viewBox="0 0 24 24" fill="#6b6560"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg></a>
@@ -260,7 +260,7 @@ function landingHTML() {
   <span class="dim">TODAY \u00b7 44 members</span>
   <span class="active-tag">3 active <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span>
 
-  <table class="rank-tbl"><thead><tr class="dim"><td>#</td><td>Name</td><td>Cost</td><td>Tokens</td><td>ROI</td><td>Chats</td><td>$/Chat</td></tr></thead><tbody>
+  <table class="rank-tbl"><thead><tr class="dim"><td>#</td><td>Name</td><td>Cost</td><td>Tokens</td><td>ROI</td><td>Turns</td><td>$/Turn</td></tr></thead><tbody>
   <tr class="gold"><td>1</td><td>Tiger <span class="active-tag">(active)</span></td><td>$110.57</td><td>339K</td><td class="dim">\u2014</td><td>17</td><td>$6.50</td></tr>
   <tr class="me"><td>\u21922</td><td>mazzystar <span class="active-tag">(active)</span></td><td>$101.88</td><td>206K</td><td><span class="roi-high">$200/1610%</span></td><td>66</td><td>$1.54</td></tr>
   <tr><td>3</td><td>Darkrayon</td><td>$96.08</td><td>219K</td><td><span class="roi-high">$200/3560%</span></td><td>26</td><td>$3.70</td></tr>
@@ -280,7 +280,7 @@ function landingHTML() {
         <span class="copy-msg" style="position:absolute;right:-60px;top:50%;transform:translateY(-50%);font-size:12px;color:#5aad7d;opacity:0;transition:opacity .2s">Copied</span>
       </div>
       <div class="cta-hint">One command to start. After that just use <code class="mono">ccclub</code> directly.</div>
-      <button class="guide-btn" id="copy-guide">Guide for Claude Code</button>
+      <button class="guide-btn" id="copy-guide">Guide for coding agents</button>
     </div>
 
     <hr class="divider" />
@@ -311,7 +311,7 @@ function landingHTML() {
         </div>
       </div>
       <div class="how-detail">
-        <p>ccclub reads token counts, cost estimates, model names, and number of calls from <code class="mono">~/.claude/projects/</code> \u2014 the local usage logs that Claude Code already writes. No prompts, responses, code, file paths, or conversation data ever leave your machine.</p>
+        <p>ccclub reads token counts, cost estimates, model names, and number of calls from local coding agent logs for Claude Code, Codex, OpenCode, Amp, and pi-agent. No prompts, responses, code, file paths, or conversation data ever leave your machine.</p>
         <p style="margin-top:8px">Run <code class="mono">ccclub show-data</code> to see exactly what gets uploaded.</p>
       </div>
     </div>
@@ -346,7 +346,7 @@ function landingHTML() {
       fetch("/llms-full.txt").then(function(r) { return r.text(); }).then(function(text) {
         navigator.clipboard.writeText(text);
         btn.textContent = "Copied!";
-        setTimeout(function() { btn.textContent = "Guide for Claude Code"; }, 2000);
+        setTimeout(function() { btn.textContent = "Guide for coding agents"; }, 2000);
       });
     });
   </script>

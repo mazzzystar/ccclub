@@ -7,6 +7,19 @@ export const DEFAULT_API_URL = "https://ccclub.dev";
 
 // Claude projects directory
 export const CLAUDE_PROJECTS_DIR = ".claude/projects";
+export const CLAUDE_CONFIG_PROJECTS_DIR = ".config/claude/projects";
+export const CLAUDE_CONFIG_DIR_ENV = "CLAUDE_CONFIG_DIR";
+
+// Other coding agent data locations
+export const CODEX_HOME_ENV = "CODEX_HOME";
+export const OPENCODE_DATA_DIR_ENV = "OPENCODE_DATA_DIR";
+export const AMP_DATA_DIR_ENV = "AMP_DATA_DIR";
+export const PI_AGENT_DIR_ENV = "PI_AGENT_DIR";
+
+export const DEFAULT_CODEX_DIR = ".codex";
+export const DEFAULT_OPENCODE_DIR = ".local/share/opencode";
+export const DEFAULT_AMP_DIR = ".local/share/amp";
+export const DEFAULT_PI_AGENT_SESSIONS_DIR = ".pi/agent/sessions";
 
 // CCClub config directory
 export const CCCLUB_CONFIG_DIR = ".ccclub";
@@ -47,6 +60,11 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
   // Haiku
   "claude-haiku-4-5-20251001": { input: 1, output: 5, cacheCreation: 1.25, cacheRead: 0.1 },
   "claude-3-5-haiku-20241022": { input: 0.8, output: 4, cacheCreation: 1, cacheRead: 0.08 },
+  // OpenAI GPT family fallbacks. Many agent logs provide exact costs; these are best-effort
+  // estimates for sources that only expose tokens.
+  "gpt-5": { input: 1.25, output: 10, cacheCreation: 0, cacheRead: 0.125 },
+  "gpt-5-mini": { input: 0.25, output: 2, cacheCreation: 0, cacheRead: 0.025 },
+  "gpt-5-nano": { input: 0.05, output: 0.4, cacheCreation: 0, cacheRead: 0.005 },
 };
 
 // Fallback pricing by model family — used when exact model ID is unknown.
@@ -55,6 +73,14 @@ const FAMILY_FALLBACK: Record<string, ModelPricing> = {
   opus:   MODEL_PRICING["claude-opus-4-6"],
   sonnet: MODEL_PRICING["claude-sonnet-4-5-20250929"],
   haiku:  MODEL_PRICING["claude-haiku-4-5-20251001"],
+  "gpt-5-nano": MODEL_PRICING["gpt-5-nano"],
+  "gpt-5-mini": MODEL_PRICING["gpt-5-mini"],
+  "gpt-5": MODEL_PRICING["gpt-5"],
+  gpt: MODEL_PRICING["gpt-5"],
+  o3: MODEL_PRICING["gpt-5"],
+  o4: MODEL_PRICING["gpt-5"],
+  gemini: { input: 1.25, output: 10, cacheCreation: 0, cacheRead: 0.125 },
+  deepseek: { input: 0.27, output: 1.1, cacheCreation: 0, cacheRead: 0.07 },
 };
 
 function getPricing(model: string): ModelPricing {
@@ -72,11 +98,12 @@ export function calculateCost(
   outputTokens: number,
   cacheCreationTokens: number,
   cacheReadTokens: number,
+  reasoningTokens = 0,
 ): number {
   const pricing = getPricing(model);
   return (
     (inputTokens * pricing.input +
-      outputTokens * pricing.output +
+      (outputTokens + reasoningTokens) * pricing.output +
       cacheCreationTokens * pricing.cacheCreation +
       cacheReadTokens * pricing.cacheRead) /
     1_000_000

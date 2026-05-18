@@ -26,7 +26,7 @@ function getPlist(): string {
     <string>--silent</string>
   </array>
   <key>StartInterval</key>
-  <integer>3600</integer>
+  <integer>300</integer>
   <key>StandardOutPath</key>
   <string>${logPath}</string>
   <key>StandardErrorPath</key>

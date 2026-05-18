@@ -159,8 +159,8 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
     ? `${htmlEsc(truncate(groupName, 40))} \u2014 ccclub`
     : "ccclub \u2014 Leaderboard";
   const ogDesc = groupName
-    ? `${memberCount} member${memberCount !== 1 ? "s" : ""} competing on Claude Code usage.`
-    : "Claude Code leaderboard among friends. See how you're all doing.";
+    ? `${memberCount} member${memberCount !== 1 ? "s" : ""} competing on coding agent usage.`
+    : "Coding agent leaderboard among friends. See how you're all doing.";
   return html`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -307,6 +307,7 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
     .avatar .fallback { display: none; }
     .avatar img.errored + .fallback { display: flex; }
     .name-text { font-weight: 500; font-size: 14px; }
+    .agent-line { color: #6b6560; font-size: 11px; margin-top: 2px; }
     .active-badge { color: #5aad7d; font-size: 12px; font-weight: 400; margin-left: 4px; }
     .active-count { color: #5aad7d; font-size: 13px; margin-top: 4px; }
     .name-link { color: #6ba3be; text-decoration: none; }
@@ -547,10 +548,14 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
           data.rankings.forEach(function(r) { if (r.costUSD > maxCost) maxCost = r.costUSD; });
           var hasPlan = data.rankings.some(function(r) { return r.plan; });
           var hasUsage = data.rankings.some(function(r) { return r.usageSnapshot; });
+          var hasAgents = data.rankings.some(function(r) {
+            return r.agents && r.agents.length > 0 && !(r.agents.length === 1 && r.agents[0] === "claude");
+          });
+          var AGENT_LABELS = { claude: "Claude", codex: "Codex", opencode: "OpenCode", amp: "Amp", pi: "pi-agent" };
           var PLAN_PRICES = { pro: 20, max100: 100, max200: 200, api: 0 };
           var h = '<table><thead><tr><th>#</th><th>Name</th><th>Cost</th><th>Tokens</th>';
           if (hasPlan) h += '<th>Monthly ROI</th>';
-          h += '<th>Chats</th><th>$/Chat</th>';
+          h += '<th>Turns</th><th>$/Turn</th>';
           if (hasUsage) h += '<th>Usage 7d</th>';
           h += '</tr></thead><tbody>';
 
@@ -558,13 +563,17 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
             var pct = maxCost > 0 ? (r.costUSD / maxCost * 100) : 0;
             var rankClass = r.rank <= 3 ? "rank top" : "rank";
             var isActive = r.lastSync && (now - new Date(r.lastSync).getTime()) < ACTIVE_THRESHOLD_MS;
+            var agentLine = "";
+            if (hasAgents && r.agents && r.agents.length > 0) {
+              agentLine = '<div class="agent-line">' + r.agents.map(function(a) { return AGENT_LABELS[a] || a; }).join(", ") + '</div>';
+            }
             h += '<tr>' +
               '<td class="' + rankClass + '">' + r.rank + '</td>' +
               '<td><div class="name-cell">' + avatarHTML(r.userId, r.displayName, r.avatar, isActive) +
                 '<div><div class="name-text">' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" rel="noopener" class="name-link">' + esc(r.displayName) + '</a>' : esc(r.displayName)) + (isActive ? '<span class="active-badge">(active)</span>' : '') + '</div>' +
-                '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +
+                agentLine + '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +
               '<td class="cost">$' + r.costUSD.toFixed(2) + '</td>' +
-              '<td class="tokens">' + formatTokens(showCache ? r.totalTokens : (r.inputTokens + r.outputTokens)) + '</td>';
+              '<td class="tokens">' + formatTokens(showCache ? r.totalTokens : (r.inputTokens + r.outputTokens + (r.reasoningTokens || 0))) + '</td>';
             if (hasPlan) {
               if (r.plan && r.plan !== "api") {
                 var price = PLAN_PRICES[r.plan] || 0;

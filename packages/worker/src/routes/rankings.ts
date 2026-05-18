@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Env } from "../types.js";
 import type {
+  AgentSource,
   GroupRecord,
   UsageData,
   RankingEntry,
@@ -132,11 +133,13 @@ app.get("/rank/global", async (c) => {
     let totalTokens = 0;
     let inputTokens = 0;
     let outputTokens = 0;
+    let reasoningTokens = 0;
     let costUSD = 0;
     let entryCount = 0;
     let chatCount = 0;
     let monthlyCost = 0;
     const models = new Set<string>();
+    const agents = new Set<AgentSource>();
 
     for (const block of usage.blocks) {
       const blockTime = new Date(block.blockStart).getTime();
@@ -144,10 +147,12 @@ app.get("/rank/global", async (c) => {
         totalTokens += block.totalTokens;
         inputTokens += block.inputTokens;
         outputTokens += block.outputTokens;
+        reasoningTokens += block.reasoningTokens || 0;
         costUSD += block.costUSD;
         entryCount += block.entryCount;
         chatCount += block.chatCount || 0;
         for (const m of block.models) models.add(m);
+        agents.add(block.source ?? "claude");
       }
       if (hasPlan && !isMonthly && blockTime >= monthStartMs && blockTime < monthEndMs) {
         monthlyCost += block.costUSD;
@@ -163,8 +168,10 @@ app.get("/rank/global", async (c) => {
         totalTokens,
         inputTokens,
         outputTokens,
+        reasoningTokens,
         costUSD: Math.round(costUSD * 10000) / 10000,
         models: Array.from(models),
+        agents: Array.from(agents),
         entryCount,
         chatCount,
       };
@@ -239,11 +246,13 @@ app.get("/rank/:code", async (c) => {
     let totalTokens = 0;
     let inputTokens = 0;
     let outputTokens = 0;
+    let reasoningTokens = 0;
     let costUSD = 0;
     let entryCount = 0;
     let chatCount = 0;
     let monthlyCost = 0;
     const models = new Set<string>();
+    const agents = new Set<AgentSource>();
 
     if (usage) {
       for (const block of usage.blocks) {
@@ -252,10 +261,12 @@ app.get("/rank/:code", async (c) => {
           totalTokens += block.totalTokens;
           inputTokens += block.inputTokens;
           outputTokens += block.outputTokens;
+          reasoningTokens += block.reasoningTokens || 0;
           costUSD += block.costUSD;
           entryCount += block.entryCount;
           chatCount += block.chatCount || 0;
           for (const m of block.models) models.add(m);
+          agents.add(block.source ?? "claude");
         }
         if (hasPlan && !isMonthly && blockTime >= monthStartMs && blockTime < monthEndMs) {
           monthlyCost += block.costUSD;
@@ -271,8 +282,10 @@ app.get("/rank/:code", async (c) => {
       totalTokens,
       inputTokens,
       outputTokens,
+      reasoningTokens,
       costUSD: Math.round(costUSD * 10000) / 10000,
       models: Array.from(models),
+      agents: Array.from(agents),
       entryCount,
       chatCount,
     };
@@ -423,7 +436,7 @@ app.get("/activity/:code", async (c) => {
           parsed.push({
             t: blockTime,
             cost: Math.round(block.costUSD * 10000) / 10000,
-            tokens: block.inputTokens + block.outputTokens,
+            tokens: block.inputTokens + block.outputTokens + (block.reasoningTokens || 0),
             totalTokens: block.totalTokens,
             chats: block.chatCount || 0,
           });

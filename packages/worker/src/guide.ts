@@ -4,9 +4,9 @@ import { svgEsc, renderToPng } from "./og-utils.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
-export const GUIDE_MARKDOWN = `# ccclub — Claude Code Leaderboard Among Friends
+export const GUIDE_MARKDOWN = `# ccclub — Coding Agent Leaderboard Among Friends
 
-> See how your friends are doing with Claude Code. Share a link, check the leaderboard. No signup, no config.
+> See how your friends are doing across Claude Code, Codex, OpenCode, Amp, and pi-agent. Share a link, check the leaderboard. No signup, no config.
 
 Website: https://ccclub.dev
 GitHub: https://github.com/mazzzystar/ccclub
@@ -38,7 +38,7 @@ npx ccclub init
 This single command:
 - Asks for your display name (auto-detects from git config)
 - Creates your group with a 6-letter invite code
-- Installs a Claude Code hook for automatic usage sync
+- Installs automatic usage sync for supported coding agents
 - Globally installs \`ccclub\` so you can run it without \`npx\`
 
 ---
@@ -82,7 +82,7 @@ Every group has a live web dashboard at:
     https://ccclub.dev/g/YHAW6P
 
 Features:
-- Real-time leaderboard with cost, tokens, chats, $/chat
+- Real-time leaderboard with cost, tokens, turns, $/turn
 - Monthly ROI calculation (for users with subscription plans)
 - Activity chart showing usage patterns over time
 - Active member indicators
@@ -132,7 +132,7 @@ ccclub profile --plan pro       # Pro plan ($20/mo)
 ccclub profile --plan api       # API user (free tier)
 \`\`\`
 
-ROI shows how much value you're getting: \`$200/1610%\` means you've used $3,220 worth of Claude on a $200 plan.
+ROI shows how much value you're getting: \`$200/1610%\` means you've used $3,220 worth of tracked agent usage on a $200 plan.
 
 Other profile options:
 \`\`\`bash
@@ -145,7 +145,7 @@ ccclub profile --avatar https://example.com/photo.jpg
 
 ## Privacy
 
-ccclub reads **only** token counts, cost estimates, model names, and number of calls from \`~/.claude/projects/\` — the local usage logs that Claude Code already writes.
+ccclub reads **only** token counts, cost estimates, model names, and number of calls from local usage logs written by Claude Code, Codex, OpenCode, Amp, and pi-agent.
 
 **Never uploaded:**
 - Prompts or responses
@@ -159,7 +159,7 @@ Run \`ccclub show-data\` to see exactly what gets uploaded.
 
 ## How Syncing Works
 
-- **Automatic**: A Claude Code hook runs \`ccclub sync\` at the end of every session
+- **Automatic**: A Claude Code hook runs \`ccclub sync\` at session end; background sync keeps other supported agents fresh
 - **Manual**: Run \`ccclub sync\` anytime
 - **Force**: Run \`ccclub sync --force\` to re-upload all historical data
 - Usage data is aggregated into 30-minute blocks before upload
@@ -195,19 +195,19 @@ Running \`ccclub\` shows all your groups at once.
 ## FAQ
 
 **Q: Does ccclub read my code or prompts?**
-A: No. It only reads usage metadata (token counts, costs, model names) from Claude Code's local logs.
+A: No. It only reads usage metadata (token counts, costs, model names) from supported coding agent logs.
 
 **Q: Do I need to create an account?**
 A: No. Just run \`npx ccclub init\`. No email, no password, no signup.
 
 **Q: How does auto-sync work?**
-A: ccclub installs a Claude Code hook that runs \`ccclub sync --silent\` when your session ends. You can also sync manually.
+A: ccclub installs a Claude Code hook for session-end sync and a lightweight background sync for other supported agents. You can also sync manually.
 
 **Q: Can I be in multiple groups?**
 A: Yes. Run \`ccclub create\` for a new group or \`ccclub join <CODE>\` to join another.
 
 **Q: What is Monthly ROI?**
-A: If you set your plan (\`ccclub profile --plan max200\`), the leaderboard shows how much Claude usage you got relative to your subscription cost. 1610% means you used 16.1x what you paid.
+A: If you set your plan (\`ccclub profile --plan max200\`), the leaderboard shows tracked usage cost relative to your subscription cost. 1610% means you used 16.1x what you paid.
 
 **Q: How do I appear on the global leaderboard?**
 A: Run \`ccclub profile --public\`. Your usage will appear at ccclub.dev/g/global.
@@ -222,7 +222,7 @@ MIT License · https://github.com/mazzzystar/ccclub
 
 export const LLMS_TXT = `# ccclub
 
-> Claude Code leaderboard among friends
+> Coding agent leaderboard among friends
 
 ## Docs
 
@@ -288,7 +288,7 @@ function buildLandingOgSvg(): string {
   const TABLE_Y = TY + BAR_H + 90;
   const ROW_H = 36;
   const cols = [TX + 30, TX + 60, TX + 240, TX + 420, TX + 530, TX + 700, TX + 790, TX + 900];
-  const headers = ["#", "Name", "Cost", "Tokens", "ROI", "Chats", "$/Chat"];
+  const headers = ["#", "Name", "Cost", "Tokens", "ROI", "Turns", "$/Turn"];
 
   let headerSvg = "";
   headers.forEach((h, i) => {

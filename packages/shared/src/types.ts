@@ -1,5 +1,16 @@
-// Raw JSONL entry from ~/.claude/projects/**/*.jsonl
-export interface RawJSONLEntry {
+export const AGENT_SOURCES = ["claude", "codex", "opencode", "amp", "pi"] as const;
+export type AgentSource = (typeof AGENT_SOURCES)[number];
+
+export const AGENT_LABELS: Record<AgentSource, string> = {
+  claude: "Claude",
+  codex: "Codex",
+  opencode: "OpenCode",
+  amp: "Amp",
+  pi: "pi-agent",
+};
+
+// Raw JSONL entry from Claude Code's projects directory
+export interface RawClaudeJSONLEntry {
   type: string;
   timestamp: string;
   sessionId: string;
@@ -18,28 +29,34 @@ export interface RawJSONLEntry {
   costUSD?: number;
 }
 
+export type RawJSONLEntry = RawClaudeJSONLEntry;
+
 // Parsed usage entry after validation
 export interface UsageEntry {
+  source: AgentSource;
   timestamp: string;
   sessionId: string;
-  requestId: string;
+  requestId?: string;
   model: string;
   inputTokens: number;
   outputTokens: number;
   cacheCreationTokens: number;
   cacheReadTokens: number;
+  reasoningTokens?: number;
   totalTokens: number;
   costUSD: number;
 }
 
 // Aggregated 30-minute block for upload
 export interface UsageBlock {
+  source?: AgentSource; // Missing on pre-multi-agent uploads; treat as "claude"
   blockStart: string;
   blockEnd: string;
   inputTokens: number;
   outputTokens: number;
   cacheCreationTokens: number;
   cacheReadTokens: number;
+  reasoningTokens?: number;
   totalTokens: number;
   costUSD: number;
   models: string[];
@@ -101,9 +118,11 @@ export interface RankingEntry {
   totalTokens: number;
   inputTokens: number;
   outputTokens: number;
+  reasoningTokens?: number;
   costUSD: number;
   monthlyCostUSD?: number;
   models: string[];
+  agents?: AgentSource[];
   entryCount: number;
   chatCount: number;
   usageSnapshot?: UsageSnapshot;

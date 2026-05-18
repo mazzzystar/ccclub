@@ -2,11 +2,12 @@ import chalk from "chalk";
 import Table from "cli-table3";
 import ora from "ora";
 import type { RankingPeriod, RankResponse } from "@ccclub/shared";
-import { PLAN_PRICES } from "@ccclub/shared";
+import { AGENT_LABELS, PLAN_PRICES } from "@ccclub/shared";
 import { requireConfig } from "../config.js";
 import { formatFetchError } from "../fetch-error.js";
 import { doSync, needsFullSync } from "./sync.js";
 import { installHook, isHookInstalled } from "../hook.js";
+import { installHeartbeat, isHeartbeatInstalled } from "../heartbeat.js";
 import { getUpdateResult } from "../update-check.js";
 import { fetchUsageLimits } from "../usage-limits.js";
 
@@ -17,6 +18,7 @@ export async function rankCommand(options: { days?: string; period?: string; gro
 
   // Ensure hook is installed (silent, one-time for existing users)
   if (!isHookInstalled()) await installHook();
+  if (!isHeartbeatInstalled()) await installHeartbeat();
 
   // Only auto-sync when format version changed (one-time after CLI upgrade)
   // Regular syncing is handled by the session-end hook
@@ -126,7 +128,7 @@ export async function rankCommand(options: { days?: string; period?: string; gro
       if (i < groupResults.length - 1) console.log("");
     }
 
-    console.log(chalk.dim("\n  Tokens = input + output ") + chalk.yellow("(cache excluded)") + chalk.dim(". Use ") + chalk.white("--cache") + chalk.dim(" to include cache tokens."));
+    console.log(chalk.dim("\n  Tokens = input + output + reasoning ") + chalk.yellow("(cache excluded)") + chalk.dim(". Use ") + chalk.white("--cache") + chalk.dim(" to include cache tokens."));
 
     const update = await getUpdateResult();
     if (update) {
@@ -178,15 +180,22 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
 
   const hasPlan = activeRankings.some((r) => r.plan);
   const hasUsage = activeRankings.some((r) => r.usageSnapshot);
+  const hasAgents = activeRankings.some((r) =>
+    r.agents && r.agents.length > 0 && !(r.agents.length === 1 && r.agents[0] === "claude")
+  );
 
   const head = ["#", "Name", "Cost", "Tokens"];
   const hasActive = activeRankings.some((r) => r.lastSync && now - new Date(r.lastSync).getTime() < ACTIVE_THRESHOLD_MS);
   const widths = [5, hasActive ? 30 : 20, 12, 10];
+  if (hasAgents) {
+    head.splice(2, 0, "Agents");
+    widths.splice(2, 0, 16);
+  }
   if (hasPlan) {
     head.push("Monthly ROI");
     widths.push(15);
   }
-  head.push("Chats", "$/Chat");
+  head.push("Turns", "$/Turn");
   widths.push(8, 9);
   if (hasUsage) {
     head.push("Usage 7d");
@@ -201,7 +210,7 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
 
   for (const entry of activeRankings) {
     const isMe = entry.userId === config.userId;
-    const tokens = showCache ? entry.totalTokens : entry.inputTokens + entry.outputTokens;
+    const tokens = showCache ? entry.totalTokens : entry.inputTokens + entry.outputTokens + (entry.reasoningTokens || 0);
     const marker = isMe ? chalk.green("→") : " ";
     const isActive = entry.lastSync && now - new Date(entry.lastSync).getTime() < ACTIVE_THRESHOLD_MS;
 
@@ -215,9 +224,13 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
     const row: string[] = [
       `${marker}${c(String(entry.rank))}`,
       nameC(displayName),
-      c(`$${entry.costUSD.toFixed(2)}`),
-      c(formatTokens(tokens)),
     ];
+
+    if (hasAgents) {
+      row.push(c(formatAgents(entry.agents)));
+    }
+
+    row.push(c(`$${entry.costUSD.toFixed(2)}`), c(formatTokens(tokens)));
 
     if (hasPlan) {
       if (entry.plan && entry.plan !== "api") {
@@ -264,6 +277,11 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
       console.log(chalk.dim("  Set your plan: ") + chalk.white("ccclub profile --plan pro|max100|max200|api"));
     }
   }
+}
+
+function formatAgents(agents?: string[]): string {
+  if (!agents || agents.length === 0) return "—";
+  return agents.map((agent) => AGENT_LABELS[agent as keyof typeof AGENT_LABELS] ?? agent).join(", ");
 }
 
 interface ActivityResponse {

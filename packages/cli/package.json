@@ -2,7 +2,7 @@
   "name": "ccclub",
   "version": "0.3.4",
   "type": "module",
-  "description": "Coding agent usage leaderboard among friends",
+  "description": "Claude Code and Codex leaderboard among friends for coding agent tokens and costs",
   "bin": {
     "ccclub": "dist/index.js"
   },
@@ -35,10 +35,16 @@
   "keywords": [
     "claude",
     "claude-code",
+    "claude-code-leaderboard",
     "codex",
+    "codex-leaderboard",
     "opencode",
     "amp",
     "coding-agent",
+    "ai-coding-agent",
+    "token-usage",
+    "usage-tracker",
+    "cost-tracking",
     "usage",
     "ranking",
     "leaderboard"

@@ -14,22 +14,25 @@ function landingHTML() {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ccclub \u2014 coding agent leaderboard among friends</title>
-  <meta name="description" content="See how your friends are doing across Claude Code, Codex, OpenCode, Amp, and pi-agent. Share a code, check the leaderboard. No signup, no config." />
+  <title>ccclub \u2014 Claude Code & Codex Leaderboard Among Friends</title>
+  <meta name="description" content="Claude Code and Codex leaderboard among friends. Track coding agent token usage, costs, and active status across Claude Code, Codex, OpenCode, Amp, and pi-agent." />
+  <meta name="keywords" content="Claude Code leaderboard, Codex leaderboard, Claude Code usage tracker, Codex usage tracker, coding agent leaderboard, AI coding agent token usage, Claude Code cost tracking, Codex cost tracking, OpenCode usage, Amp usage, pi-agent usage, ccclub" />
+  <meta name="application-name" content="ccclub" />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://ccclub.dev/" />
-  <meta property="og:title" content="ccclub — coding agent leaderboard among friends" />
-  <meta property="og:description" content="Track Claude Code, Codex, OpenCode, Amp, and pi-agent usage with friends. Just for fun." />
+  <meta property="og:site_name" content="ccclub" />
+  <meta property="og:title" content="ccclub — Claude Code & Codex Leaderboard Among Friends" />
+  <meta property="og:description" content="Track Claude Code, Codex, OpenCode, Amp, and pi-agent token usage, costs, and active status with friends." />
   <meta property="og:image" content="https://ccclub.dev/og.png" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
+  <meta property="og:image:width" content="1264" />
+  <meta property="og:image:height" content="756" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="ccclub — coding agent leaderboard among friends" />
-  <meta name="twitter:description" content="Track Claude Code, Codex, OpenCode, Amp, and pi-agent usage with friends. Just for fun." />
+  <meta name="twitter:title" content="ccclub — Claude Code & Codex Leaderboard Among Friends" />
+  <meta name="twitter:description" content="A Claude Code and Codex leaderboard among friends for token usage, costs, and active status." />
   <meta name="twitter:image" content="https://ccclub.dev/og.png" />
 
   <meta name="theme-color" content="#1a1816" />
@@ -138,16 +141,17 @@ function landingHTML() {
     }
     .setup-command {
       width: 100%; margin-top: 22px; border: none; border-radius: 13px;
-      background: #ebe8e3; color: #1a1816; padding: 14px 16px;
+      background: #181615; color: #f4f1ed; padding: 14px 16px;
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      cursor: pointer; font: inherit; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.03);
+      cursor: pointer; font: inherit; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
     }
+    .setup-command:hover { background: #24211e; }
     .setup-command code {
-      color: #3f8f5a; font-size: 13px; line-height: 1.4;
+      color: #67c083; font-size: 13px; line-height: 1.4;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .copy-icon {
-      width: 20px; height: 20px; color: #8c8680; flex: 0 0 auto;
+      width: 20px; height: 20px; color: #a8a19a; flex: 0 0 auto;
     }
     .copy-feedback {
       min-height: 18px; margin-top: 9px; color: #3f8f5a;
@@ -205,14 +209,6 @@ function landingHTML() {
     .roi-low { color: #5a5550; }
     .dash-link { color: #5aad7d; text-decoration: none; }
     .dash-link:hover { text-decoration: underline; }
-
-    .guide-btn {
-      display: inline-block; background: #181615; border: none;
-      border-radius: 6px; padding: 8px 18px; font-size: 13px;
-      color: #f4f1ed; cursor: pointer; transition: background 0.2s;
-      font-family: inherit; font-weight: 600; margin-top: 14px;
-    }
-    .guide-btn:hover { background: #2a2724; }
 
     /* Divider */
     .divider {
@@ -369,7 +365,6 @@ function landingHTML() {
             <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 16H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           </button>
           <div class="copy-feedback" id="copy-feedback">Copied</div>
-          <button class="guide-btn" id="copy-guide">Copy full guide for coding agents</button>
         </div>
       </div>
     </div>
@@ -467,14 +462,6 @@ function landingHTML() {
       navigator.clipboard.writeText(this.getAttribute("data-copy") || "").then(function() {
         feedback.classList.add("show");
         setTimeout(function() { feedback.classList.remove("show"); }, 1800);
-      });
-    });
-    document.getElementById("copy-guide").addEventListener("click", function() {
-      var btn = this;
-      fetch("/llms-full.txt").then(function(r) { return r.text(); }).then(function(text) {
-        navigator.clipboard.writeText(text);
-        btn.textContent = "Copied!";
-        setTimeout(function() { btn.textContent = "Copy full guide for coding agents"; }, 2000);
       });
     });
   </script>

@@ -3,6 +3,9 @@ main = "src/index.ts"
 compatibility_date = "2024-12-30"
 workers_dev = true
 
+[assets]
+directory = "./public"
+
 [[rules]]
 type = "Data"
 globs = ["**/*.ttf"]

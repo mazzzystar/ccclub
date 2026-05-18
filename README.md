@@ -2,7 +2,7 @@
 
 # ccclub.dev
 
-Coding agent leaderboard among friends.
+Claude Code and Codex leaderboard among friends. Track coding agent token usage, costs, and active status across Claude Code, Codex, OpenCode, Amp, and pi-agent.
 
 <img src="assets/demo.png" alt="ccclub" width="80%" />
 

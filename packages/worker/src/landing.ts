@@ -151,15 +151,14 @@ function landingHTML() {
     .cta-cmd .dollar { color: #5aad7d; margin-right: 8px; }
     .cta-hint { margin-top: 14px; color: #6b6560; font-size: 14px; }
     .cta-hint code { color: #9b9590; }
-    .cta-secondary {
-      display: flex; gap: 16px; justify-content: center; margin-top: 20px;
-    }
     .guide-btn {
-      padding: 8px 18px; border-radius: 6px; border: 1px solid #363330;
-      background: transparent; color: #8a8480; cursor: pointer;
-      font-size: 13px; font-family: inherit; transition: all 0.15s;
+      display: inline-block; background: #5aad7d; border: none;
+      border-radius: 8px; padding: 14px 28px; font-size: 16px;
+      color: #1a1816; cursor: pointer; transition: background 0.2s;
+      font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace;
+      font-weight: 600; margin-top: 12px;
     }
-    .guide-btn:hover { border-color: #5a5550; color: #c8c4be; }
+    .guide-btn:hover { background: #6dc08e; }
 
     /* Divider */
     .divider {
@@ -278,9 +277,7 @@ function landingHTML() {
         <span class="copy-msg" style="position:absolute;right:-60px;top:50%;transform:translateY(-50%);font-size:12px;color:#5aad7d;opacity:0;transition:opacity .2s">Copied</span>
       </div>
       <div class="cta-hint">One command to start. After that just use <code class="mono">ccclub</code> directly.</div>
-      <div class="cta-secondary">
-        <button class="guide-btn" id="copy-guide">Copy full guide</button>
-      </div>
+      <button class="guide-btn" id="copy-guide">Guide for Claude Code</button>
     </div>
 
     <hr class="divider" />
@@ -346,7 +343,7 @@ function landingHTML() {
       fetch("/llms-full.txt").then(function(r) { return r.text(); }).then(function(text) {
         navigator.clipboard.writeText(text);
         btn.textContent = "Copied!";
-        setTimeout(function() { btn.textContent = "Copy full guide"; }, 2000);
+        setTimeout(function() { btn.textContent = "Guide for Claude Code"; }, 2000);
       });
     });
   </script>

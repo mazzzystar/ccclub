@@ -12,7 +12,7 @@ import type {
 const app = new Hono<{ Bindings: Env }>();
 
 const VALID_PERIODS: RankingPeriod[] = ["daily", "yesterday", "weekly", "monthly", "all-time"];
-const RANK_CACHE_VERSION = "v3";
+const RANK_CACHE_VERSION = "v4";
 
 type AgentTotals = { costUSD: number; totalTokens: number; nonCacheTokens: number; chatCount: number; entryCount: number };
 

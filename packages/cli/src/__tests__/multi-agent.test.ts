@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
+import { calculateCost } from "../../../shared/src/constants.js";
 import type { UsageEntry } from "@ccclub/shared";
 
 const tempDirs: string[] = [];
@@ -201,5 +202,13 @@ describe("multi-agent collection", () => {
     expect(blocks[0].blockStart).toBe("2026-05-01T00:00:00.000Z");
     expect(blocks[0].blockEnd).toBe("2026-05-01T00:30:00.000Z");
     expect(blocks[0].lastActivityAt).toBe("2026-05-01T00:27:30.000Z");
+  });
+
+  it("prices current Claude and Codex models before broad family fallbacks", () => {
+    expect(calculateCost("gpt-5.5", 1_000_000, 1_000_000, 0, 1_000_000)).toBeCloseTo(35.5);
+    expect(calculateCost("openai/gpt-5.5-extra", 1_000_000, 0, 0, 0)).toBeCloseTo(5);
+    expect(calculateCost("gpt-5.3-codex", 1_000_000, 1_000_000, 0, 1_000_000)).toBeCloseTo(15.925);
+    expect(calculateCost("gpt-5.4-mini-latest", 1_000_000, 1_000_000, 0, 1_000_000)).toBeCloseTo(5.325);
+    expect(calculateCost("claude-opus-4-7", 1_000_000, 1_000_000, 1_000_000, 1_000_000)).toBeCloseTo(36.75);
   });
 });

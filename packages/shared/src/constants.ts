@@ -44,24 +44,35 @@ export const PLAN_LABELS: Record<PlanType, string> = {
   api: "API",
 };
 
-// Pricing per million tokens (source: Anthropic pricing page)
+// Pricing per million tokens. These are standard processing rates; cache creation
+// is only charged by providers that expose a separate cache-write price.
 type ModelPricing = { input: number; output: number; cacheCreation: number; cacheRead: number };
 
 export const MODEL_PRICING: Record<string, ModelPricing> = {
-  // Opus 4.5+
+  // Claude Opus 4.5+
+  "claude-opus-4-7": { input: 5, output: 25, cacheCreation: 6.25, cacheRead: 0.5 },
   "claude-opus-4-6": { input: 5, output: 25, cacheCreation: 6.25, cacheRead: 0.5 },
+  "claude-opus-4-5": { input: 5, output: 25, cacheCreation: 6.25, cacheRead: 0.5 },
   "claude-opus-4-5-20251101": { input: 5, output: 25, cacheCreation: 6.25, cacheRead: 0.5 },
   // Opus 4.0–4.1
   "claude-opus-4-1-20250805": { input: 15, output: 75, cacheCreation: 18.75, cacheRead: 1.5 },
   // Sonnet
+  "claude-sonnet-4-6": { input: 3, output: 15, cacheCreation: 3.75, cacheRead: 0.3 },
+  "claude-sonnet-4-5": { input: 3, output: 15, cacheCreation: 3.75, cacheRead: 0.3 },
   "claude-sonnet-4-5-20250929": { input: 3, output: 15, cacheCreation: 3.75, cacheRead: 0.3 },
   "claude-sonnet-4-20250514": { input: 3, output: 15, cacheCreation: 3.75, cacheRead: 0.3 },
   "claude-3-5-sonnet-20241022": { input: 3, output: 15, cacheCreation: 3.75, cacheRead: 0.3 },
   // Haiku
   "claude-haiku-4-5-20251001": { input: 1, output: 5, cacheCreation: 1.25, cacheRead: 0.1 },
   "claude-3-5-haiku-20241022": { input: 0.8, output: 4, cacheCreation: 1, cacheRead: 0.08 },
-  // OpenAI GPT family fallbacks. Many agent logs provide exact costs; these are best-effort
-  // estimates for sources that only expose tokens.
+  // OpenAI GPT/Codex family.
+  "gpt-5.5": { input: 5, output: 30, cacheCreation: 0, cacheRead: 0.5 },
+  "gpt-5.4": { input: 2.5, output: 15, cacheCreation: 0, cacheRead: 0.25 },
+  "gpt-5.4-mini": { input: 0.75, output: 4.5, cacheCreation: 0, cacheRead: 0.075 },
+  "gpt-5.4-nano": { input: 0.2, output: 1.25, cacheCreation: 0, cacheRead: 0.02 },
+  "gpt-5.3-codex": { input: 1.75, output: 14, cacheCreation: 0, cacheRead: 0.175 },
+  "gpt-5.2-codex": { input: 1.75, output: 14, cacheCreation: 0, cacheRead: 0.175 },
+  "gpt-5-codex": { input: 1.25, output: 10, cacheCreation: 0, cacheRead: 0.125 },
   "gpt-5": { input: 1.25, output: 10, cacheCreation: 0, cacheRead: 0.125 },
   "gpt-5-mini": { input: 0.25, output: 2, cacheCreation: 0, cacheRead: 0.025 },
   "gpt-5-nano": { input: 0.05, output: 0.4, cacheCreation: 0, cacheRead: 0.005 },
@@ -73,6 +84,13 @@ const FAMILY_FALLBACK: Record<string, ModelPricing> = {
   opus:   MODEL_PRICING["claude-opus-4-6"],
   sonnet: MODEL_PRICING["claude-sonnet-4-5-20250929"],
   haiku:  MODEL_PRICING["claude-haiku-4-5-20251001"],
+  "gpt-5.5": MODEL_PRICING["gpt-5.5"],
+  "gpt-5.4-mini": MODEL_PRICING["gpt-5.4-mini"],
+  "gpt-5.4-nano": MODEL_PRICING["gpt-5.4-nano"],
+  "gpt-5.4": MODEL_PRICING["gpt-5.4"],
+  "gpt-5.3-codex": MODEL_PRICING["gpt-5.3-codex"],
+  "gpt-5.2-codex": MODEL_PRICING["gpt-5.2-codex"],
+  "gpt-5-codex": MODEL_PRICING["gpt-5-codex"],
   "gpt-5-nano": MODEL_PRICING["gpt-5-nano"],
   "gpt-5-mini": MODEL_PRICING["gpt-5-mini"],
   "gpt-5": MODEL_PRICING["gpt-5"],

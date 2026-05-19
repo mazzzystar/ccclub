@@ -323,13 +323,21 @@ function colorRoi(roiStr: string, entry: RankingEntry): string {
   return theme.faint(roiStr);
 }
 
+function formatAgentPercent(p: number): string {
+  if (p <= 0) return "0%";
+  if (p >= 100) return "100%";
+  if (p < 1) return "<1%";
+  if (p > 99) return ">99%";
+  return `${Math.round(p)}%`;
+}
+
 function formatAgents(entry: RankingEntry): string {
   if (entry.agentBreakdown && entry.agentBreakdown.length > 0) {
     if (entry.agentBreakdown.length === 1) {
       return formatAgentLabel(entry.agentBreakdown[0].source);
     }
     const visible = entry.agentBreakdown.slice(0, 2)
-      .map((agent) => `${formatAgentLabel(agent.source)} (${agent.percent}%)`);
+      .map((agent) => `${formatAgentLabel(agent.source)} (${formatAgentPercent(agent.percent)})`);
     if (entry.agentBreakdown.length > visible.length) {
       visible.push(`+${entry.agentBreakdown.length - visible.length}`);
     }

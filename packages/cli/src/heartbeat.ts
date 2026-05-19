@@ -1,7 +1,7 @@
 import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 
 const PLIST_NAME = "dev.ccclub.sync";
@@ -42,13 +42,28 @@ function getPlist(): string {
 </plist>`;
 }
 
+function isCurrentPlist(): boolean {
+  if (!existsSync(PLIST_PATH)) return false;
+  try {
+    return readFileSync(PLIST_PATH, "utf-8") === getPlist();
+  } catch {
+    return false;
+  }
+}
+
+async function launchctl(args: string[]): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    execFile("launchctl", args, (err) => (err ? reject(err) : resolve()));
+  });
+}
+
 export async function installHeartbeat(): Promise<boolean> {
   // Only support macOS for now
   if (process.platform !== "darwin") {
     return false;
   }
 
-  if (existsSync(PLIST_PATH)) {
+  if (isCurrentPlist()) {
     return true; // already installed
   }
 
@@ -57,13 +72,19 @@ export async function installHeartbeat(): Promise<boolean> {
     await mkdir(LAUNCH_AGENTS_DIR, { recursive: true });
   }
 
+  if (existsSync(PLIST_PATH)) {
+    try {
+      await launchctl(["unload", PLIST_PATH]);
+    } catch {
+      // Non-fatal: it may not be loaded yet.
+    }
+  }
+
   await writeFile(PLIST_PATH, getPlist());
 
   // Load the plist so the heartbeat starts immediately
   try {
-    await new Promise<void>((resolve, reject) => {
-      execFile("launchctl", ["load", PLIST_PATH], (err) => (err ? reject(err) : resolve()));
-    });
+    await launchctl(["load", PLIST_PATH]);
   } catch {
     // Non-fatal: plist will be loaded on next login
   }
@@ -72,7 +93,7 @@ export async function installHeartbeat(): Promise<boolean> {
 }
 
 export function isHeartbeatInstalled(): boolean {
-  return existsSync(PLIST_PATH);
+  return isCurrentPlist();
 }
 
 export function getHeartbeatPath(): string {

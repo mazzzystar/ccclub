@@ -137,6 +137,7 @@ export interface RankingEntry {
   chatCount: number;
   usageSnapshot?: UsageSnapshot;
   lastSync?: string;
+  lastActiveAt?: string;
   lastActiveSource?: AgentSource;
 }
 

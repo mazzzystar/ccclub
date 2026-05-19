@@ -166,7 +166,7 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   console.log(theme.title(`\n  ${data.group.name}`));
   const periodLabel: Record<string, string> = { daily: "TODAY", yesterday: "YESTERDAY", weekly: "7 DAYS", monthly: "30 DAYS", "all-time": "ALL TIME" };
   const now = Date.now();
-  const activeCount = data.rankings.filter((r) => r.lastSync && now - new Date(r.lastSync).getTime() < ACTIVE_THRESHOLD_MS).length;
+  const activeCount = data.rankings.filter((r) => isEntryActive(r, now)).length;
   console.log(theme.muted(`  ${periodLabel[period] || period.toUpperCase()} · ${data.start.slice(0, 10)} → ${data.end.slice(0, 10)} · ${data.group.memberCount} members`));
   if (activeCount > 0) {
     console.log(theme.success(`  ${activeCount} active`));
@@ -281,7 +281,10 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
 }
 
 function isEntryActive(entry: RankingEntry, now: number): boolean {
-  return Boolean(entry.lastSync && now - new Date(entry.lastSync).getTime() < ACTIVE_THRESHOLD_MS);
+  const value = entry.lastActiveAt || entry.lastSync;
+  if (!value) return false;
+  const activeAt = new Date(value).getTime();
+  return Number.isFinite(activeAt) && now - activeAt < ACTIVE_THRESHOLD_MS;
 }
 
 function podiumStyle(rank: number): StyleFn {

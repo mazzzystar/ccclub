@@ -72,15 +72,15 @@ app.get("/g/:code/og.png", async (c) => {
       let cost = 0;
       let tokens = 0;
       let turns = 0;
+      let lastActiveMs = 0;
       const agents = new Set<AgentSource>();
 
-      if (usage?.lastSync && now - new Date(usage.lastSync).getTime() < 15 * 60 * 1000) {
-        activeCount++;
-      }
       if (usage) {
         for (const block of usage.blocks) {
           const t = new Date(block.blockStart).getTime();
           if (t < startMs || t >= endMs) continue;
+          const activityTime = new Date(block.lastActivityAt || block.blockEnd || block.blockStart).getTime();
+          if (Number.isFinite(activityTime) && activityTime > lastActiveMs) lastActiveMs = activityTime;
           const source = block.source ?? "claude";
           cost += block.costUSD;
           tokens += block.inputTokens + block.outputTokens + (block.reasoningTokens || 0);
@@ -88,6 +88,9 @@ app.get("/g/:code/og.png", async (c) => {
           agents.add(source);
           agentSet.add(source);
         }
+      }
+      if (lastActiveMs > 0 && now - lastActiveMs < 15 * 60 * 1000) {
+        activeCount++;
       }
       ranked.push({
         ...members[i],
@@ -656,6 +659,16 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
     var AGENT_ORDER = ["claude", "codex", "opencode", "amp", "pi"];
     var AGENT_LABELS = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode", amp: "Amp", pi: "pi-agent" };
     var AGENT_ICONS = { claude: "/agent-icons/claude.svg", codex: "/agent-icons/codex.svg", opencode: "/agent-icons/opencode.svg", amp: "/agent-icons/amp.svg" };
+    function activeTime(row) {
+      var value = row.lastActiveAt || row.lastSync;
+      if (!value) return 0;
+      var ms = new Date(value).getTime();
+      return isNaN(ms) ? 0 : ms;
+    }
+    function isRecentlyActive(row, now) {
+      var ms = activeTime(row);
+      return ms > 0 && (now - ms) < ACTIVE_THRESHOLD_MS;
+    }
     function orderedAgents(agents) {
       agents = agents || [];
       return AGENT_ORDER.filter(function(a) { return agents.indexOf(a) !== -1; })
@@ -745,7 +758,7 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
             : "Supports Claude Code \u00b7 Codex \u00b7 OpenCode \u00b7 Amp \u00b7 pi-agent";
 
           var activeCount = data.rankings.filter(function(r) {
-            return r.lastSync && (now - new Date(r.lastSync).getTime()) < ACTIVE_THRESHOLD_MS;
+            return isRecentlyActive(r, now);
           }).length;
           var activeEl = document.getElementById("active-count");
           activeEl.textContent = activeCount > 0 ? activeCount + " active" : "";
@@ -773,7 +786,7 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
             var pct = maxCost > 0 ? (r.costUSD / maxCost * 100) : 0;
             var rowClass = r.rank === 1 ? "top-one" : r.rank === 2 ? "top-two" : r.rank === 3 ? "top-three" : "";
             var rankClass = r.rank === 1 ? "rank gold" : r.rank === 2 ? "rank silver" : r.rank === 3 ? "rank bronze" : "rank";
-            var isActive = r.lastSync && (now - new Date(r.lastSync).getTime()) < ACTIVE_THRESHOLD_MS;
+            var isActive = isRecentlyActive(r, now);
             var agentLine = "";
             if (hasAgents && r.agents && r.agents.length > 0) {
               agentLine = agentMixHTML(r);

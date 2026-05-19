@@ -240,6 +240,7 @@ app.get("/rank/global", async (c) => {
       }
       if (usage?.usageSnapshot) entry.usageSnapshot = usage.usageSnapshot;
       if (usage?.lastSync) entry.lastSync = usage.lastSync;
+      if (lastActiveTime > 0) entry.lastActiveAt = new Date(lastActiveTime).toISOString();
       if (lastActiveSource) entry.lastActiveSource = lastActiveSource;
       entries.push(entry);
     }
@@ -368,6 +369,7 @@ app.get("/rank/:code", async (c) => {
     }
     if (usage?.usageSnapshot) entry.usageSnapshot = usage.usageSnapshot;
     if (usage?.lastSync) entry.lastSync = usage.lastSync;
+    if (lastActiveTime > 0) entry.lastActiveAt = new Date(lastActiveTime).toISOString();
     if (lastActiveSource) entry.lastActiveSource = lastActiveSource;
     entries.push(entry);
   }

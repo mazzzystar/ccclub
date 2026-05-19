@@ -56,7 +56,7 @@ export async function collectClaudeUsage(): Promise<SourceCollection> {
   const files = await globFiles(projectDirs, "**/*.jsonl");
   const entries: UsageEntry[] = [];
   const turns: UsageTurn[] = [];
-  const seen = new Set<string>();
+  const entryIndexByDedupeKey = new Map<string, number>();
   const seenTurns = new Set<string>();
 
   for (const file of files) {
@@ -80,8 +80,9 @@ export async function collectClaudeUsage(): Promise<SourceCollection> {
       const usage = value.message.usage;
       const sessionId = value.sessionId || "";
       const requestId = asString(value.requestId);
-      const dedupeKey = requestId
-        ? `${source}:${sessionId}:${requestId}`
+      const messageId = asString(value.message.id);
+      const dedupeKey = messageId
+        ? (requestId ? `${messageId}:${requestId}` : messageId)
         : [
             source,
             sessionId,
@@ -91,8 +92,6 @@ export async function collectClaudeUsage(): Promise<SourceCollection> {
             usage.cache_creation_input_tokens ?? 0,
             usage.cache_read_input_tokens ?? 0,
           ].join(":");
-      if (seen.has(dedupeKey)) return;
-      seen.add(dedupeKey);
 
       const inputTokens = usage.input_tokens || 0;
       const outputTokens = usage.output_tokens || 0;
@@ -103,7 +102,7 @@ export async function collectClaudeUsage(): Promise<SourceCollection> {
         ? value.costUSD
         : calculateCost(model, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens);
 
-      entries.push({
+      const entry = {
         source,
         timestamp,
         sessionId,
@@ -115,7 +114,18 @@ export async function collectClaudeUsage(): Promise<SourceCollection> {
         cacheReadTokens,
         totalTokens: inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens,
         costUSD,
-      });
+      } satisfies UsageEntry;
+
+      const existingIndex = entryIndexByDedupeKey.get(dedupeKey);
+      if (existingIndex != null) {
+        if (entry.totalTokens > entries[existingIndex].totalTokens) {
+          entries[existingIndex] = entry;
+        }
+        return;
+      }
+
+      entryIndexByDedupeKey.set(dedupeKey, entries.length);
+      entries.push(entry);
     });
   }
 

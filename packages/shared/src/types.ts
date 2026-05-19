@@ -17,6 +17,7 @@ export interface RawClaudeJSONLEntry {
   version?: string;
   requestId?: string;
   message?: {
+    id?: string;
     model?: string;
     content?: unknown;
     usage?: {

@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { homedir } from "node:os";
 import {
@@ -26,9 +27,28 @@ interface RawCodexUsage {
   totalTokens: number;
 }
 
+const CODEX_FAST_COST_MULTIPLIER = 2;
+const codexFastServiceTierRegex = /(?:^|\n)\s*service_tier\s*=\s*["']?(?:fast|priority)["']?/iu;
+
+function getCodexHomes(): string[] {
+  return parsePathList(process.env[CODEX_HOME_ENV], [join(homedir(), DEFAULT_CODEX_DIR)]);
+}
+
 function getCodexSessionDirs(): Promise<string[]> {
-  const homes = parsePathList(process.env[CODEX_HOME_ENV], [join(homedir(), DEFAULT_CODEX_DIR)]);
+  const homes = getCodexHomes();
   return existingDirectories(homes.map((home) => join(home, "sessions")));
+}
+
+async function getCodexCostMultiplier(): Promise<number> {
+  for (const home of getCodexHomes()) {
+    try {
+      const config = await readFile(join(home, "config.toml"), "utf8");
+      if (codexFastServiceTierRegex.test(config)) return CODEX_FAST_COST_MULTIPLIER;
+    } catch {
+      // Missing or unreadable config means standard pricing.
+    }
+  }
+  return 1;
 }
 
 function normalizeRawUsage(value: unknown): RawCodexUsage | null {
@@ -39,9 +59,9 @@ function normalizeRawUsage(value: unknown): RawCodexUsage | null {
   const cachedInputTokens = asNumber(record.cached_input_tokens ?? record.cache_read_input_tokens);
   const outputTokens = asNumber(record.output_tokens);
   const reasoningTokens = asNumber(record.reasoning_output_tokens);
-  // Codex reports reasoning_output_tokens as a breakdown of output_tokens.
-  // total_tokens equals input_tokens + output_tokens in current session logs.
-  const fallbackTotal = inputTokens + outputTokens;
+  // Match ccusage: when Codex omits total_tokens, include reasoning_output_tokens
+  // in the fallback total while still pricing only the reported output_tokens.
+  const fallbackTotal = inputTokens + outputTokens + reasoningTokens;
   const totalTokens = asNumber(record.total_tokens) || fallbackTotal;
 
   return { inputTokens, cachedInputTokens, outputTokens, reasoningTokens, totalTokens };
@@ -76,7 +96,10 @@ function sessionIdForFile(sessionDir: string, file: string): string {
 
 export async function collectCodexUsage(): Promise<SourceCollection> {
   const source = "codex";
-  const sessionDirs = await getCodexSessionDirs();
+  const [sessionDirs, costMultiplier] = await Promise.all([
+    getCodexSessionDirs(),
+    getCodexCostMultiplier(),
+  ]);
   const files = await globFiles(sessionDirs, "**/*.jsonl");
   const entries: UsageEntry[] = [];
   const turns: UsageTurn[] = [];
@@ -187,7 +210,7 @@ export async function collectCodexUsage(): Promise<SourceCollection> {
           cacheReadTokens,
           reasoningTokens: 0,
           totalTokens,
-          costUSD: calculateCost(model, inputTokens, rawUsage.outputTokens, 0, cacheReadTokens),
+          costUSD: calculateCost(model, inputTokens, rawUsage.outputTokens, 0, cacheReadTokens) * costMultiplier,
         });
       });
 

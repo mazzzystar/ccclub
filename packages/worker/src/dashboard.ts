@@ -580,8 +580,8 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
       <button data-period="monthly">30d</button>
       <button data-period="all-time">All Time</button>
       <div class="toggle-wrap">
-        <span class="toggle-label" id="cache-label">Cache</span>
-        <button class="toggle" id="cache-toggle" aria-label="Include cache tokens"></button>
+        <span class="toggle-label" id="cache-label">Include cache</span>
+        <button class="toggle on" id="cache-toggle" aria-label="Include cache tokens"></button>
       </div>
     </div>
 
@@ -615,7 +615,7 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
     var CODE = "${code}";
     var IS_GLOBAL = ${isGlobal ? "true" : "false"};
     var period = "daily";
-    var showCache = false;
+    var showCache = true;
     var ACTIVE_THRESHOLD_MS = 15 * 60 * 1000;
 
     // Global page: back link goes to referrer group or fallback to home

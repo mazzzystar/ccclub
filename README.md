@@ -57,7 +57,7 @@ More options:
 
 ```bash
 ccclub -d 1                        # Time window: 1 / 7 / 30 / all
-ccclub --cache                     # Include cache tokens in count
+ccclub --no-cache                  # Exclude cache tokens from count
 ccclub --all                       # Show all members, including those with no activity today
 ccclub --global                    # Everyone who opted in
 ccclub -g YHAW6P                   # Specific group

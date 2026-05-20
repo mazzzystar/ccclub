@@ -405,7 +405,7 @@ function landingHTML() {
         <div class="cmd-row"><code class="mono">ccclub join CODE</code><span>Join a friend's group</span></div>
         <div class="cmd-row"><code class="mono">ccclub</code><span>Today's leaderboard (active members only)</span></div>
         <div class="cmd-row"><code class="mono">ccclub --all</code><span>Show everyone, including those with no activity</span></div>
-        <div class="cmd-row"><code class="mono">ccclub --cache</code><span>Include cache tokens in count</span></div>
+        <div class="cmd-row"><code class="mono">ccclub --no-cache</code><span>Exclude cache tokens from count</span></div>
         <div class="cmd-row"><code class="mono">ccclub -d 1</code><span>Yesterday / 7 / 30 / all</span></div>
         <div class="cmd-row"><code class="mono">ccclub sync</code><span>Manual sync (auto-sync also runs in background)</span></div>
         <div class="cmd-row"><code class="mono">ccclub show-data</code><span>Privacy audit</span></div>

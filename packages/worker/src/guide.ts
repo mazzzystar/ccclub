@@ -87,7 +87,7 @@ ccclub -d 7             # Last 7 days
 ccclub -d 30            # Last 30 days
 ccclub -d all           # All time
 ccclub --global         # Global public leaderboard
-ccclub --cache          # Include cache tokens in count
+ccclub --no-cache       # Exclude cache tokens from count
 ccclub --all            # Show all members including inactive
 ccclub -g XYZABC        # Show a specific group
 \`\`\`
@@ -120,7 +120,7 @@ Public users appear on the global leaderboard:
 | \`ccclub\` | Show today's leaderboard |
 | \`ccclub -d 1\\|7\\|30\\|all\` | Time window (yesterday / 7d / 30d / all time) |
 | \`ccclub --global\` | Global public leaderboard |
-| \`ccclub --cache\` | Include cache tokens in total |
+| \`ccclub --no-cache\` | Exclude cache tokens from total |
 | \`ccclub --all\` | Show all members including inactive ones |
 | \`ccclub create\` | Create an additional group |
 | \`ccclub leave [CODE]\` | Leave a group |

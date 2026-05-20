@@ -35,7 +35,8 @@ program
   .addOption(new Option("-p, --period [period]").hideHelp())
   .option("-g, --group <code>", "Group invite code")
   .option("--global", "Show global public ranking")
-  .option("--cache", "Include cache tokens in count")
+  .addOption(new Option("--cache", "Include cache tokens in count (default)").hideHelp())
+  .option("--no-cache", "Exclude cache tokens from token counts")
   .option("--all", "Show all members including those with no activity")
   .action(rankCommand);
 
@@ -115,7 +116,7 @@ Leaderboard options:
   -d <period>              Time window: 1 | 7 | 30 | all (default: today)
   -g <code>                Show a specific group
   --global                 Global public leaderboard
-  --cache                  Include cache tokens in total
+  --no-cache               Exclude cache tokens from token totals
   --all                    Show all members including inactive ones
 
 Examples:

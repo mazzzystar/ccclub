@@ -16,6 +16,7 @@ const AGENT_ORDER: AgentSource[] = ["claude", "codex", "opencode", "amp", "pi"];
 
 export async function rankCommand(options: { days?: string; period?: string; group?: string; global?: boolean; cache?: boolean; all?: boolean }): Promise<void> {
   const config = await requireConfig();
+  const includeCache = options.cache !== false;
 
   // Ensure hook is installed (silent, one-time for existing users)
   if (!isHookInstalled()) await installHook();
@@ -122,14 +123,18 @@ export async function rankCommand(options: { days?: string; period?: string; gro
         if (me) me.usageSnapshot = localSnapshot;
       }
 
-      printGroup(rankData, code, period, config, options.cache, options.all);
+      printGroup(rankData, code, period, config, includeCache, options.all);
 
       if (activityData) renderActivity(activityData, range);
 
       if (i < groupResults.length - 1) console.log("");
     }
 
-    console.log(theme.muted("\n  Tokens = input + output + reasoning ") + theme.warning("(cache excluded)") + theme.muted(". Use ") + theme.text("--cache") + theme.muted(" to include cache tokens."));
+    if (includeCache) {
+      console.log(theme.muted("\n  Tokens include cache by default. Use ") + theme.text("--no-cache") + theme.muted(" to show input + output + reasoning only."));
+    } else {
+      console.log(theme.muted("\n  Tokens = input + output + reasoning ") + theme.warning("(cache excluded)") + theme.muted(". Cost still includes cache."));
+    }
 
     const update = await getUpdateResult();
     if (update) {
@@ -156,7 +161,7 @@ function formatTokens(n: number): string {
   return String(n);
 }
 
-function printGroup(data: RankResponse, code: string, period: RankingPeriod, config: { userId: string; apiUrl: string }, showCache = false, showAll = false): void {
+function printGroup(data: RankResponse, code: string, period: RankingPeriod, config: { userId: string; apiUrl: string }, showCache = true, showAll = false): void {
   if (data.rankings.length === 0) {
     console.log(theme.title(`\n  ${data.group.name}`));
     console.log(theme.warning("  No data for this period yet"));

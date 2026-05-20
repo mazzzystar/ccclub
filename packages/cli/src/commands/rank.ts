@@ -172,7 +172,7 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   console.log(theme.muted(`  ${periodLabel[period] || period.toUpperCase()} · ${data.start.slice(0, 10)} → ${data.end.slice(0, 10)} · ${data.group.memberCount} members`));
   if (activeCount > 0) {
     const activeSplit = formatActiveSourceSplit(activeEntries);
-    console.log(theme.success(`  ${activeCount} active`) + (activeSplit ? theme.muted(" · ") + activeSplit : ""));
+    console.log(theme.success(`  ${activeCount} active`) + (activeSplit ? ` ${activeSplit}` : ""));
   }
   console.log("");
 
@@ -307,9 +307,10 @@ function formatActiveSourceSplit(entries: RankingEntry[]): string {
 
   if (sources.length === 2 && sources.includes("claude") && sources.includes("codex")) {
     return [
-      formatActiveSourceScore("claude", counts.get("claude") ?? 0, false),
-      theme.faint("·"),
-      formatActiveSourceScore("codex", counts.get("codex") ?? 0, true),
+      theme.muted("Claude"),
+      theme.successBold(String(counts.get("claude") ?? 0)) + theme.faint(":"),
+      theme.successBold(String(counts.get("codex") ?? 0)),
+      theme.muted("Codex"),
     ].join(" ");
   }
 

@@ -765,6 +765,21 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
         (countFirst ? countHTML + icon + labelHTML : icon + labelHTML + countHTML) +
         '</span>';
     }
+    function claudeCodexActiveSplitHTML(claudeCount, codexCount) {
+      return '<span class="active-split">' +
+        '<span class="active-source-score" title="Claude Code active">' +
+          '<img src="' + AGENT_ICONS.claude + '" alt="">' +
+          '<span>Claude</span>' +
+          '<span class="score-count">' + claudeCount + '</span>' +
+        '</span>' +
+        '<span class="active-score-sep">:</span>' +
+        '<span class="active-source-score" title="Codex active">' +
+          '<span class="score-count">' + codexCount + '</span>' +
+          '<span>Codex</span>' +
+          '<img src="' + AGENT_ICONS.codex + '" alt="">' +
+        '</span>' +
+      '</span>';
+    }
     function activeSplitHTML(rows, now) {
       var counts = {};
       rows.forEach(function(row) {
@@ -777,11 +792,7 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
         .concat(Object.keys(counts).filter(function(source) { return AGENT_ORDER.indexOf(source) === -1; }));
       if (sources.length === 0) return "";
       if (sources.length === 2 && counts.claude && counts.codex) {
-        return '<span class="active-split">' +
-          activeSourceScoreHTML("claude", counts.claude, false) +
-          '<span class="active-score-sep">·</span>' +
-          activeSourceScoreHTML("codex", counts.codex, true) +
-          '</span>';
+        return claudeCodexActiveSplitHTML(counts.claude, counts.codex);
       }
       return '<span class="active-split">' + sources.map(function(source) {
         return activeSourceScoreHTML(source, counts[source], false);

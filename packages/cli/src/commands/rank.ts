@@ -1,6 +1,6 @@
 import Table from "cli-table3";
 import ora from "ora";
-import type { RankingEntry, RankingPeriod, RankResponse } from "@ccclub/shared";
+import type { AgentSource, RankingEntry, RankingPeriod, RankResponse } from "@ccclub/shared";
 import { AGENT_LABELS, PLAN_PRICES } from "@ccclub/shared";
 import { theme, type StyleFn } from "../theme.js";
 import { requireConfig } from "../config.js";
@@ -12,6 +12,7 @@ import { getUpdateResult } from "../update-check.js";
 import { fetchUsageLimits } from "../usage-limits.js";
 
 const ACTIVE_THRESHOLD_MS = 15 * 60 * 1000;
+const AGENT_ORDER: AgentSource[] = ["claude", "codex", "opencode", "amp", "pi"];
 
 export async function rankCommand(options: { days?: string; period?: string; group?: string; global?: boolean; cache?: boolean; all?: boolean }): Promise<void> {
   const config = await requireConfig();
@@ -166,10 +167,12 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   console.log(theme.title(`\n  ${data.group.name}`));
   const periodLabel: Record<string, string> = { daily: "TODAY", yesterday: "YESTERDAY", weekly: "7 DAYS", monthly: "30 DAYS", "all-time": "ALL TIME" };
   const now = Date.now();
-  const activeCount = data.rankings.filter((r) => isEntryActive(r, now)).length;
+  const activeEntries = data.rankings.filter((r) => isEntryActive(r, now));
+  const activeCount = activeEntries.length;
   console.log(theme.muted(`  ${periodLabel[period] || period.toUpperCase()} · ${data.start.slice(0, 10)} → ${data.end.slice(0, 10)} · ${data.group.memberCount} members`));
   if (activeCount > 0) {
-    console.log(theme.success(`  ${activeCount} active`));
+    const activeSplit = formatActiveSourceSplit(activeEntries);
+    console.log(theme.success(`  ${activeCount} active`) + (activeSplit ? theme.muted(" · ") + activeSplit : ""));
   }
   console.log("");
 
@@ -285,6 +288,41 @@ function isEntryActive(entry: RankingEntry, now: number): boolean {
   if (!value) return false;
   const activeAt = new Date(value).getTime();
   return Number.isFinite(activeAt) && now - activeAt < ACTIVE_THRESHOLD_MS;
+}
+
+function activeSourceForEntry(entry: RankingEntry): AgentSource | undefined {
+  return entry.lastActiveSource ?? entry.agents?.[0];
+}
+
+function formatActiveSourceSplit(entries: RankingEntry[]): string {
+  const counts = new Map<AgentSource, number>();
+  for (const entry of entries) {
+    const source = activeSourceForEntry(entry);
+    if (!source) continue;
+    counts.set(source, (counts.get(source) ?? 0) + 1);
+  }
+
+  const sources = AGENT_ORDER.filter((source) => (counts.get(source) ?? 0) > 0);
+  if (sources.length === 0) return "";
+
+  if (sources.length === 2 && sources.includes("claude") && sources.includes("codex")) {
+    return [
+      formatActiveSourceScore("claude", counts.get("claude") ?? 0, false),
+      theme.faint("·"),
+      formatActiveSourceScore("codex", counts.get("codex") ?? 0, true),
+    ].join(" ");
+  }
+
+  return sources.map((source) => formatActiveSourceScore(source, counts.get(source) ?? 0, false)).join(theme.faint(" · "));
+}
+
+function formatActiveSourceScore(source: AgentSource, count: number, countFirst: boolean): string {
+  const icon = source === "claude" ? theme.gold("●") : source === "codex" ? theme.linkText("●") : theme.success("●");
+  const label = source === "claude" ? "Claude" : formatAgentLabel(source);
+  const coloredCount = theme.successBold(String(count));
+  return countFirst
+    ? `${coloredCount} ${icon} ${theme.muted(label)}`
+    : `${icon} ${theme.muted(label)} ${coloredCount}`;
 }
 
 function podiumStyle(rank: number): StyleFn {

@@ -451,7 +451,31 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
       width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center;
       border-radius: 3px; background: rgba(99,180,134,0.12); color: var(--success); font-size: 10px; font-weight: 600;
     }
-    .active-count { color: var(--success); font-size: 13px; margin-top: 4px; }
+    .active-count {
+      color: var(--success); font-size: 13px; margin-top: 4px;
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .active-split {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--muted); font-size: 12px;
+    }
+    .active-source-score {
+      display: inline-flex; align-items: center; gap: 4px;
+      white-space: nowrap;
+    }
+    .active-source-score img {
+      width: 13px; height: 13px; display: block; object-fit: contain;
+    }
+    .active-source-score .fallback {
+      width: 13px; height: 13px; border-radius: 3px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: rgba(99,180,134,0.12); color: var(--success);
+      font-size: 10px; font-weight: 650; line-height: 1;
+    }
+    .active-source-score .score-count {
+      color: var(--success); font-weight: 650; font-variant-numeric: tabular-nums;
+    }
+    .active-score-sep { color: var(--faint); }
     .name-link { color: var(--link); text-decoration: none; }
     .name-link:hover { text-decoration: underline; }
     .bar {
@@ -669,6 +693,9 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
       var ms = activeTime(row);
       return ms > 0 && (now - ms) < ACTIVE_THRESHOLD_MS;
     }
+    function activeSourceForRow(row) {
+      return row.lastActiveSource || (row.agents && row.agents[0]);
+    }
     function orderedAgents(agents) {
       agents = agents || [];
       return AGENT_ORDER.filter(function(a) { return agents.indexOf(a) !== -1; })
@@ -722,6 +749,44 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
       }
       return '<span class="active-badge" title="' + esc(label + " active") + '">' + icon + '<span>active</span></span>';
     }
+    function activeSourceScoreHTML(source, count, countFirst) {
+      var label = AGENT_LABELS[source] || source;
+      var icon = "";
+      if (AGENT_ICONS[source]) {
+        icon = '<img src="' + AGENT_ICONS[source] + '" alt="">';
+      } else if (source === "pi") {
+        icon = '<span class="fallback">π</span>';
+      } else {
+        icon = '<span class="fallback">' + esc((label || "?").charAt(0).toUpperCase()) + '</span>';
+      }
+      var countHTML = '<span class="score-count">' + count + '</span>';
+      var labelHTML = '<span>' + esc(source === "claude" ? "Claude" : label) + '</span>';
+      return '<span class="active-source-score" title="' + esc(label + " active") + '">' +
+        (countFirst ? countHTML + icon + labelHTML : icon + labelHTML + countHTML) +
+        '</span>';
+    }
+    function activeSplitHTML(rows, now) {
+      var counts = {};
+      rows.forEach(function(row) {
+        if (!isRecentlyActive(row, now)) return;
+        var source = activeSourceForRow(row);
+        if (!source) return;
+        counts[source] = (counts[source] || 0) + 1;
+      });
+      var sources = AGENT_ORDER.filter(function(source) { return counts[source] > 0; })
+        .concat(Object.keys(counts).filter(function(source) { return AGENT_ORDER.indexOf(source) === -1; }));
+      if (sources.length === 0) return "";
+      if (sources.length === 2 && counts.claude && counts.codex) {
+        return '<span class="active-split">' +
+          activeSourceScoreHTML("claude", counts.claude, false) +
+          '<span class="active-score-sep">·</span>' +
+          activeSourceScoreHTML("codex", counts.codex, true) +
+          '</span>';
+      }
+      return '<span class="active-split">' + sources.map(function(source) {
+        return activeSourceScoreHTML(source, counts[source], false);
+      }).join('<span class="active-score-sep">·</span>') + '</span>';
+    }
 
     document.querySelectorAll(".periods button[data-period]").forEach(function(btn) {
       btn.addEventListener("click", function() {
@@ -761,7 +826,9 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
             return isRecentlyActive(r, now);
           }).length;
           var activeEl = document.getElementById("active-count");
-          activeEl.textContent = activeCount > 0 ? activeCount + " active" : "";
+          activeEl.innerHTML = activeCount > 0
+            ? '<span>' + activeCount + ' active</span>' + activeSplitHTML(data.rankings, now)
+            : "";
 
           if (data.rankings.length === 0) {
             document.getElementById("content").innerHTML =

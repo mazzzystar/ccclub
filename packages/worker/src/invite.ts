@@ -180,6 +180,7 @@ function inviteHTML(group: GroupRecord) {
       margin-left: 16px; color: #4a4640; font-size: 12px;
       transition: color 0.15s;
     }
+    .join-cmd .copy-short { display: none; }
     .join-cmd:hover .copy-hint { color: #6b6560; }
     .join-cmd .copied-msg {
       position: absolute; right: -8px; top: -28px;
@@ -194,13 +195,17 @@ function inviteHTML(group: GroupRecord) {
 
     .leaderboard-link {
       display: inline-flex; align-items: center; gap: 6px;
-      margin-top: 24px; padding: 10px 20px;
-      border: 1px solid #2e2c2a; border-radius: 8px;
-      color: #8a8480; font-size: 14px;
-      transition: all 0.15s;
+      min-width: 210px; justify-content: center;
+      margin-top: 24px; padding: 13px 24px;
+      border: 1px solid rgba(255,255,255,0.72); border-radius: 9px;
+      background: #f7f3ed; color: #171411; font-size: 15px; font-weight: 650;
+      box-shadow: 0 10px 32px rgba(0,0,0,0.28);
+      transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
     }
     .leaderboard-link:hover {
-      border-color: #4a4640; color: #c8c4be; text-decoration: none;
+      background: #fffaf2; color: #171411; text-decoration: none;
+      transform: translateY(-1px);
+      box-shadow: 0 14px 38px rgba(0,0,0,0.34);
     }
 
     .footer {
@@ -211,10 +216,27 @@ function inviteHTML(group: GroupRecord) {
     .footer a { color: #6b6560; }
 
     @media (max-width: 600px) {
+      .wrap { padding: 0 18px; }
+      .brand { padding-top: 18px; }
       .invite-hero { padding: 40px 0 32px; }
       .group-name { font-size: 28px; }
       .avatar { width: 38px; height: 38px; font-size: 14px; }
-      .join-cmd { font-size: 14px; padding: 12px 18px; }
+      .join-section { padding: 18px 0 40px; }
+      .join-card { padding: 24px 16px; border-radius: 10px; }
+      .join-cmd {
+        width: 100%; justify-content: center;
+        font-size: 13px; padding: 13px 12px;
+      }
+      .join-cmd .copy-hint {
+        margin-left: 10px; padding-left: 10px;
+        border-left: 1px solid #363330;
+      }
+      .join-cmd .copy-long { display: none; }
+      .join-cmd .copy-short { display: inline; }
+      .leaderboard-link {
+        width: 100%; justify-content: center;
+        margin-top: 16px; padding: 14px 18px; font-size: 15px;
+      }
     }
   </style>
 </head>
@@ -245,7 +267,7 @@ function inviteHTML(group: GroupRecord) {
         <div class="join-cmd mono" id="join-cmd">
           <span class="dollar">$</span>
           <span class="cmd-text">npx ccclub join ${code}</span>
-          <span class="copy-hint">click to copy</span>
+          <span class="copy-hint"><span class="copy-long">click to copy</span><span class="copy-short">copy</span></span>
           <span class="copied-msg" id="copied-msg">Copied!</span>
         </div>
         <div class="join-note">
@@ -253,7 +275,7 @@ function inviteHTML(group: GroupRecord) {
         </div>
       </div>
       <a href="/g/${code}" class="leaderboard-link">
-        View the leaderboard →
+        View Leaderboard →
       </a>
     </div>
 

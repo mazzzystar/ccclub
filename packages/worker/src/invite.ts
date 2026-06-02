@@ -280,9 +280,9 @@ function inviteHTML(group: GroupRecord) {
     </div>
 
     <div class="footer">
-      <a href="https://github.com/mazzzystar/ccclub">GitHub</a>
+      <a href="https://github.com/mazzzystar/ccclub" target="_blank" rel="noopener">GitHub</a>
       &nbsp;·&nbsp;
-      <a href="https://discord.gg/6QbGWJUVHq">Discord</a>
+      <a href="https://discord.gg/6QbGWJUVHq" target="_blank" rel="noopener">Discord</a>
       &nbsp;·&nbsp; MIT License
     </div>
   </div>

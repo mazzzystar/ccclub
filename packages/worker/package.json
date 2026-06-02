@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "build": "echo 'Worker builds via wrangler'"
+    "build": "echo 'Worker builds via wrangler'",
+    "test": "vitest run"
   },
   "dependencies": {
     "@ccclub/shared": "workspace:*",
@@ -16,6 +17,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241230.0",
     "typescript": "^5.7.0",
+    "vitest": "^4.0.18",
     "wrangler": "^3.99.0"
   }
 }

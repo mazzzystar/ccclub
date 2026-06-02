@@ -36,6 +36,17 @@ export function needsFullSync(): boolean {
 // Throttle interval for silent (hook-triggered) syncs: 5 minutes
 const THROTTLE_MS = 5 * 60 * 1000;
 
+export function createSyncRequest(
+  blocks: UsageBlock[],
+  usageSnapshot: SyncRequest["usageSnapshot"] | null,
+  deviceId?: string,
+): SyncRequest {
+  const body: SyncRequest = { blocks };
+  if (usageSnapshot) body.usageSnapshot = usageSnapshot;
+  if (deviceId) body.deviceId = deviceId;
+  return body;
+}
+
 export async function syncCommand(options: { silent?: boolean; full?: boolean }): Promise<void> {
   // When called silently (from hook), skip if last sync was < 5 minutes ago
   const timePath = getLastSyncTimePath();
@@ -135,8 +146,7 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
 
     if (spinner) spinner.text = `Uploading ${blocksToSync.length} blocks...`;
 
-    const syncBody: SyncRequest = { blocks: blocksToSync };
-    if (usageSnapshot) syncBody.usageSnapshot = usageSnapshot;
+    const syncBody = createSyncRequest(blocksToSync, usageSnapshot, config.deviceId);
 
     const res = await fetch(`${config.apiUrl}/api/sync`, {
       method: "POST",

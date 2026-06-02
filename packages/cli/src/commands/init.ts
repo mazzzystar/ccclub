@@ -2,7 +2,7 @@ import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import chalk from "chalk";
 import ora from "ora";
-import { loadConfig, saveConfig, generateDeviceToken, getApiUrl, getDefaultDisplayName } from "../config.js";
+import { loadConfig, saveConfig, generateDeviceToken, generateDeviceId, getApiUrl, getDefaultDisplayName } from "../config.js";
 import { installHook, isHookInstalled } from "../hook.js";
 import { installHeartbeat, isHeartbeatInstalled } from "../heartbeat.js";
 import { doSync } from "./sync.js";
@@ -76,6 +76,7 @@ export async function initCommand(): Promise<void> {
       userId: data.userId,
       displayName: displayName.trim(),
       groups: [data.groupCode],
+      deviceId: generateDeviceId(),
     });
 
     // Install Claude Code hook and background sync (silent, best-effort)

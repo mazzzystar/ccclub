@@ -37,6 +37,22 @@ function landingHTML() {
 
   <meta name="theme-color" content="#1a1816" />
   <link rel="canonical" href="https://ccclub.dev/" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "ccclub",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "macOS, Linux, Windows",
+    "url": "https://ccclub.dev",
+    "description": "Claude Code and Codex leaderboard among friends. Compare coding agent token usage, costs, and active status with your team.",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "author": { "@type": "Person", "name": "Ke Fang", "url": "https://github.com/mazzzystar" },
+    "license": "https://opensource.org/licenses/MIT",
+    "screenshot": "https://ccclub.dev/og.png"
+  }
+  </script>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
 
   <!-- Google tag (gtag.js) -->

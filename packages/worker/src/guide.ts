@@ -1,7 +1,34 @@
 import { Hono } from "hono";
+import { html } from "hono/html";
 import type { Env } from "./types.js";
 
 const app = new Hono<{ Bindings: Env }>();
+
+// ── sitemap.xml ──────────────────────────────────────────────
+
+app.get("/sitemap.xml", (c) => {
+  const urls = [
+    { loc: "https://ccclub.dev/", priority: "1.0" },
+    { loc: "https://ccclub.dev/blog/why-i-built-ccclub", priority: "0.8" },
+    { loc: "https://ccclub.dev/g/global", priority: "0.7" },
+    { loc: "https://ccclub.dev/llms-full.txt", priority: "0.5" },
+  ];
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls.map((u) => `  <url><loc>${u.loc}</loc><changefreq>weekly</changefreq><priority>${u.priority}</priority></url>`).join("\n")}
+</urlset>`;
+  return c.body(xml, 200, { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=86400" });
+});
+
+// ── robots.txt ───────────────────────────────────────────────
+
+app.get("/robots.txt", (c) => {
+  return c.text(`User-agent: *
+Allow: /
+
+Sitemap: https://ccclub.dev/sitemap.xml
+`, 200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=86400" });
+});
 
 export const GUIDE_MARKDOWN = `# ccclub — Claude Code & Codex Leaderboard Among Friends
 

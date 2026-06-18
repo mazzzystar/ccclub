@@ -707,6 +707,13 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
         return { source: source, costUSD: 0, totalTokens: 0, nonCacheTokens: 0, chatCount: 0, entryCount: 0, percent: 0 };
       });
     }
+    function formatAgentPercent(p) {
+      if (p <= 0) return "0%";
+      if (p >= 100) return "100%";
+      if (p < 1) return "<1%";
+      if (p > 99) return ">99%";
+      return Math.round(p) + "%";
+    }
     function agentTooltip(row) {
       if (!row.agentBreakdown || row.agentBreakdown.length === 0) {
         return orderedAgents(row.agents).map(function(source) {
@@ -715,7 +722,7 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
       }
       return getAgentBreakdown(row).map(function(agent) {
         var label = AGENT_LABELS[agent.source] || agent.source;
-        var pct = agent.percent ? agent.percent + "% · " : "";
+        var pct = agent.percent ? formatAgentPercent(agent.percent) + " · " : "";
         var cost = agent.costUSD ? "$" + agent.costUSD.toFixed(2) + " · " : "";
         var tokenCount = showCache ? agent.totalTokens : (agent.nonCacheTokens != null ? agent.nonCacheTokens : agent.totalTokens);
         var tokens = tokenCount ? formatTokens(tokenCount) + " tokens · " : "";
@@ -730,7 +737,7 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
       var text = breakdown.map(function(agent) {
         var label = esc(AGENT_LABELS[agent.source] || agent.source);
         if (hasBreakdown && breakdown.length > 1) {
-          return '<span class="agent-source">' + label + '</span> <span class="agent-percent">(' + agent.percent + '%)</span>';
+          return '<span class="agent-source">' + label + '</span> <span class="agent-percent">(' + formatAgentPercent(agent.percent) + ')</span>';
         }
         return '<span class="agent-source">' + label + '</span>';
       }).join('<span class="agent-percent">, </span>');

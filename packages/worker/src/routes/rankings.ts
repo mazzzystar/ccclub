@@ -52,7 +52,7 @@ function buildAgentBreakdown(totals: Map<AgentSource, AgentTotals>, totalCostUSD
         nonCacheTokens: value.nonCacheTokens,
         chatCount: value.chatCount,
         entryCount: value.entryCount,
-        percent: denominator > 0 ? Math.round((numerator / denominator) * 100) : 0,
+        percent: denominator > 0 ? Math.round((numerator / denominator) * 10000) / 100 : 0,
       };
     })
     .sort((a, b) => b.percent - a.percent || b.costUSD - a.costUSD);

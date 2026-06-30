@@ -14,7 +14,7 @@ import { formatFetchError } from "../fetch-error.js";
 import { fetchUsageLimits } from "../usage-limits.js";
 
 // Bump this when block format changes to auto-trigger full re-sync
-const SYNC_FORMAT_VERSION = "8";
+const SYNC_FORMAT_VERSION = "10";
 
 function getSyncVersionPath(): string {
   return join(homedir(), CCCLUB_CONFIG_DIR, "sync-version");

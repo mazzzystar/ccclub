@@ -56,8 +56,26 @@ export async function collectClaudeUsage(): Promise<SourceCollection> {
   const files = await globFiles(projectDirs, "**/*.jsonl");
   const entries: UsageEntry[] = [];
   const turns: UsageTurn[] = [];
-  const entryIndexByDedupeKey = new Map<string, number>();
+  const exactEntryIndex = new Map<string, number>();
+  const messageEntryIndexes = new Map<string, number[]>();
+  const sidechainByEntryIndex: boolean[] = [];
   const seenTurns = new Set<string>();
+
+  function addMessageIndex(key: string, index: number): void {
+    const indexes = messageEntryIndexes.get(key) ?? [];
+    if (!indexes.includes(index)) indexes.push(index);
+    messageEntryIndexes.set(key, indexes);
+  }
+
+  function shouldReplaceEntry(candidate: UsageEntry, candidateIsSidechain: boolean, existing: UsageEntry, existingIsSidechain: boolean): boolean {
+    if (candidateIsSidechain !== existingIsSidechain) {
+      return existingIsSidechain;
+    }
+    if (candidate.totalTokens !== existing.totalTokens) {
+      return candidate.totalTokens > existing.totalTokens;
+    }
+    return candidate.costUSD > existing.costUSD;
+  }
 
   for (const file of files) {
     await readJsonlFile(file, (value) => {
@@ -81,8 +99,9 @@ export async function collectClaudeUsage(): Promise<SourceCollection> {
       const sessionId = value.sessionId || "";
       const requestId = asString(value.requestId);
       const messageId = asString(value.message.id);
-      const dedupeKey = messageId
-        ? (requestId ? `${messageId}:${requestId}` : messageId)
+      const isSidechain = value.isSidechain === true || value.is_sidechain === true;
+      const exactDedupeKey = messageId
+        ? `message:${messageId}:request:${requestId ?? ""}`
         : [
             source,
             sessionId,
@@ -92,6 +111,7 @@ export async function collectClaudeUsage(): Promise<SourceCollection> {
             usage.cache_creation_input_tokens ?? 0,
             usage.cache_read_input_tokens ?? 0,
           ].join(":");
+      const messageDedupeKey = messageId ? `message:${messageId}` : undefined;
 
       const inputTokens = usage.input_tokens || 0;
       const outputTokens = usage.output_tokens || 0;
@@ -116,15 +136,22 @@ export async function collectClaudeUsage(): Promise<SourceCollection> {
         costUSD,
       } satisfies UsageEntry;
 
-      const existingIndex = entryIndexByDedupeKey.get(dedupeKey);
+      const messageIndexes = messageDedupeKey != null ? messageEntryIndexes.get(messageDedupeKey) : undefined;
+      const existingIndex = exactEntryIndex.get(exactDedupeKey) ??
+        messageIndexes?.find((index) => isSidechain || sidechainByEntryIndex[index]);
       if (existingIndex != null) {
-        if (entry.totalTokens > entries[existingIndex].totalTokens) {
+        if (shouldReplaceEntry(entry, isSidechain, entries[existingIndex], sidechainByEntryIndex[existingIndex])) {
           entries[existingIndex] = entry;
+          sidechainByEntryIndex[existingIndex] = isSidechain;
+          exactEntryIndex.set(exactDedupeKey, existingIndex);
+          if (messageDedupeKey != null) addMessageIndex(messageDedupeKey, existingIndex);
         }
         return;
       }
 
-      entryIndexByDedupeKey.set(dedupeKey, entries.length);
+      exactEntryIndex.set(exactDedupeKey, entries.length);
+      if (messageDedupeKey != null) addMessageIndex(messageDedupeKey, entries.length);
+      sidechainByEntryIndex.push(isSidechain);
       entries.push(entry);
     });
   }

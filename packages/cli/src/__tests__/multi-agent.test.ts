@@ -62,6 +62,74 @@ describe("multi-agent collection", () => {
     expect(result.entries[0].outputTokens).toBe(10);
   });
 
+  it("keeps Claude parent usage when sidechain replays a message with a new request ID", async () => {
+    const claudeHome = await makeTempDir();
+    const projectsDir = join(claudeHome, "projects");
+    await mkdir(projectsDir, { recursive: true });
+    const parentEntry = {
+      type: "assistant",
+      timestamp: "2026-05-01T00:00:01.000Z",
+      sessionId: "session-a",
+      requestId: "req-parent",
+      isSidechain: false,
+      message: {
+        id: "msg-parent",
+        model: "claude-opus-4-6",
+        usage: {
+          input_tokens: 1,
+          output_tokens: 10,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 20,
+        },
+      },
+    };
+    await writeFile(join(projectsDir, "session.jsonl"), [
+      JSON.stringify({
+        ...parentEntry,
+        requestId: "req-sidechain-replay",
+        isSidechain: true,
+        message: {
+          ...parentEntry.message,
+          usage: {
+            ...parentEntry.message.usage,
+            cache_read_input_tokens: 50_000,
+          },
+        },
+      }),
+      JSON.stringify(parentEntry),
+      JSON.stringify({
+        ...parentEntry,
+        timestamp: "2026-05-01T00:00:02.000Z",
+        requestId: "req-sidechain-answer",
+        isSidechain: true,
+        message: {
+          ...parentEntry.message,
+          id: "msg-sidechain-answer",
+          usage: {
+            ...parentEntry.message.usage,
+            output_tokens: 30,
+            cache_read_input_tokens: 700,
+          },
+        },
+      }),
+    ].join("\n"));
+    vi.stubEnv("CLAUDE_CONFIG_DIR", claudeHome);
+
+    const result = await collectUsageEntries({ sources: ["claude"] });
+
+    expect(result.entries).toHaveLength(2);
+    const parent = result.entries.find((entry) => entry.requestId === "req-parent");
+    const sidechainAnswer = result.entries.find((entry) => entry.requestId === "req-sidechain-answer");
+    expect(parent).toMatchObject({
+      outputTokens: 10,
+      cacheReadTokens: 20,
+    });
+    expect(sidechainAnswer).toMatchObject({
+      outputTokens: 30,
+      cacheReadTokens: 700,
+    });
+  });
+
   it("loads Codex token_count events and separates cached input tokens", async () => {
     const codexHome = await makeTempDir();
     const sessionsDir = join(codexHome, "sessions");
@@ -100,7 +168,7 @@ describe("multi-agent collection", () => {
       inputTokens: 75,
       outputTokens: 10,
       cacheReadTokens: 25,
-      reasoningTokens: 0,
+      reasoningTokens: 5,
       totalTokens: 110,
     });
   });
@@ -146,6 +214,59 @@ describe("multi-agent collection", () => {
     expect(result.humanTurns).toHaveLength(1);
     expect(blocks).toHaveLength(1);
     expect(blocks[0].entryCount).toBe(2);
+    expect(blocks[0].chatCount).toBe(1);
+  });
+
+  it("dedupes copied Codex fork history across session files", async () => {
+    const codexHome = await makeTempDir();
+    const sessionsDir = join(codexHome, "sessions");
+    await mkdir(sessionsDir, { recursive: true });
+    const copiedHistory = [
+      JSON.stringify({
+        timestamp: "2026-05-01T00:00:00.000Z",
+        type: "turn_context",
+        payload: { model: "gpt-5.5" },
+      }),
+      JSON.stringify({
+        timestamp: "2026-05-01T00:00:01.000Z",
+        type: "event_msg",
+        payload: { type: "task_started", turn_id: "turn-a", started_at: "2026-05-01T00:00:01.000Z" },
+      }),
+      JSON.stringify({
+        timestamp: "2026-05-01T00:00:02.000Z",
+        type: "event_msg",
+        payload: {
+          type: "token_count",
+          info: {
+            last_token_usage: {
+              input_tokens: 1000,
+              cached_input_tokens: 100,
+              output_tokens: 200,
+              reasoning_output_tokens: 20,
+              total_tokens: 1200,
+            },
+          },
+        },
+      }),
+    ].join("\n");
+    await writeFile(join(sessionsDir, "root.jsonl"), copiedHistory);
+    await writeFile(join(sessionsDir, "fork.jsonl"), copiedHistory);
+    vi.stubEnv("CODEX_HOME", codexHome);
+
+    const result = await collectUsageEntries({ sources: ["codex"] });
+    const blocks = aggregateToBlocks(result.entries, result.humanTurns);
+
+    expect(result.entries).toHaveLength(1);
+    expect(result.humanTurns).toHaveLength(1);
+    expect(result.entries[0]).toMatchObject({
+      inputTokens: 900,
+      cacheReadTokens: 100,
+      outputTokens: 200,
+      reasoningTokens: 20,
+      totalTokens: 1200,
+    });
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].entryCount).toBe(1);
     expect(blocks[0].chatCount).toBe(1);
   });
 
@@ -216,7 +337,7 @@ describe("multi-agent collection", () => {
 
     expect(result.entries).toHaveLength(1);
     expect(result.entries[0].totalTokens).toBe(115);
-    expect(result.entries[0].reasoningTokens).toBe(0);
+    expect(result.entries[0].reasoningTokens).toBe(5);
     expect(result.entries[0].costUSD).toBeCloseTo(0.00071);
   });
 

@@ -16,6 +16,8 @@ export interface RawClaudeJSONLEntry {
   sessionId: string;
   version?: string;
   requestId?: string;
+  isSidechain?: boolean;
+  is_sidechain?: boolean;
   message?: {
     id?: string;
     model?: string;

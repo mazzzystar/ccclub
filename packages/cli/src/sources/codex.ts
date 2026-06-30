@@ -138,8 +138,8 @@ export async function collectCodexUsage(): Promise<SourceCollection> {
           if (timestamp == null) return;
           const turnId = asString(payload.turn_id);
           const key = turnId != null
-            ? `${source}:${sessionId}:${turnId}`
-            : `${source}:${sessionId}:${timestamp}:task_started`;
+            ? `${source}:${turnId}:${timestamp}`
+            : `${source}:${timestamp}:task_started`;
           sawTaskStarted = true;
           addTurn(timestamp, key);
           return;
@@ -148,7 +148,7 @@ export async function collectCodexUsage(): Promise<SourceCollection> {
         if (type === "event_msg" && payload?.type === "user_message") {
           const timestamp = toIsoTimestamp(record.timestamp);
           if (timestamp == null) return;
-          const key = `${source}:${sessionId}:${timestamp}:user_message`;
+          const key = `${source}:${timestamp}:user_message`;
           if (!seenFallbackUserTurns.has(key)) {
             seenFallbackUserTurns.add(key);
             fallbackUserTurns.push({ source, timestamp, key });
@@ -185,8 +185,6 @@ export async function collectCodexUsage(): Promise<SourceCollection> {
         }
 
         const dedupeKey = [
-          source,
-          sessionId,
           timestamp,
           model,
           inputTokens,
@@ -208,7 +206,7 @@ export async function collectCodexUsage(): Promise<SourceCollection> {
           outputTokens: rawUsage.outputTokens,
           cacheCreationTokens: 0,
           cacheReadTokens,
-          reasoningTokens: 0,
+          reasoningTokens: rawUsage.reasoningTokens,
           totalTokens,
           costUSD: calculateCost(model, inputTokens, rawUsage.outputTokens, 0, cacheReadTokens) * costMultiplier,
         });

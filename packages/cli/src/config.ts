@@ -12,6 +12,7 @@ export interface CliConfig {
   userId: string;
   displayName: string;
   groups: string[];      // invite codes
+  deviceId?: string;     // present for multi-device sync; absent keeps legacy sync behavior
 }
 
 function getConfigDir(): string {
@@ -47,6 +48,10 @@ export async function saveConfig(config: CliConfig): Promise<void> {
 
 export function generateDeviceToken(): string {
   return randomBytes(32).toString("hex");
+}
+
+export function generateDeviceId(): string {
+  return randomBytes(12).toString("hex");
 }
 
 export function getApiUrl(): string {

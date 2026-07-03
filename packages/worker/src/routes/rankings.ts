@@ -2,12 +2,15 @@ import { Hono } from "hono";
 import type { Env } from "../types.js";
 import type {
   AgentSource,
+  GroupMember,
   GroupRecord,
   UsageData,
   RankingEntry,
   RankingPeriod,
   RankResponse,
 } from "@ccclub/shared";
+import { getMergedUsageData } from "../usage-store.js";
+import { getCanonicalMember, resolveCanonicalUserId } from "../identity-store.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -15,6 +18,30 @@ const VALID_PERIODS: RankingPeriod[] = ["daily", "yesterday", "weekly", "monthly
 const RANK_CACHE_VERSION = "v4";
 
 type AgentTotals = { costUSD: number; totalTokens: number; nonCacheTokens: number; chatCount: number; entryCount: number };
+
+async function getCanonicalGroupMembers(kv: KVNamespace, members: GroupMember[]): Promise<GroupMember[]> {
+  const canonicalByMember = await Promise.all(
+    members.map(async (member) => ({ member, canonicalId: await resolveCanonicalUserId(kv, member.userId) })),
+  );
+  const grouped = new Map<string, GroupMember>();
+
+  for (const { member, canonicalId } of canonicalByMember) {
+    const existing = grouped.get(canonicalId);
+    if (!existing || member.userId === canonicalId) {
+      grouped.set(canonicalId, member);
+    }
+  }
+
+  return Promise.all(
+    Array.from(grouped.entries()).map(([canonicalId, fallback]) => getCanonicalMember(kv, canonicalId, fallback)),
+  );
+}
+
+async function getCanonicalPublicUsers(kv: KVNamespace, publicUsers: string[]): Promise<string[]> {
+  const publicSet = new Set(publicUsers);
+  const canonicalIds = await Promise.all(publicUsers.map((id) => resolveCanonicalUserId(kv, id)));
+  return Array.from(new Set(canonicalIds.filter((id) => publicSet.has(id))));
+}
 
 function hasUsage(block: UsageData["blocks"][number]): boolean {
   return block.entryCount > 0 || block.totalTokens > 0 || block.costUSD > 0;
@@ -105,8 +132,9 @@ app.get("/rank/global", async (c) => {
   const period = parsePeriod(c.req.query("period"));
   const tz = parseInt(c.req.query("tz") || "0", 10) || 0;
   const publicUsers = (await c.env.KV.get<string[]>("public_users", "json")) || [];
+  const canonicalPublicUsers = await getCanonicalPublicUsers(c.env.KV, publicUsers);
 
-  if (publicUsers.length === 0) {
+  if (canonicalPublicUsers.length === 0) {
     return c.json<RankResponse>({
       group: { name: "Global Rankings", code: "global", memberCount: 0 },
       period,
@@ -128,8 +156,8 @@ app.get("/rank/global", async (c) => {
 
   // Fetch all usage data and user groups in parallel
   const [usageResults, groupsResults] = await Promise.all([
-    Promise.all(publicUsers.map((id) => c.env.KV.get<UsageData>(`usage:${id}`, "json"))),
-    Promise.all(publicUsers.map((id) => c.env.KV.get<string[]>(`user_groups:${id}`, "json"))),
+    Promise.all(canonicalPublicUsers.map((id) => getMergedUsageData(c.env.KV, id))),
+    Promise.all(canonicalPublicUsers.map((id) => c.env.KV.get<string[]>(`user_groups:${id}`, "json"))),
   ]);
 
   // Fetch first group for each user (for display name + plan) in parallel
@@ -145,8 +173,8 @@ app.get("/rank/global", async (c) => {
 
   // Resolve display info and check if any user has a plan
   const userInfos: Array<{ displayName: string; avatar: string; plan?: string; url?: string }> = [];
-  for (let idx = 0; idx < publicUsers.length; idx++) {
-    const userId = publicUsers[idx];
+  for (let idx = 0; idx < canonicalPublicUsers.length; idx++) {
+    const userId = canonicalPublicUsers[idx];
     let displayName = userId.slice(0, 8);
     let avatar = "";
     let plan: string | undefined;
@@ -168,8 +196,8 @@ app.get("/rank/global", async (c) => {
 
   const entries: RankingEntry[] = [];
 
-  for (let idx = 0; idx < publicUsers.length; idx++) {
-    const userId = publicUsers[idx];
+  for (let idx = 0; idx < canonicalPublicUsers.length; idx++) {
+    const userId = canonicalPublicUsers[idx];
     const usage = usageResults[idx];
     const info = userInfos[idx];
 
@@ -250,7 +278,7 @@ app.get("/rank/global", async (c) => {
   entries.forEach((e, i) => (e.rank = i + 1));
 
   return c.json<RankResponse>({
-    group: { name: "Global Rankings", code: "global", memberCount: publicUsers.length },
+    group: { name: "Global Rankings", code: "global", memberCount: canonicalPublicUsers.length },
     period,
     start: start.toISOString(),
     end: end.toISOString(),
@@ -280,6 +308,7 @@ app.get("/rank/:code", async (c) => {
   if (!group) {
     return c.json({ error: "group not found" }, 404);
   }
+  const canonicalMembers = await getCanonicalGroupMembers(c.env.KV, group.members);
 
   const { start, end } = getDateRange(period, tz);
   const startMs = start.getTime();
@@ -293,14 +322,14 @@ app.get("/rank/:code", async (c) => {
 
   // Fetch usage for all members in parallel
   const usageResults = await Promise.all(
-    group.members.map((m) => c.env.KV.get<UsageData>(`usage:${m.userId}`, "json")),
+    canonicalMembers.map((m) => getMergedUsageData(c.env.KV, m.userId)),
   );
 
-  const hasPlan = group.members.some((m) => m.plan);
+  const hasPlan = canonicalMembers.some((m) => m.plan);
   const entries: RankingEntry[] = [];
 
-  for (let idx = 0; idx < group.members.length; idx++) {
-    const member = group.members[idx];
+  for (let idx = 0; idx < canonicalMembers.length; idx++) {
+    const member = canonicalMembers[idx];
     const usage = usageResults[idx];
 
     let totalTokens = 0;
@@ -378,7 +407,7 @@ app.get("/rank/:code", async (c) => {
   entries.forEach((e, i) => (e.rank = i + 1));
 
   const result: RankResponse = {
-    group: { name: group.name, code: group.code, memberCount: group.members.length },
+    group: { name: group.name, code: group.code, memberCount: canonicalMembers.length },
     period,
     start: start.toISOString(),
     end: end.toISOString(),
@@ -446,38 +475,17 @@ app.get("/activity/:code", async (c) => {
 
   if (isGlobal) {
     const publicUsers = (await c.env.KV.get<string[]>("public_users", "json")) || [];
-    memberIds = publicUsers;
+    memberIds = await getCanonicalPublicUsers(c.env.KV, publicUsers);
 
-    // Resolve display names from each user's first group (same as /rank/global)
-    const groupsResults = await Promise.all(
-      memberIds.map((id) => c.env.KV.get<string[]>(`user_groups:${id}`, "json")),
-    );
-    const firstGroupCodes = groupsResults.map((g) => g?.[0]);
-    const uniqueCodes = [...new Set(firstGroupCodes.filter(Boolean))] as string[];
-    const groupMap = new Map<string, GroupRecord>();
-    await Promise.all(
-      uniqueCodes.map(async (gc) => {
-        const g = await c.env.KV.get<GroupRecord>(`group:${gc}`, "json");
-        if (g) groupMap.set(gc, g);
-      }),
-    );
-    for (let idx = 0; idx < memberIds.length; idx++) {
-      const uid = memberIds[idx];
-      const fc = firstGroupCodes[idx];
-      if (fc) {
-        const grp = groupMap.get(fc);
-        const mem = grp?.members.find((m) => m.userId === uid);
-        if (mem) {
-          memberMap.set(uid, { displayName: mem.displayName, avatar: mem.avatar || "", url: mem.url });
-          continue;
-        }
-      }
-      memberMap.set(uid, { displayName: uid.slice(0, 8), avatar: "" });
+    for (const uid of memberIds) {
+      const member = await getCanonicalMember(c.env.KV, uid);
+      memberMap.set(uid, { displayName: member.displayName, avatar: member.avatar || "", url: member.url });
     }
   } else {
     const group = await c.env.KV.get<GroupRecord>(`group:${code}`, "json");
     if (!group) return c.json({ error: "group not found" }, 404);
-    for (const m of group.members) {
+    const members = await getCanonicalGroupMembers(c.env.KV, group.members);
+    for (const m of members) {
       memberIds.push(m.userId);
       memberMap.set(m.userId, { displayName: m.displayName, avatar: m.avatar || "", url: m.url });
     }
@@ -485,7 +493,7 @@ app.get("/activity/:code", async (c) => {
 
   // Fetch usage for all members
   const usageResults = await Promise.all(
-    memberIds.map((id) => c.env.KV.get<UsageData>(`usage:${id}`, "json")),
+    memberIds.map((id) => getMergedUsageData(c.env.KV, id)),
   );
 
   // Build per-user time series

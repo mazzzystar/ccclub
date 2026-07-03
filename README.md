@@ -18,7 +18,7 @@ It asks your name, gives you a 6-letter code. Send it to friends:
 npx ccclub join YHAW6P
 ```
 
-Done. ccclub automatically detects supported coding agent logs on your machine and keeps usage synced. No config, no signup, no account.
+Done. ccclub creates a lightweight local identity, automatically detects supported coding agent logs on your machine, and keeps usage synced. No password, no hosted login flow.
 
 Once a friend joins, check the leaderboard:
 
@@ -44,16 +44,17 @@ If you use the default locations, there is nothing to configure. Custom location
 
 ## Commands
 
-Everyday use — these four are all you need:
+Common commands:
 
 ```bash
 ccclub init                        # One-time setup, creates a group
 ccclub join <CODE>                 # Join a friend's group
 ccclub sync                        # Manual sync; auto-sync also runs after setup
+ccclub sync --force                # Re-scan and upload all local usage logs
 ccclub                             # Show the leaderboard
 ```
 
-More options:
+Leaderboard options:
 
 ```bash
 ccclub -d 1                        # Time window: 1 / 7 / 30 / all
@@ -63,16 +64,29 @@ ccclub --global                    # Everyone who opted in
 ccclub -g YHAW6P                   # Specific group
 ```
 
-If you want more, it's there:
+Multi-device and account merge:
+
+```bash
+ccclub device link                 # Generate a 24-hour one-time code for another terminal
+ccclub link ABCD2345               # Run on a fresh terminal to join the same user
+ccclub merge-code                  # Generate a 24-hour one-time code for an existing account
+ccclub merge WXYZ6789              # Run on the account that should be merged into the code owner
+```
+
+Profile and groups:
 
 ```bash
 ccclub create                      # Make another group
+ccclub leave [CODE]                # Leave one of your groups
 ccclub profile                     # See your profile
 ccclub profile --name "new name"   # Change display name
 ccclub profile --avatar "URL"      # Custom avatar
 ccclub profile --public            # Show up on global board
 ccclub profile --private           # Hide from global (default)
+ccclub profile --plan max100       # Set plan: pro / max100 / max200 / api / none
+ccclub profile --url "https://..." # Link your display name
 ccclub show-data                   # See exactly what gets uploaded
+ccclub hook                        # Reinstall Claude Code auto-sync hooks if needed
 ```
 
 ## Web Dashboard
@@ -83,7 +97,43 @@ Every group gets a live page:
 https://ccclub.dev/g/YHAW6P
 ```
 
-Period switcher (today / 7d / 30d / all time), avatars, active status, agent mix, auto-refresh every 5 minutes. There's also a global page at `/g/global` for public users.
+Period switcher (today / yesterday / 7d / 30d / all time), avatars, active status, agent mix, activity chart, auto-refresh every 5 minutes. There's also a global page at `/g/global` for public users.
+
+## Multiple Computers
+
+There are two different flows:
+
+**Fresh terminal, same ccclub user**
+
+Run this on a terminal that is already initialized:
+
+```bash
+ccclub device link
+```
+
+Then run the printed command on the fresh terminal:
+
+```bash
+ccclub link ABCD2345
+```
+
+The code is one-time use and valid for 24 hours. New installs get their own local `deviceId`, so each computer writes to its own usage bucket. Older installs without `deviceId` keep using the legacy sync path; existing data is preserved.
+
+**Two terminals that were already initialized as separate users**
+
+Run this on the account whose name/avatar/profile should stay visible:
+
+```bash
+ccclub merge-code
+```
+
+Then run the printed command on the account you want to fold in:
+
+```bash
+ccclub merge WXYZ6789
+```
+
+The merge code is also one-time use and valid for 24 hours. Existing usage is not moved, deleted, or rewritten. The worker stores a lightweight alias and merges usage at read time, so the leaderboard, activity chart, dashboard metadata, and OG image show one row with the kept account's profile.
 
 ## Privacy
 
@@ -102,7 +152,8 @@ Uploads **only** this:
   "totalTokens": 91460,
   "costUSD": 0.2184,
   "models": ["claude-sonnet-4-5-20250929"],
-  "entryCount": 23
+  "entryCount": 23,
+  "chatCount": 8
 }
 ```
 
@@ -117,7 +168,7 @@ packages/
   worker/     Cloudflare Worker — Hono API + KV + dashboard
 ```
 
-Auto-sync: `ccclub init` installs Claude Code `SessionEnd` + `Stop` hooks and a lightweight background sync that keeps Codex, OpenCode, Amp, and pi-agent fresh (throttled to once per 5 minutes).
+Auto-sync: `ccclub init`, `ccclub join`, and `ccclub link` install Claude Code `SessionEnd` + `Stop` hooks and a lightweight background sync that keeps Codex, OpenCode, Amp, and pi-agent fresh (throttled to once per 5 minutes).
 
 ## Development
 

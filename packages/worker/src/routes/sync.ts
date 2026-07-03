@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Env } from "../types.js";
 import { AGENT_SOURCES } from "@ccclub/shared";
 import type { UserRecord, UsageData, SyncResponse, SyncRequest, UsageBlock } from "@ccclub/shared";
+import { putDeviceUsageData, putLegacyUsageData, registerUserDevice } from "../usage-store.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -18,9 +19,12 @@ app.post("/sync", async (c) => {
     return c.json({ error: "invalid token" }, 401);
   }
 
-  const { blocks, usageSnapshot } = await c.req.json<SyncRequest>();
+  const { blocks, usageSnapshot, deviceId } = await c.req.json<SyncRequest>();
   if (!Array.isArray(blocks) || blocks.length === 0) {
     return c.json({ error: "blocks array required" }, 400);
+  }
+  if (deviceId !== undefined && (typeof deviceId !== "string" || deviceId.length > 80)) {
+    return c.json({ error: "invalid deviceId" }, 400);
   }
 
   // Cap blocks per request to prevent abuse
@@ -51,26 +55,7 @@ app.post("/sync", async (c) => {
     }
   }
 
-  // Get existing usage data
-  const existing = (await c.env.KV.get<UsageData>(`usage:${user.userId}`, "json")) || {
-    blocks: [],
-    lastSync: "",
-  };
-
-  // Merge blocks - deduplicate by source + blockStart. Old blocks did not have source;
-  // treat those as Claude so pre-multi-agent data remains compatible.
-  const blockMap = new Map<string, UsageBlock>();
-  for (const b of existing.blocks) blockMap.set(`${b.source ?? "claude"}:${b.blockStart}`, b);
-  for (const b of blocks) blockMap.set(`${b.source ?? "claude"}:${b.blockStart}`, b);
-
-  const merged: UsageBlock[] = Array.from(blockMap.values()).sort(
-    (a, b) => new Date(a.blockStart).getTime() - new Date(b.blockStart).getTime(),
-  );
-
-  const usageData: UsageData = {
-    blocks: merged,
-    lastSync: new Date().toISOString(),
-  };
+  const write = { blocks, usageSnapshot: undefined as SyncRequest["usageSnapshot"] };
 
   if (
     usageSnapshot &&
@@ -78,17 +63,19 @@ app.post("/sync", async (c) => {
     typeof usageSnapshot.sevenDay === "number" && isFinite(usageSnapshot.sevenDay) &&
     typeof usageSnapshot.snapshotAt === "string" && usageSnapshot.snapshotAt.length < 64
   ) {
-    usageData.usageSnapshot = {
+    write.usageSnapshot = {
       fiveHour: Math.max(0, Math.min(100, usageSnapshot.fiveHour)),
       sevenDay: Math.max(0, Math.min(100, usageSnapshot.sevenDay)),
       snapshotAt: usageSnapshot.snapshotAt,
     };
-  } else if (existing.usageSnapshot) {
-    // Preserve previously stored snapshot if not sent this time
-    usageData.usageSnapshot = existing.usageSnapshot;
   }
 
-  await c.env.KV.put(`usage:${user.userId}`, JSON.stringify(usageData));
+  if (deviceId) {
+    await registerUserDevice(c.env.KV, user.userId, deviceId);
+    await putDeviceUsageData(c.env.KV, user.userId, deviceId, write);
+  } else {
+    await putLegacyUsageData(c.env.KV, user.userId, write);
+  }
 
   // Invalidate rank cache for all groups this user belongs to
   const userGroups = (await c.env.KV.get<string[]>(`user_groups:${user.userId}`, "json")) || [];

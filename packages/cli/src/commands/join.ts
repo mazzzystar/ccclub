@@ -2,7 +2,7 @@ import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import chalk from "chalk";
 import ora from "ora";
-import { loadConfig, saveConfig, generateDeviceToken, getApiUrl, getDefaultDisplayName } from "../config.js";
+import { loadConfig, saveConfig, generateDeviceToken, generateDeviceId, getApiUrl, getDefaultDisplayName } from "../config.js";
 import { installHook } from "../hook.js";
 import { doSync } from "./sync.js";
 import { ensureGlobalInstall } from "../global-install.js";
@@ -74,6 +74,7 @@ export async function joinCommand(inviteCode: string): Promise<void> {
       userId: data.userId,
       displayName,
       groups: [data.groupCode],
+      deviceId: generateDeviceId(),
     });
     await installHook();
   }

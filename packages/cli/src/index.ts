@@ -8,6 +8,9 @@ import { showDataCommand } from "./commands/show-data.js";
 import { createGroupCommand } from "./commands/group.js";
 import { leaveCommand } from "./commands/leave.js";
 import { hookCommand } from "./commands/hook.js";
+import { linkCommand } from "./commands/link.js";
+import { deviceLinkCommand } from "./commands/device.js";
+import { mergeCodeCommand, mergeCommand } from "./commands/merge.js";
 import { startUpdateCheck } from "./update-check.js";
 
 declare const __VERSION__: string;
@@ -59,6 +62,32 @@ program
     return joinCommand(code);
   });
 
+program
+  .command("link")
+  .description("Link this terminal to an existing ccclub user")
+  .argument("[code]", "device link code")
+  .action((code: string | undefined) => linkCommand(code));
+
+program
+  .command("merge-code")
+  .description("Create a one-time code to merge another account into this one")
+  .action(mergeCodeCommand);
+
+program
+  .command("merge")
+  .description("Merge this account into the account that created the code")
+  .argument("[code]", "account merge code")
+  .action((code: string | undefined) => mergeCommand(code));
+
+const device = program
+  .command("device")
+  .description("Manage linked terminals");
+
+device
+  .command("link")
+  .description("Create a one-time code to link another terminal")
+  .action(deviceLinkCommand);
+
 // --- Regular use ---
 
 program
@@ -108,6 +137,8 @@ program.addHelpText("after", `
 Setup:
   ccclub init             Create your group and enable auto-sync
   ccclub join <code>      Join a friend's group
+  ccclub device link      Create a one-time code to link another terminal
+  ccclub merge-code       Create a code to merge another account into this one
 
 Supported agents:
   Claude Code, Codex, OpenCode, Amp, pi-agent
@@ -121,6 +152,10 @@ Leaderboard options:
 
 Examples:
   $ npx ccclub init        First-time setup
+  $ ccclub device link     Link another terminal to the same user
+  $ ccclub link ABCD2345   Run on the other terminal
+  $ ccclub merge-code      Keep this account; generate an account merge code
+  $ ccclub merge WXYZ6789  Run on the account to merge into this one
   $ ccclub                 Show today's leaderboard (default)
   $ ccclub -d 1|7|30|all   Time window (default: today)
   $ ccclub --global        Global public leaderboard

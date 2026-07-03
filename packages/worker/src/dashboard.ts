@@ -3,6 +3,8 @@ import { html } from "hono/html";
 import type { Env } from "./types.js";
 import type { AgentSource, GroupRecord, UsageData } from "@ccclub/shared";
 import { cachedPngResponse, getColor, hashCode, htmlEsc, latinOnly, ogCacheUrl, renderToPng, sanitizeCode, svgEsc, truncate } from "./og-utils.js";
+import { getMergedUsageData } from "./usage-store.js";
+import { getCanonicalMember, resolveCanonicalUserId } from "./identity-store.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -16,7 +18,11 @@ app.get("/g/:code", async (c) => {
     const group = await c.env.KV.get<GroupRecord>(`group:${code}`, "json");
     if (group) {
       groupName = group.name;
-      memberCount = group.members.length;
+      const canonicalMembers = await canonicalizeDashboardMembers(
+        c.env.KV,
+        group.members.map((m) => ({ userId: m.userId, displayName: m.displayName })),
+      );
+      memberCount = canonicalMembers.length;
     }
   }
   return c.html(dashboardHTML(code, groupName, memberCount));
@@ -37,8 +43,13 @@ app.get("/g/:code/og.png", async (c) => {
   if (isGlobal) {
     groupName = "Global Rankings";
     const publicUsers = (await c.env.KV.get<string[]>("public_users", "json")) || [];
-    totalMembers = publicUsers.length;
-    members = publicUsers.slice(0, 30).map((id) => ({ userId: id, displayName: id.slice(0, 8) }));
+    members = await canonicalizeDashboardMembers(
+      c.env.KV,
+      publicUsers.map((id) => ({ userId: id, displayName: id.slice(0, 8) })),
+      { requireCanonicalIn: new Set(publicUsers) },
+    );
+    totalMembers = members.length;
+    members = members.slice(0, 30);
     cacheVersion = `global:${totalMembers}:${Math.floor(Date.now() / 300_000)}`;
   } else {
     const [group, lastSync] = await Promise.all([
@@ -47,7 +58,10 @@ app.get("/g/:code/og.png", async (c) => {
     ]);
     if (!group) return c.text("Not found", 404);
     groupName = group.name;
-    members = group.members.map((m) => ({ userId: m.userId, displayName: m.displayName }));
+    members = await canonicalizeDashboardMembers(
+      c.env.KV,
+      group.members.map((m) => ({ userId: m.userId, displayName: m.displayName })),
+    );
     totalMembers = members.length;
     cacheVersion = `${lastSync || "0"}:${hashCode(`${group.name}:${group.members.map((m) => `${m.userId}:${m.displayName}:${m.avatar || ""}:${m.joinedAt}`).join("|")}`)}`;
   }
@@ -55,7 +69,7 @@ app.get("/g/:code/og.png", async (c) => {
   const cacheUrl = ogCacheUrl(c.req.url, `g/v2/${code}/${cacheVersion}.png`);
   return cachedPngResponse(cacheUrl, async () => {
     const usageResults = await Promise.all(
-      members.map((m) => c.env.KV.get<UsageData>(`usage:${m.userId}`, "json")),
+      members.map((m) => getMergedUsageData(c.env.KV, m.userId)),
     );
 
     const now = Date.now();
@@ -126,6 +140,35 @@ type DashboardOgEntry = {
   turns: number;
   agents: AgentSource[];
 };
+
+async function canonicalizeDashboardMembers(
+  kv: KVNamespace,
+  members: Array<{ userId: string; displayName: string }>,
+  options: { requireCanonicalIn?: Set<string> } = {},
+): Promise<Array<{ userId: string; displayName: string }>> {
+  const pairs = await Promise.all(
+    members.map(async (member) => ({ member, canonicalId: await resolveCanonicalUserId(kv, member.userId) })),
+  );
+  const grouped = new Map<string, { userId: string; displayName: string }>();
+
+  for (const { member, canonicalId } of pairs) {
+    if (options.requireCanonicalIn && !options.requireCanonicalIn.has(canonicalId)) continue;
+    const existing = grouped.get(canonicalId);
+    if (!existing || member.userId === canonicalId) grouped.set(canonicalId, member);
+  }
+
+  return Promise.all(
+    Array.from(grouped.entries()).map(async ([canonicalId, fallback]) => {
+      const member = await getCanonicalMember(kv, canonicalId, {
+        userId: fallback.userId,
+        displayName: fallback.displayName,
+        avatar: "",
+        joinedAt: new Date().toISOString(),
+      });
+      return { userId: canonicalId, displayName: member.displayName };
+    }),
+  );
+}
 
 const AGENT_LABELS_OG: Record<AgentSource, string> = {
   claude: "Claude Code",

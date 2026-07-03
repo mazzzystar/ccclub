@@ -11,9 +11,23 @@ import type {
   ProfileResponse,
   LeaveRequest,
   LeaveResponse,
+  DeviceLinkCodeResponse,
+  DeviceLinkRequest,
+  DeviceLinkResponse,
+  AccountMergeCodeResponse,
+  AccountMergeRequest,
+  AccountMergeResponse,
 } from "@ccclub/shared";
+import { registerUserDevice } from "../usage-store.js";
+import {
+  getUserDisplayRecord,
+  mergeUserGroups,
+  registerMergedUser,
+  resolveCanonicalUserId,
+} from "../identity-store.js";
 
 const app = new Hono<{ Bindings: Env }>();
+const DEVICE_LINK_TTL_SECONDS = 24 * 60 * 60;
 
 function generateId(): string {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 16);
@@ -28,6 +42,15 @@ function generateInviteCode(): string {
   return code;
 }
 
+function generateDeviceLinkCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  for (const b of bytes) code += chars[b % chars.length];
+  return code;
+}
+
 async function generateUniqueInviteCode(kv: KVNamespace, maxRetries = 5): Promise<string> {
   for (let i = 0; i < maxRetries; i++) {
     const code = generateInviteCode();
@@ -36,6 +59,34 @@ async function generateUniqueInviteCode(kv: KVNamespace, maxRetries = 5): Promis
   }
   throw new Error("failed to generate unique invite code");
 }
+
+async function generateUniqueDeviceLinkCode(kv: KVNamespace, maxRetries = 5): Promise<string> {
+  for (let i = 0; i < maxRetries; i++) {
+    const code = generateDeviceLinkCode();
+    const existing = await kv.get(`device_link:${code}`);
+    if (!existing) return code;
+  }
+  throw new Error("failed to generate unique device link code");
+}
+
+async function generateUniqueAccountMergeCode(kv: KVNamespace, maxRetries = 5): Promise<string> {
+  for (let i = 0; i < maxRetries; i++) {
+    const code = generateDeviceLinkCode();
+    const existing = await kv.get(`account_merge:${code}`);
+    if (!existing) return code;
+  }
+  throw new Error("failed to generate unique account merge code");
+}
+
+type DeviceLinkRecord = {
+  userId: string;
+  expiresAt: string;
+};
+
+type AccountMergeRecord = {
+  targetUserId: string;
+  expiresAt: string;
+};
 
 // POST /api/init - Create user + auto-create group
 app.post("/init", async (c) => {
@@ -177,6 +228,145 @@ app.post("/group/create", async (c) => {
   await c.env.KV.put(`user_groups:${user.userId}`, JSON.stringify(userGroups));
 
   return c.json({ groupCode: inviteCode, groupName: name });
+});
+
+// POST /api/device/link-code - Create a short-lived code for linking another terminal
+app.post("/device/link-code", async (c) => {
+  const auth = c.req.header("Authorization");
+  if (!auth?.startsWith("Bearer ")) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  const token = auth.slice(7);
+  const user = await c.env.KV.get<UserRecord>(`token:${token}`, "json");
+  if (!user) {
+    return c.json({ error: "invalid token" }, 401);
+  }
+
+  const code = await generateUniqueDeviceLinkCode(c.env.KV);
+  const expiresAt = new Date(Date.now() + DEVICE_LINK_TTL_SECONDS * 1000).toISOString();
+  const record: DeviceLinkRecord = {
+    userId: user.userId,
+    expiresAt,
+  };
+
+  await c.env.KV.put(`device_link:${code}`, JSON.stringify(record), { expirationTtl: DEVICE_LINK_TTL_SECONDS });
+
+  return c.json<DeviceLinkCodeResponse>({ code, expiresAt });
+});
+
+// POST /api/device/link - Link this terminal to an existing ccclub user
+app.post("/device/link", async (c) => {
+  const body = await c.req.json<DeviceLinkRequest>();
+  const code = body.code?.toUpperCase();
+  const token = body.token;
+  const deviceId = body.deviceId;
+
+  if (!code || !token || !deviceId) {
+    return c.json({ error: "code, token, and deviceId required" }, 400);
+  }
+  if (deviceId.length > 80) {
+    return c.json({ error: "deviceId too long (max 80)" }, 400);
+  }
+
+  const link = await c.env.KV.get<DeviceLinkRecord>(`device_link:${code}`, "json");
+  if (!link) {
+    return c.json({ error: "invalid or expired link code" }, 404);
+  }
+  if (new Date(link.expiresAt).getTime() <= Date.now()) {
+    await c.env.KV.delete(`device_link:${code}`);
+    return c.json({ error: "link code expired" }, 410);
+  }
+
+  const existingToken = await c.env.KV.get<UserRecord>(`token:${token}`, "json");
+  if (existingToken && existingToken.userId !== link.userId) {
+    return c.json({ error: "token is already linked to another user" }, 409);
+  }
+
+  const userGroups = (await c.env.KV.get<string[]>(`user_groups:${link.userId}`, "json")) || [];
+  const userRecord = await getUserDisplayRecord(c.env.KV, link.userId);
+
+  await c.env.KV.put(`token:${token}`, JSON.stringify(userRecord));
+  await registerUserDevice(c.env.KV, link.userId, deviceId);
+  await c.env.KV.delete(`device_link:${code}`);
+
+  return c.json<DeviceLinkResponse>({
+    userId: link.userId,
+    displayName: userRecord.displayName,
+    groups: userGroups,
+    deviceId,
+  });
+});
+
+// POST /api/account/merge-code - Create a short-lived code for merging another existing account into this one
+app.post("/account/merge-code", async (c) => {
+  const auth = c.req.header("Authorization");
+  if (!auth?.startsWith("Bearer ")) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  const token = auth.slice(7);
+  const user = await c.env.KV.get<UserRecord>(`token:${token}`, "json");
+  if (!user) {
+    return c.json({ error: "invalid token" }, 401);
+  }
+
+  const targetUserId = await resolveCanonicalUserId(c.env.KV, user.userId);
+  const code = await generateUniqueAccountMergeCode(c.env.KV);
+  const expiresAt = new Date(Date.now() + DEVICE_LINK_TTL_SECONDS * 1000).toISOString();
+  const record: AccountMergeRecord = { targetUserId, expiresAt };
+
+  await c.env.KV.put(`account_merge:${code}`, JSON.stringify(record), { expirationTtl: DEVICE_LINK_TTL_SECONDS });
+
+  return c.json<AccountMergeCodeResponse>({ code, expiresAt });
+});
+
+// POST /api/account/merge - Merge this authenticated account into the code owner
+app.post("/account/merge", async (c) => {
+  const auth = c.req.header("Authorization");
+  if (!auth?.startsWith("Bearer ")) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  const token = auth.slice(7);
+  const sourceUser = await c.env.KV.get<UserRecord>(`token:${token}`, "json");
+  if (!sourceUser) {
+    return c.json({ error: "invalid token" }, 401);
+  }
+
+  const body = await c.req.json<AccountMergeRequest>();
+  const code = body.code?.toUpperCase();
+  if (!code) {
+    return c.json({ error: "code required" }, 400);
+  }
+
+  const merge = await c.env.KV.get<AccountMergeRecord>(`account_merge:${code}`, "json");
+  if (!merge) {
+    return c.json({ error: "invalid or expired merge code" }, 404);
+  }
+  if (new Date(merge.expiresAt).getTime() <= Date.now()) {
+    await c.env.KV.delete(`account_merge:${code}`);
+    return c.json({ error: "merge code expired" }, 410);
+  }
+
+  const sourceUserId = await resolveCanonicalUserId(c.env.KV, sourceUser.userId);
+  const targetUserId = await resolveCanonicalUserId(c.env.KV, merge.targetUserId);
+  if (sourceUserId === targetUserId) {
+    return c.json({ error: "accounts are already merged" }, 409);
+  }
+
+  await registerMergedUser(c.env.KV, sourceUserId, targetUserId);
+  const groups = await mergeUserGroups(c.env.KV, targetUserId, sourceUserId);
+  const targetRecord = await getUserDisplayRecord(c.env.KV, targetUserId);
+  await c.env.KV.delete(`account_merge:${code}`);
+
+  if (groups.length > 0) {
+    await Promise.all(groups.map((groupCode) => c.env.KV.put(`last_sync:${groupCode}`, String(Date.now()))));
+  }
+
+  return c.json<AccountMergeResponse>({
+    userId: targetUserId,
+    displayName: targetRecord.displayName,
+    groups,
+    mergedUserId: sourceUserId,
+  });
 });
 
 // POST /api/profile - Update user profile

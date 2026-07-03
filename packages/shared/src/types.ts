@@ -171,11 +171,48 @@ export interface JoinResponse {
 
 // API: POST /api/sync
 export interface SyncRequest {
+  deviceId?: string;
   blocks: UsageBlock[];
   usageSnapshot?: UsageSnapshot;
 }
 export interface SyncResponse {
   synced: number;
+}
+
+// API: POST /api/device/link-code
+export interface DeviceLinkCodeResponse {
+  code: string;
+  expiresAt: string;
+}
+
+// API: POST /api/device/link
+export interface DeviceLinkRequest {
+  code: string;
+  token: string;
+  deviceId: string;
+}
+export interface DeviceLinkResponse {
+  userId: string;
+  displayName: string;
+  groups: string[];
+  deviceId: string;
+}
+
+// API: POST /api/account/merge-code
+export interface AccountMergeCodeResponse {
+  code: string;
+  expiresAt: string;
+}
+
+// API: POST /api/account/merge
+export interface AccountMergeRequest {
+  code: string;
+}
+export interface AccountMergeResponse {
+  userId: string;
+  displayName: string;
+  groups: string[];
+  mergedUserId: string;
 }
 
 // API: POST /api/profile

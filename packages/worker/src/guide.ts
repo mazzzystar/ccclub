@@ -150,6 +150,10 @@ Public users appear on the global leaderboard:
 | \`ccclub --no-cache\` | Exclude cache tokens from total |
 | \`ccclub --all\` | Show all members including inactive ones |
 | \`ccclub create\` | Create an additional group |
+| \`ccclub device link\` | Create a 24-hour one-time code to link a fresh terminal |
+| \`ccclub link <CODE>\` | Link a fresh terminal to the same ccclub user |
+| \`ccclub merge-code\` | Keep this account and create a 24-hour account merge code |
+| \`ccclub merge <CODE>\` | Merge this account into the code owner |
 | \`ccclub leave [CODE]\` | Leave a group |
 | \`ccclub sync\` | Manual sync; auto-sync also runs after setup |
 | \`ccclub sync --force\` | Re-scan and upload all local usage logs |
@@ -216,6 +220,10 @@ You can be in multiple groups simultaneously:
 \`\`\`bash
 ccclub create              # Create another group
 ccclub join XYZABC         # Join a friend's group
+ccclub device link         # Create a 24-hour one-time code for another terminal
+ccclub link ABCD2345       # Link a fresh terminal to the same user
+ccclub merge-code          # Keep this account; create a merge code
+ccclub merge WXYZ6789      # Merge this account into the code owner
 ccclub -g XYZABC           # View a specific group
 ccclub leave XYZABC        # Leave a group
 \`\`\`
@@ -252,6 +260,9 @@ A: No. ccclub detects supported logs from their default local locations. Custom 
 **Q: Can I be in multiple groups?**
 A: Yes. Run \`ccclub create\` for a new group or \`ccclub join <CODE>\` to join another.
 
+**Q: Can I merge two computers that were already initialized as separate users?**
+A: Yes. Run \`ccclub merge-code\` on the account whose profile should remain visible, then run \`ccclub merge <CODE>\` on the account to merge. Existing usage is not moved or deleted; rankings merge it at read time and show the kept account's name/avatar/profile.
+
 **Q: What is Monthly ROI?**
 A: If you set your plan (\`ccclub profile --plan max200\`), the leaderboard shows tracked usage cost relative to your subscription cost. 1610% means you used 16.1x what you paid.
 
@@ -283,6 +294,10 @@ export const LLMS_TXT = `# ccclub
 - POST /api/init: Create user and group
 - POST /api/join: Join a group
 - POST /api/sync: Upload usage data
+- POST /api/device/link-code: Create a one-time code for linking a fresh terminal
+- POST /api/device/link: Link a fresh terminal to an existing user
+- POST /api/account/merge-code: Create a one-time code for merging an existing account
+- POST /api/account/merge: Merge this authenticated account into the code owner
 - POST /api/profile: Update user profile
 - GET /api/profile: Get user profile
 - POST /api/group/create: Create additional group

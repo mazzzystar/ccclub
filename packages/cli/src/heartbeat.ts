@@ -1,5 +1,5 @@
 import { writeFile, mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 import { existsSync, readFileSync } from "node:fs";
 import { execFile } from "node:child_process";
@@ -8,9 +8,16 @@ const PLIST_NAME = "dev.ccclub.sync";
 const LAUNCH_AGENTS_DIR = join(homedir(), "Library", "LaunchAgents");
 const PLIST_PATH = join(LAUNCH_AGENTS_DIR, `${PLIST_NAME}.plist`);
 
-function getPlist(): string {
-  // Find the ccclub binary - prefer global npx path
+/**
+ * Build the LaunchAgent plist for the 5-minute heartbeat sync.
+ * @internal exported only so the generated PATH can be unit-tested.
+ */
+export function getPlist(): string {
   const logPath = join(homedir(), ".ccclub", "sync.log");
+  // Prepend the running Node's bin dir so launchd can resolve `npx`/`node`
+  // even when Node is installed via a version manager (nvm/asdf/volta),
+  // whose bin dir is not in the default system PATH. Fixes #18.
+  const pathEnv = `${dirname(process.execPath)}:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin`;
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -36,7 +43,7 @@ function getPlist(): string {
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
-    <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+    <string>${pathEnv}</string>
   </dict>
 </dict>
 </plist>`;

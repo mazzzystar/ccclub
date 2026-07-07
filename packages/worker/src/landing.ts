@@ -1,58 +1,78 @@
 import { Hono } from "hono";
-import { html } from "hono/html";
+import { html, raw } from "hono/html";
 import type { Env } from "./types.js";
+import { LANDING_LANGS, LANDING_T, landingPath, type LandingLang } from "./landing-i18n.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
 app.get("/", (c) => {
-  return c.html(landingHTML());
+  return c.html(landingHTML("en"));
 });
 
-function landingHTML() {
+for (const lang of LANDING_LANGS) {
+  if (lang === "en") continue;
+  app.get(`/${lang}`, (c) => c.html(landingHTML(lang)));
+}
+
+const LANG_LABELS: Record<LandingLang, string> = {
+  en: "English",
+  zh: "\u4e2d\u6587",
+  ja: "\u65e5\u672c\u8a9e",
+  de: "Deutsch",
+  ru: "\u0420\u0443\u0441\u0441\u043a\u0438\u0439",
+};
+
+function landingHTML(lang: LandingLang) {
+  const t = LANDING_T[lang];
+  const url = `https://ccclub.dev${landingPath(lang)}`;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "ccclub",
+    applicationCategory: "DeveloperApplication",
+    operatingSystem: "macOS, Linux, Windows",
+    url: "https://ccclub.dev",
+    inLanguage: t.htmlLang,
+    description: t.description,
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+    author: { "@type": "Person", name: "Ke Fang", url: "https://github.com/mazzzystar" },
+    license: "https://opensource.org/licenses/MIT",
+    screenshot: "https://ccclub.dev/og.png",
+  };
   return html`<!DOCTYPE html>
-<html lang="en">
+<html lang="${t.htmlLang}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ccclub \u2014 Claude Code & Codex Leaderboard Among Friends</title>
-  <meta name="description" content="Claude Code and Codex leaderboard among friends. Track coding agent token usage, costs, and active status across Claude Code, Codex, OpenCode, Amp, and pi-agent." />
+  <title>${t.title}</title>
+  <meta name="description" content="${t.description}" />
   <meta name="application-name" content="ccclub" />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://ccclub.dev/" />
+  <meta property="og:url" content="${url}" />
   <meta property="og:site_name" content="ccclub" />
-  <meta property="og:title" content="ccclub — Claude Code & Codex Leaderboard Among Friends" />
-  <meta property="og:description" content="Track Claude Code, Codex, OpenCode, Amp, and pi-agent token usage, costs, and active status with friends." />
+  <meta property="og:title" content="${t.title}" />
+  <meta property="og:description" content="${t.ogDescription}" />
   <meta property="og:image" content="https://ccclub.dev/og.png" />
   <meta property="og:image:width" content="1264" />
   <meta property="og:image:height" content="756" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="ccclub — Claude Code & Codex Leaderboard Among Friends" />
-  <meta name="twitter:description" content="A Claude Code and Codex leaderboard among friends for token usage, costs, and active status." />
+  <meta name="twitter:title" content="${t.title}" />
+  <meta name="twitter:description" content="${t.ogDescription}" />
   <meta name="twitter:image" content="https://ccclub.dev/og.png" />
 
   <meta name="theme-color" content="#1a1816" />
-  <link rel="canonical" href="https://ccclub.dev/" />
+  <link rel="canonical" href="${url}" />
+  ${LANDING_LANGS.map(
+    (l) => html`<link rel="alternate" hreflang="${l}" href="https://ccclub.dev${landingPath(l)}" />`,
+  )}
+  <link rel="alternate" hreflang="x-default" href="https://ccclub.dev/" />
   <link rel="alternate" type="application/rss+xml" title="ccclub blog" href="https://ccclub.dev/rss.xml" />
 
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "ccclub",
-    "applicationCategory": "DeveloperApplication",
-    "operatingSystem": "macOS, Linux, Windows",
-    "url": "https://ccclub.dev",
-    "description": "Claude Code and Codex leaderboard among friends. Compare coding agent token usage, costs, and active status with your team.",
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-    "author": { "@type": "Person", "name": "Ke Fang", "url": "https://github.com/mazzzystar" },
-    "license": "https://opensource.org/licenses/MIT",
-    "screenshot": "https://ccclub.dev/og.png"
-  }
-  </script>
+  <script type="application/ld+json">${raw(JSON.stringify(jsonLd))}</script>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
 
   <!-- Google tag (gtag.js) -->
@@ -298,6 +318,8 @@ function landingHTML() {
     }
     .footer a { color: var(--muted); }
     .footer-guides { margin-bottom: 14px; line-height: 2; }
+    .footer-langs { margin-bottom: 14px; }
+    .footer-langs span { color: var(--faint); }
 
     @media (max-width: 600px) {
       .hero { padding: 32px 0 22px; }
@@ -322,9 +344,9 @@ function landingHTML() {
   <div class="wrap">
     <a href="/" class="brand"><img src="https://raw.githubusercontent.com/mazzzystar/ccclub/main/assets/icon.png" alt="ccclub" width="28" height="28" /><span>ccclub</span></a>
     <div class="hero">
-      <div class="eyebrow">Among friends</div>
-      <h1>Claude Code & Codex leaderboard among friends.</h1>
-      <p class="tagline">Track coding agent token usage, cost, active status, and agent mix across Claude Code, Codex, OpenCode, Amp, and pi-agent.</p>
+      <div class="eyebrow">${t.eyebrow}</div>
+      <h1>${t.h1}</h1>
+      <p class="tagline">${t.tagline}</p>
       <div class="hero-links">
         <a href="https://github.com/mazzzystar/ccclub" aria-label="GitHub"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg></a>
         <a href="https://discord.gg/6QbGWJUVHq" aria-label="Discord"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></a>
@@ -337,8 +359,8 @@ function landingHTML() {
       <a class="preview-frame" href="https://ccclub.dev/g/YHAW6P" aria-label="Open the live ccclub leaderboard preview">
         <img src="/og.png" alt="ccclub leaderboard preview" width="1264" height="756" />
         <div class="preview-caption">
-          <strong class="preview-title"><span class="live-dot" aria-hidden="true"></span>Live leaderboard preview</strong>
-          <span>Cost · tokens · turns · active friends · agent mix</span>
+          <strong class="preview-title"><span class="live-dot" aria-hidden="true"></span>${t.previewTitle}</strong>
+          <span>${t.previewCaption}</span>
         </div>
       </a>
     </div>
@@ -348,16 +370,16 @@ function landingHTML() {
         <div class="setup-tabs" role="tablist" aria-label="Setup mode">
           <button class="setup-tab active" type="button" data-setup-mode="agent" role="tab" aria-selected="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="6" y="8" width="12" height="9" rx="2"/><path d="M12 5v3M9 17v2m6-2v2M8.5 12h.01M15.5 12h.01M4 11v3m16-3v3"/></svg>
-            I'm Agent
+            ${t.tabAgent}
           </button>
           <button class="setup-tab" type="button" data-setup-mode="human" role="tab" aria-selected="false">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>
-            I'm Human
+            ${t.tabHuman}
           </button>
         </div>
         <div class="setup-body">
-          <p class="setup-title" id="setup-title">Send this prompt to your coding agent.</p>
-          <p class="setup-subtitle" id="setup-subtitle">It will install ccclub, initialize your group, and keep supported agent usage fresh with almost no setup.</p>
+          <p class="setup-title" id="setup-title">${t.agentTitle}</p>
+          <p class="setup-subtitle" id="setup-subtitle">${t.agentSubtitle}</p>
           <div class="supported-card" aria-label="Supported coding agents">
             <div class="agent-stack">
               <span class="agent-logo" title="Claude Code"><img src="/agent-icons/claude.svg" alt="Claude Code" /></span>
@@ -367,7 +389,7 @@ function landingHTML() {
               <span class="agent-logo pi" title="pi-agent">π</span>
             </div>
             <div class="supported-copy">
-              <strong>Supported agents</strong>
+              <strong>${t.supportedStrong}</strong>
               <span>Claude Code · Codex · OpenCode · Amp · pi-agent</span>
             </div>
           </div>
@@ -383,49 +405,49 @@ function landingHTML() {
     <hr class="divider" />
 
     <div class="section">
-      <h2>How it works</h2>
+      <h2>${t.howItWorks}</h2>
       <div class="steps">
         <div class="step">
           <div class="step-num">1</div>
           <div class="step-content">
-            <h3>Initialize</h3>
-            <p>Run <code class="mono">npx ccclub init</code> and enter your name. You get an invite link to share.</p>
+            <h3>${t.step1h}</h3>
+            <p>${raw(t.step1p)}</p>
           </div>
         </div>
         <div class="step">
           <div class="step-num">2</div>
           <div class="step-content">
-            <h3>Invite</h3>
-            <p>Share your invite link or have friends run <code class="mono">npx ccclub join CODE</code>. No account needed.</p>
+            <h3>${t.step2h}</h3>
+            <p>${raw(t.step2p)}</p>
           </div>
         </div>
         <div class="step">
           <div class="step-num">3</div>
           <div class="step-content">
-            <h3>See the leaderboard</h3>
-            <p>Claude Code syncs at session end, and background sync picks up Codex, OpenCode, Amp, and pi-agent. Run <code class="mono">ccclub</code> or open the web dashboard.</p>
+            <h3>${t.step3h}</h3>
+            <p>${raw(t.step3p)}</p>
           </div>
         </div>
       </div>
       <div class="how-detail">
-        <p>ccclub reads token counts, cost estimates, model names, and number of calls from local coding agent logs for Claude Code, Codex, OpenCode, Amp, and pi-agent. No prompts, responses, code, file paths, or conversation data ever leave your machine.</p>
-        <p style="margin-top:8px">Run <code class="mono">ccclub show-data</code> to see exactly what gets uploaded.</p>
+        <p>${t.howDetail1}</p>
+        <p style="margin-top:8px">${raw(t.howDetail2)}</p>
       </div>
     </div>
 
     <hr class="divider" />
 
     <div class="section">
-      <h2>Commands</h2>
+      <h2>${t.commandsTitle}</h2>
       <div class="cmd-list">
-        <div class="cmd-row"><code class="mono">ccclub init</code><span>Create a group</span></div>
-        <div class="cmd-row"><code class="mono">ccclub join CODE</code><span>Join a friend's group</span></div>
-        <div class="cmd-row"><code class="mono">ccclub</code><span>Today's leaderboard (active members only)</span></div>
-        <div class="cmd-row"><code class="mono">ccclub --all</code><span>Show everyone, including those with no activity</span></div>
-        <div class="cmd-row"><code class="mono">ccclub --no-cache</code><span>Exclude cache tokens from count</span></div>
-        <div class="cmd-row"><code class="mono">ccclub -d 1</code><span>Yesterday / 7 / 30 / all</span></div>
-        <div class="cmd-row"><code class="mono">ccclub sync</code><span>Manual sync (auto-sync also runs in background)</span></div>
-        <div class="cmd-row"><code class="mono">ccclub show-data</code><span>Privacy audit</span></div>
+        <div class="cmd-row"><code class="mono">ccclub init</code><span>${t.cmdCreate}</span></div>
+        <div class="cmd-row"><code class="mono">ccclub join CODE</code><span>${t.cmdJoin}</span></div>
+        <div class="cmd-row"><code class="mono">ccclub</code><span>${t.cmdToday}</span></div>
+        <div class="cmd-row"><code class="mono">ccclub --all</code><span>${t.cmdAll}</span></div>
+        <div class="cmd-row"><code class="mono">ccclub --no-cache</code><span>${t.cmdNoCache}</span></div>
+        <div class="cmd-row"><code class="mono">ccclub -d 1</code><span>${t.cmdDays}</span></div>
+        <div class="cmd-row"><code class="mono">ccclub sync</code><span>${t.cmdSync}</span></div>
+        <div class="cmd-row"><code class="mono">ccclub show-data</code><span>${t.cmdShowData}</span></div>
       </div>
     </div>
 
@@ -441,6 +463,13 @@ function landingHTML() {
         &nbsp;\u00b7&nbsp;
         <a href="/claude-code-leaderboards">Leaderboards compared</a>
       </div>
+      <div class="footer-langs">
+        ${LANDING_LANGS.map((l, i) =>
+          html`${i > 0 ? raw("&nbsp;\u00b7&nbsp;") : ""}${
+            l === lang ? html`<span>${LANG_LABELS[l]}</span>` : html`<a href="${landingPath(l)}">${LANG_LABELS[l]}</a>`
+          }`,
+        )}
+      </div>
       <a href="/guides">Guides</a>
       &nbsp;\u00b7&nbsp;
       <a href="/blog">Blog</a>
@@ -453,18 +482,12 @@ function landingHTML() {
   </div>
 
   <script>
-    var setupModes = {
-      agent: {
-        title: "Send this prompt to your coding agent.",
-        subtitle: "It will install ccclub, initialize your group, and keep supported agent usage fresh with almost no setup.",
-        copy: "Read https://ccclub.dev/llms-full.txt"
-      },
-      human: {
-        title: "Run one command and start your club.",
-        subtitle: "ccclub auto-detects supported local agent logs. Friends can join with the invite code it prints.",
-        copy: "npx ccclub init"
-      }
-    };
+    var setupModes = ${raw(
+      JSON.stringify({
+        agent: { title: t.agentTitle, subtitle: t.agentSubtitle, copy: "Read https://ccclub.dev/llms-full.txt" },
+        human: { title: t.humanTitle, subtitle: t.humanSubtitle, copy: "npx ccclub init" },
+      }),
+    )};
     function setSetupMode(mode) {
       var data = setupModes[mode];
       if (!data) return;

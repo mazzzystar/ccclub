@@ -15,7 +15,7 @@ app.get("/blog/:slug", (c) => {
   return c.html(blogPostHTML(post));
 });
 
-const BLOG_CSS = `
+export const BLOG_CSS = `
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
       --bg: #1a1816; --text: #e8e4de; --title: #f1ede7; --muted: #8a8480;
@@ -153,6 +153,8 @@ const FOOTER = html`
       <a href="/">← Home</a>
       &nbsp;·&nbsp;
       <a href="/blog">Blog</a>
+      &nbsp;·&nbsp;
+      <a href="/guides">Guides</a>
       &nbsp;·&nbsp;
       <a href="https://github.com/mazzzystar/ccclub">GitHub</a>
       &nbsp;·&nbsp;

@@ -297,6 +297,7 @@ function landingHTML() {
       text-align: center; color: var(--faint); font-size: 13px;
     }
     .footer a { color: var(--muted); }
+    .footer-guides { margin-bottom: 14px; line-height: 2; }
 
     @media (max-width: 600px) {
       .hero { padding: 32px 0 22px; }
@@ -429,6 +430,19 @@ function landingHTML() {
     </div>
 
     <div class="footer">
+      <div class="footer-guides">
+        <a href="/claude-code-usage">Check Claude Code usage</a>
+        &nbsp;\u00b7&nbsp;
+        <a href="/claude-code-limits">Limits explained</a>
+        &nbsp;\u00b7&nbsp;
+        <a href="/codex-usage">Track Codex usage</a>
+        &nbsp;\u00b7&nbsp;
+        <a href="/ccusage-vs-ccclub">ccusage vs ccclub</a>
+        &nbsp;\u00b7&nbsp;
+        <a href="/claude-code-leaderboards">Leaderboards compared</a>
+      </div>
+      <a href="/guides">Guides</a>
+      &nbsp;\u00b7&nbsp;
       <a href="/blog">Blog</a>
       &nbsp;\u00b7&nbsp;
       <a href="https://discord.gg/6QbGWJUVHq">Discord</a>

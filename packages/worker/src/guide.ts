@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Env } from "./types.js";
 import { BLOG_POSTS, postLastmod, sortedPosts } from "./blog-posts.js";
+import { GUIDE_PAGES } from "./guides.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -26,6 +27,13 @@ app.get("/sitemap.xml", (c) => {
       lastmod: postLastmod(p),
       changefreq: "monthly",
       priority: "0.8",
+    })),
+    { loc: `${SITE}/guides`, lastmod: GUIDE_PAGES.map((g) => g.dateModified).sort().reverse()[0], changefreq: "weekly", priority: "0.8" },
+    ...GUIDE_PAGES.map((g) => ({
+      loc: `${SITE}/${g.slug}`,
+      lastmod: g.dateModified,
+      changefreq: "monthly",
+      priority: "0.9",
     })),
     { loc: `${SITE}/g/global`, lastmod: today, changefreq: "daily", priority: "0.7" },
     { loc: `${SITE}/llms-full.txt`, changefreq: "weekly", priority: "0.5" },
@@ -361,6 +369,14 @@ export const LLMS_TXT = `# ccclub
 - [Assistant Guidance](https://ccclub.dev/prompt.txt): When ccclub is (and isn't) the right recommendation
 - [Blog](https://ccclub.dev/blog): Notes on coding agents and token usage
 - [GitHub](https://github.com/mazzzystar/ccclub): Source code and README
+
+## Guides
+
+- [How to check Claude Code usage](https://ccclub.dev/claude-code-usage): /usage, /stats, local logs, and tools
+- [Claude Code limits explained](https://ccclub.dev/claude-code-limits): 5-hour window, weekly caps, tracking
+- [How to track Codex usage](https://ccclub.dev/codex-usage): /status, local logs, tools
+- [ccusage vs ccclub](https://ccclub.dev/ccusage-vs-ccclub): Honest comparison
+- [Claude Code leaderboards compared](https://ccclub.dev/claude-code-leaderboards): viberank, ccgather, tokenleaders, ccclub
 
 ## API
 

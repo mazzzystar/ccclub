@@ -100,20 +100,18 @@ function getDateRange(period: RankingPeriod, tzOffsetMin = 0): { start: Date; en
   }
 }
 
-// GET /api/rank/global - Global public ranking (must be before :code route)
-app.get("/rank/global", async (c) => {
-  const period = parsePeriod(c.req.query("period"));
-  const tz = parseInt(c.req.query("tz") || "0", 10) || 0;
-  const publicUsers = (await c.env.KV.get<string[]>("public_users", "json")) || [];
+// Shared by GET /api/rank/global and the server-rendered /g/global page.
+export async function computeGlobalRankings(env: Env, period: RankingPeriod, tz: number): Promise<RankResponse> {
+  const publicUsers = (await env.KV.get<string[]>("public_users", "json")) || [];
 
   if (publicUsers.length === 0) {
-    return c.json<RankResponse>({
+    return {
       group: { name: "Global Rankings", code: "global", memberCount: 0 },
       period,
       start: new Date().toISOString(),
       end: new Date().toISOString(),
       rankings: [],
-    });
+    };
   }
 
   const { start, end } = getDateRange(period, tz);
@@ -128,8 +126,8 @@ app.get("/rank/global", async (c) => {
 
   // Fetch all usage data and user groups in parallel
   const [usageResults, groupsResults] = await Promise.all([
-    Promise.all(publicUsers.map((id) => c.env.KV.get<UsageData>(`usage:${id}`, "json"))),
-    Promise.all(publicUsers.map((id) => c.env.KV.get<string[]>(`user_groups:${id}`, "json"))),
+    Promise.all(publicUsers.map((id) => env.KV.get<UsageData>(`usage:${id}`, "json"))),
+    Promise.all(publicUsers.map((id) => env.KV.get<string[]>(`user_groups:${id}`, "json"))),
   ]);
 
   // Fetch first group for each user (for display name + plan) in parallel
@@ -138,7 +136,7 @@ app.get("/rank/global", async (c) => {
   const groupMap = new Map<string, GroupRecord>();
   await Promise.all(
     uniqueCodes.map(async (code) => {
-      const g = await c.env.KV.get<GroupRecord>(`group:${code}`, "json");
+      const g = await env.KV.get<GroupRecord>(`group:${code}`, "json");
       if (g) groupMap.set(code, g);
     }),
   );
@@ -249,13 +247,20 @@ app.get("/rank/global", async (c) => {
   entries.sort((a, b) => b.costUSD - a.costUSD);
   entries.forEach((e, i) => (e.rank = i + 1));
 
-  return c.json<RankResponse>({
+  return {
     group: { name: "Global Rankings", code: "global", memberCount: publicUsers.length },
     period,
     start: start.toISOString(),
     end: end.toISOString(),
     rankings: entries,
-  });
+  };
+}
+
+// GET /api/rank/global - Global public ranking (must be before :code route)
+app.get("/rank/global", async (c) => {
+  const period = parsePeriod(c.req.query("period"));
+  const tz = parseInt(c.req.query("tz") || "0", 10) || 0;
+  return c.json<RankResponse>(await computeGlobalRankings(c.env, period, tz));
 });
 
 // GET /api/rank/:code

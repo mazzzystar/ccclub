@@ -59,6 +59,7 @@ function inviteHTML(group: GroupRecord) {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${ogTitle} — ccclub</title>
   <meta name="description" content="${ogDesc}" />
+  <meta name="robots" content="noindex" />
 
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://ccclub.dev/invite/${code}" />
@@ -306,6 +307,7 @@ function notFoundHTML(code: string) {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Invite not found — ccclub</title>
+  <meta name="robots" content="noindex" />
   <meta name="theme-color" content="#1a1816" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
   <style>

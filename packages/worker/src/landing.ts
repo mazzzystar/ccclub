@@ -16,7 +16,6 @@ function landingHTML() {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ccclub \u2014 Claude Code & Codex Leaderboard Among Friends</title>
   <meta name="description" content="Claude Code and Codex leaderboard among friends. Track coding agent token usage, costs, and active status across Claude Code, Codex, OpenCode, Amp, and pi-agent." />
-  <meta name="keywords" content="Claude Code leaderboard, Codex leaderboard, Claude Code usage tracker, Codex usage tracker, coding agent leaderboard, AI coding agent token usage, Claude Code cost tracking, Codex cost tracking, OpenCode usage, Amp usage, pi-agent usage, ccclub" />
   <meta name="application-name" content="ccclub" />
 
   <!-- Open Graph -->
@@ -37,6 +36,7 @@ function landingHTML() {
 
   <meta name="theme-color" content="#1a1816" />
   <link rel="canonical" href="https://ccclub.dev/" />
+  <link rel="alternate" type="application/rss+xml" title="ccclub blog" href="https://ccclub.dev/rss.xml" />
 
   <script type="application/ld+json">
   {
@@ -429,7 +429,7 @@ function landingHTML() {
     </div>
 
     <div class="footer">
-      <a href="/blog/why-i-built-ccclub">Blog</a>
+      <a href="/blog">Blog</a>
       &nbsp;\u00b7&nbsp;
       <a href="https://discord.gg/6QbGWJUVHq">Discord</a>
       &nbsp;\u00b7&nbsp;

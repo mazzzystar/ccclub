@@ -1,67 +1,21 @@
 import { Hono } from "hono";
-import { html } from "hono/html";
+import { html, raw } from "hono/html";
 import type { Env } from "./types.js";
+import { BLOG_POSTS, getPost, postLastmod, sortedPosts, type BlogPost } from "./blog-posts.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
-app.get("/blog/why-i-built-ccclub", (c) => {
-  return c.html(blogPostHTML());
+app.get("/blog", (c) => {
+  return c.html(blogIndexHTML());
 });
 
-function blogPostHTML() {
-  const title = "Why I built ccclub";
-  const description = "I wanted to know how my friends were using Claude Code. So I built a leaderboard.";
-  const url = "https://ccclub.dev/blog/why-i-built-ccclub";
+app.get("/blog/:slug", (c) => {
+  const post = getPost(c.req.param("slug"));
+  if (!post) return c.html(blogNotFoundHTML(), 404);
+  return c.html(blogPostHTML(post));
+});
 
-  return html`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${title} — ccclub</title>
-  <meta name="description" content="${description}" />
-
-  <meta property="og:type" content="article" />
-  <meta property="og:url" content="${url}" />
-  <meta property="og:site_name" content="ccclub" />
-  <meta property="og:title" content="${title}" />
-  <meta property="og:description" content="${description}" />
-  <meta property="og:image" content="https://ccclub.dev/og.png" />
-  <meta property="article:author" content="Ke Fang" />
-  <meta property="article:published_time" content="2026-02-13" />
-
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="${title}" />
-  <meta name="twitter:description" content="${description}" />
-  <meta name="twitter:image" content="https://ccclub.dev/og.png" />
-
-  <meta name="theme-color" content="#1a1816" />
-  <link rel="canonical" href="${url}" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
-
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "BlogPosting",
-    "headline": "${title}",
-    "description": "${description}",
-    "url": "${url}",
-    "datePublished": "2026-02-13",
-    "author": { "@type": "Person", "name": "Ke Fang", "url": "https://github.com/mazzzystar" },
-    "publisher": { "@type": "Organization", "name": "ccclub", "url": "https://ccclub.dev" },
-    "image": "https://ccclub.dev/og.png"
-  }
-  </script>
-
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-RG2RD9V66M"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-RG2RD9V66M');
-  </script>
-
-  <style>
+const BLOG_CSS = `
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
       --bg: #1a1816; --text: #e8e4de; --title: #f1ede7; --muted: #8a8480;
@@ -106,6 +60,10 @@ function blogPostHTML() {
       font-size: 20px; font-weight: 600; color: var(--title);
       margin: 40px 0 16px; letter-spacing: -0.3px;
     }
+    .post h3 {
+      font-size: 16px; font-weight: 600; color: var(--title);
+      margin: 28px 0 12px;
+    }
     .post p { margin-bottom: 16px; color: var(--text); font-size: 16px; }
     .post p.dim { color: var(--muted); }
     .post ul, .post ol { margin: 16px 0; padding-left: 24px; }
@@ -118,6 +76,15 @@ function blogPostHTML() {
       border: none; border-top: 1px solid var(--line);
       margin: 40px 0;
     }
+    .post table {
+      width: 100%; border-collapse: collapse; margin: 24px 0; font-size: 14px;
+    }
+    .post th, .post td {
+      text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    .post th { color: var(--muted); font-weight: 600; }
+    .table-scroll { overflow-x: auto; }
     .cta-box {
       background: var(--panel); border: 1px solid var(--line);
       border-radius: 10px; padding: 24px; margin: 32px 0;
@@ -125,6 +92,27 @@ function blogPostHTML() {
     }
     .cta-box code { font-size: 16px; color: var(--success); background: none; }
     .cta-box p { color: var(--muted); font-size: 14px; margin: 8px 0 0; }
+
+    .post-list { padding: 48px 0 64px; }
+    .post-list h1 {
+      font-size: 28px; font-weight: 700; letter-spacing: -0.5px;
+      color: var(--title); margin-bottom: 8px;
+    }
+    .post-list .intro { color: var(--muted); font-size: 15px; margin-bottom: 40px; }
+    .post-item { padding: 20px 0; border-bottom: 1px solid var(--line); }
+    .post-item:last-child { border-bottom: none; }
+    .post-item .date { color: var(--faint); font-size: 13px; }
+    .post-item h2 { font-size: 19px; font-weight: 600; letter-spacing: -0.3px; margin: 4px 0 6px; }
+    .post-item h2 a { color: var(--title); }
+    .post-item h2 a:hover { color: var(--link); text-decoration: none; }
+    .post-item p { color: var(--muted); font-size: 14px; }
+
+    .related {
+      margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--line);
+    }
+    .related h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin-bottom: 12px; }
+    .related ul { list-style: none; padding: 0; margin: 0; }
+    .related li { margin-bottom: 8px; font-size: 14px; }
 
     .footer {
       padding: 48px 0; border-top: 1px solid var(--line);
@@ -136,71 +124,195 @@ function blogPostHTML() {
       .post h1 { font-size: 26px; }
       .post { padding: 32px 0 48px; }
     }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <a href="/" class="brand">
-      <img src="https://raw.githubusercontent.com/mazzzystar/ccclub/main/assets/icon.png" alt="ccclub" width="28" height="28" />
-      <span>ccclub</span>
-    </a>
+`;
 
-    <article class="post">
-      <div class="post-meta">February 2026</div>
-      <h1>Why I built ccclub</h1>
+function headCommon(opts: { title: string; description: string; canonical: string; noindex?: boolean }) {
+  return html`
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${opts.title}</title>
+  <meta name="description" content="${opts.description}" />
+  ${opts.noindex ? html`<meta name="robots" content="noindex" />` : ""}
+  <meta name="theme-color" content="#1a1816" />
+  <link rel="canonical" href="${opts.canonical}" />
+  <link rel="alternate" type="application/rss+xml" title="ccclub blog" href="https://ccclub.dev/rss.xml" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
 
-      <p>A few months ago I started using Claude Code for most of my daily work. Writing features, fixing bugs, refactoring — the kind of things I used to do in an editor with occasional Stack Overflow tabs.</p>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-RG2RD9V66M"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-RG2RD9V66M');
+  </script>
+`;
+}
 
-      <p>One evening I was talking with a friend and we started comparing notes. How much are you spending? How many tokens? What model do you use? We were both curious, but neither of us had an easy way to check. Claude Code writes local usage logs, but they're raw JSONL files scattered across <code>~/.claude/projects/</code>. Not exactly something you'd screenshot and send.</p>
-
-      <p>So I built ccclub — a small CLI tool that reads those logs, aggregates the numbers, and puts them on a shared leaderboard.</p>
-
-      <h2>How it works</h2>
-
-      <p>You run <code>npx ccclub init</code>, pick a name, and get a six-letter invite code. Share the code with friends. They run <code>npx ccclub join CODE</code>. That's it — no accounts, no email, no config.</p>
-
-      <p>After that, every time you finish a Claude Code session, a hook automatically syncs your usage. Run <code>ccclub</code> in the terminal and you see a leaderboard: who spent the most, who sent the most tokens, who's active right now.</p>
-
-      <p>There's also a web dashboard at <code>ccclub.dev/g/CODE</code> with an activity chart, so you can see when your friends are coding and how their usage patterns look over time.</p>
-
-      <h2>What it tracks</h2>
-
-      <p>Token counts, cost estimates, model names, and number of turns. That's all. No prompts, no code, no file paths, no conversation data. You can run <code>ccclub show-data</code> to see exactly what gets uploaded before it leaves your machine.</p>
-
-      <p>The cost is calculated based on public API pricing — it shows you the equivalent dollar value of the tokens you've consumed. If you set your subscription plan (<code>ccclub profile --plan max200</code>), it also calculates your Monthly ROI: how much usage value you got relative to what you paid.</p>
-
-      <h2>Beyond Claude Code</h2>
-
-      <p>Since the initial release, ccclub has grown to support multiple coding agents. It now reads usage logs from Claude Code, Codex, OpenCode, Amp, and pi-agent. If you use more than one, all of them show up in the same leaderboard.</p>
-
-      <p>The data stays local — ccclub reads from each agent's default log directory, aggregates everything into 30-minute blocks, and uploads only the numeric summaries.</p>
-
-      <h2>What people use it for</h2>
-
-      <p>Some teams use it to get a rough sense of who's actively using AI-assisted coding and how much it's costing. Some friend groups treat it as a lighthearted competition. A few solo developers just use it to track their own usage over time — the "all time" view gives you a nice historical picture.</p>
-
-      <p>I didn't plan for any of these use cases. I just wanted to compare numbers with one friend. The rest happened on its own.</p>
-
-      <h2>Try it</h2>
-
-      <div class="cta-box">
-        <code>npx ccclub init</code>
-        <p>One command. No signup. Invite your friends and see the leaderboard.</p>
-      </div>
-
-      <p class="dim">ccclub is open source and free. The code is on <a href="https://github.com/mazzzystar/ccclub">GitHub</a>.</p>
-    </article>
-
+const FOOTER = html`
     <div class="footer">
       <a href="/">← Home</a>
+      &nbsp;·&nbsp;
+      <a href="/blog">Blog</a>
       &nbsp;·&nbsp;
       <a href="https://github.com/mazzzystar/ccclub">GitHub</a>
       &nbsp;·&nbsp;
       <a href="https://discord.gg/6QbGWJUVHq">Discord</a>
     </div>
+`;
+
+const BRAND = html`
+    <a href="/" class="brand">
+      <img src="https://raw.githubusercontent.com/mazzzystar/ccclub/main/assets/icon.png" alt="ccclub" width="28" height="28" />
+      <span>ccclub</span>
+    </a>
+`;
+
+// ── Blog index ───────────────────────────────────────────────
+
+function blogIndexHTML() {
+  const posts = sortedPosts();
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    name: "ccclub blog",
+    url: "https://ccclub.dev/blog",
+    description: "Notes on coding agents, token usage, and building ccclub.",
+    publisher: { "@type": "Organization", name: "ccclub", url: "https://ccclub.dev" },
+    blogPost: posts.map((p) => ({
+      "@type": "BlogPosting",
+      headline: p.title,
+      url: `https://ccclub.dev/blog/${p.slug}`,
+      datePublished: p.datePublished,
+      dateModified: postLastmod(p),
+      author: { "@type": "Person", name: p.author },
+    })),
+  };
+
+  return html`<!DOCTYPE html>
+<html lang="en">
+<head>
+  ${headCommon({
+    title: "Blog — ccclub",
+    description: "Notes on coding agents, token usage, and building ccclub.",
+    canonical: "https://ccclub.dev/blog",
+  })}
+  <script type="application/ld+json">${raw(JSON.stringify(jsonLd))}</script>
+  <style>${raw(BLOG_CSS)}</style>
+</head>
+<body>
+  <div class="wrap">
+    ${BRAND}
+    <div class="post-list">
+      <h1>Blog</h1>
+      <p class="intro">Notes on coding agents, token usage, and building ccclub.</p>
+      ${posts.map(
+        (p) => html`
+      <div class="post-item">
+        <div class="date">${p.displayDate}</div>
+        <h2><a href="/blog/${p.slug}">${p.title}</a></h2>
+        <p>${p.description}</p>
+      </div>`,
+      )}
+    </div>
+    ${FOOTER}
   </div>
 </body>
 </html>`;
 }
 
-export { app as blogRoute };
+// ── Blog post ────────────────────────────────────────────────
+
+function blogPostHTML(post: BlogPost) {
+  const url = `https://ccclub.dev/blog/${post.slug}`;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.title,
+    description: post.description,
+    url,
+    datePublished: post.datePublished,
+    dateModified: postLastmod(post),
+    author: { "@type": "Person", name: post.author, url: "https://github.com/mazzzystar" },
+    publisher: { "@type": "Organization", name: "ccclub", url: "https://ccclub.dev" },
+    image: "https://ccclub.dev/og.png",
+    mainEntityOfPage: { "@type": "WebPage", "@id": url },
+  };
+
+  const others = sortedPosts().filter((p) => p.slug !== post.slug).slice(0, 4);
+
+  return html`<!DOCTYPE html>
+<html lang="en">
+<head>
+  ${headCommon({ title: `${post.title} — ccclub`, description: post.description, canonical: url })}
+
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="${url}" />
+  <meta property="og:site_name" content="ccclub" />
+  <meta property="og:title" content="${post.title}" />
+  <meta property="og:description" content="${post.description}" />
+  <meta property="og:image" content="https://ccclub.dev/og.png" />
+  <meta property="article:author" content="${post.author}" />
+  <meta property="article:published_time" content="${post.datePublished}" />
+  <meta property="article:modified_time" content="${postLastmod(post)}" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${post.title}" />
+  <meta name="twitter:description" content="${post.description}" />
+  <meta name="twitter:image" content="https://ccclub.dev/og.png" />
+
+  <script type="application/ld+json">${raw(JSON.stringify(jsonLd))}</script>
+  <style>${raw(BLOG_CSS)}</style>
+</head>
+<body>
+  <div class="wrap">
+    ${BRAND}
+
+    <article class="post">
+      <div class="post-meta">${post.displayDate}</div>
+      <h1>${post.title}</h1>
+      ${raw(post.body)}
+      ${others.length > 0
+        ? html`
+      <div class="related">
+        <h2>More from the blog</h2>
+        <ul>
+          ${others.map((p) => html`<li><a href="/blog/${p.slug}">${p.title}</a></li>`)}
+        </ul>
+      </div>`
+        : ""}
+    </article>
+
+    ${FOOTER}
+  </div>
+</body>
+</html>`;
+}
+
+// ── 404 ──────────────────────────────────────────────────────
+
+function blogNotFoundHTML() {
+  return html`<!DOCTYPE html>
+<html lang="en">
+<head>
+  ${headCommon({
+    title: "Post not found — ccclub",
+    description: "This blog post doesn't exist.",
+    canonical: "https://ccclub.dev/blog",
+    noindex: true,
+  })}
+  <style>${raw(BLOG_CSS)}</style>
+</head>
+<body>
+  <div class="wrap">
+    ${BRAND}
+    <div class="post-list">
+      <h1>Post not found</h1>
+      <p class="intro">This post doesn't exist. See <a href="/blog">all posts</a>.</p>
+    </div>
+    ${FOOTER}
+  </div>
+</body>
+</html>`;
+}
+
+export { app as blogRoute, BLOG_POSTS };

@@ -1,26 +1,77 @@
 import { Hono } from "hono";
-import { html } from "hono/html";
+import { html, raw } from "hono/html";
 import type { Env } from "./types.js";
-import type { AgentSource, GroupRecord, UsageData } from "@ccclub/shared";
+import type { AgentSource, GroupRecord, RankingEntry, UsageData } from "@ccclub/shared";
+import { computeGlobalRankings } from "./routes/rankings.js";
 import { cachedPngResponse, getColor, hashCode, htmlEsc, latinOnly, ogCacheUrl, renderToPng, sanitizeCode, svgEsc, truncate } from "./og-utils.js";
 
 const app = new Hono<{ Bindings: Env }>();
+
+const GLOBAL_SSR_CACHE_KEY = "ssr_global:v1:weekly";
 
 app.get("/g/:code", async (c) => {
   const code = sanitizeCode(c.req.param("code"));
   if (!code) return c.text("Invalid code", 400);
   const isGlobal = code.toLowerCase() === "global";
-  let groupName = "";
-  let memberCount = 0;
-  if (!isGlobal) {
-    const group = await c.env.KV.get<GroupRecord>(`group:${code}`, "json");
-    if (group) {
-      groupName = group.name;
-      memberCount = group.members.length;
+
+  if (isGlobal) {
+    // Server-render the weekly top rows so the global leaderboard has real,
+    // crawlable content (the client JS replaces it with the live view).
+    let ssr = await c.env.KV.get<{ rankings: RankingEntry[]; memberCount: number }>(GLOBAL_SSR_CACHE_KEY, "json");
+    if (!ssr) {
+      try {
+        const rank = await computeGlobalRankings(c.env, "weekly", 0);
+        ssr = { rankings: rank.rankings.slice(0, 20), memberCount: rank.group.memberCount };
+        c.executionCtx.waitUntil(
+          c.env.KV.put(GLOBAL_SSR_CACHE_KEY, JSON.stringify(ssr), { expirationTtl: 600 }),
+        );
+      } catch {
+        ssr = { rankings: [], memberCount: 0 };
+      }
     }
+    return c.html(dashboardHTML(code, "Global Rankings", ssr.memberCount, { ssr }));
   }
-  return c.html(dashboardHTML(code, groupName, memberCount));
+
+  const group = await c.env.KV.get<GroupRecord>(`group:${code}`, "json");
+  // Private group dashboards are for members, not search results: noindex.
+  // Unknown codes return the same shell with a 404 status.
+  if (!group) {
+    return c.html(dashboardHTML(code, "", 0, { noindex: true }), 404);
+  }
+  return c.html(dashboardHTML(code, group.name, group.members.length, { noindex: true }));
 });
+
+function ssrGlobalContentHTML(rankings: RankingEntry[]): string {
+  if (rankings.length === 0) return "";
+  const rows = rankings
+    .map((r, i) => {
+      const rankClass = i === 0 ? "rank gold" : i === 1 ? "rank silver" : i === 2 ? "rank bronze" : "rank";
+      const name = r.url
+        ? `<a href="${htmlEsc(r.url)}" rel="noopener" class="name-link">${htmlEsc(r.displayName)}</a>`
+        : htmlEsc(r.displayName);
+      return `<tr><td class="${rankClass}">${i + 1}</td><td><span class="name-text">${name}</span></td><td class="cost">$${r.costUSD.toFixed(2)}</td><td class="tokens">${formatCompactNumber(r.totalTokens)}</td><td class="calls">${formatCompactNumber(r.chatCount || 0)}</td></tr>`;
+    })
+    .join("");
+  return `<div class="table-shell"><table><thead><tr><th>#</th><th>Member</th><th>Cost</th><th>Tokens</th><th>Turns</th></tr></thead><tbody>${rows}</tbody></table></div>
+<p class="meta" style="text-align:left;margin-top:16px">Last 7 days, UTC. Everyone here opted in with <code>ccclub profile --public</code>. Cost is an estimate at public API pricing across Claude Code, Codex, OpenCode, Amp, and pi-agent.</p>`;
+}
+
+function ssrGlobalJsonLd(rankings: RankingEntry[]): string {
+  if (rankings.length === 0) return "";
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "ccclub global leaderboard — top users this week",
+    url: "https://ccclub.dev/g/global",
+    numberOfItems: Math.min(rankings.length, 10),
+    itemListElement: rankings.slice(0, 10).map((r, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: r.displayName,
+    })),
+  };
+  return `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>`;
+}
 
 // ── Dashboard OG image with ranking table ────────────────────
 
@@ -245,14 +296,24 @@ function buildDashboardOgSvg(
 }
 
 
-function dashboardHTML(code: string, groupName: string, memberCount: number) {
+function dashboardHTML(
+  code: string,
+  groupName: string,
+  memberCount: number,
+  opts: { noindex?: boolean; ssr?: { rankings: RankingEntry[]; memberCount: number } } = {},
+) {
   const isGlobal = code.toLowerCase() === "global";
-  const ogTitle = groupName
-    ? `${htmlEsc(truncate(groupName, 40))} \u2014 ccclub`
-    : "ccclub \u2014 Leaderboard";
-  const ogDesc = groupName
-    ? `${memberCount} member${memberCount !== 1 ? "s" : ""} competing on coding agent usage.`
-    : "Coding agent leaderboard among friends. See how you're all doing.";
+  const ogTitle = isGlobal
+    ? "Global Coding-Agent Leaderboard \u2014 ccclub"
+    : groupName
+      ? `${htmlEsc(truncate(groupName, 40))} \u2014 ccclub`
+      : "ccclub \u2014 Leaderboard";
+  const ogDesc = isGlobal
+    ? "Live leaderboard of Claude Code, Codex, OpenCode, Amp, and pi-agent usage \u2014 developers who opted in, ranked by tokens and estimated cost."
+    : groupName
+      ? `${memberCount} member${memberCount !== 1 ? "s" : ""} competing on coding agent usage.`
+      : "Coding agent leaderboard among friends. See how you're all doing.";
+  const ssrContent = opts.ssr ? ssrGlobalContentHTML(opts.ssr.rankings) : "";
   return html`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -260,6 +321,8 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${ogTitle}</title>
   <meta name="description" content="${ogDesc}" />
+  ${opts.noindex ? html`<meta name="robots" content="noindex" />` : ""}
+  ${opts.ssr ? raw(ssrGlobalJsonLd(opts.ssr.rankings)) : ""}
 
   <meta property="og:type" content="website" />
   <meta property="og:title" content="${ogTitle}" />
@@ -568,9 +631,9 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
       <a href="/" class="back-link" id="back-link">\u2190 ${isGlobal ? "My Club" : "Home"}</a>
       ${isGlobal ? html`` : html`<a href="/g/global" class="global-link">Global \u2192</a>`}
     </div>
-    <h1 id="title"></h1>
-    <div class="subtitle" id="date-range"></div>
-    <div class="agent-summary" id="agent-summary"></div>
+    <h1 id="title">${isGlobal ? "Global Rankings" : ""}</h1>
+    <div class="subtitle" id="date-range">${isGlobal ? "Coding-agent usage leaderboard · opt-in · updates live" : ""}</div>
+    <div class="agent-summary" id="agent-summary">${isGlobal ? "Claude Code · Codex · OpenCode · Amp · pi-agent" : ""}</div>
     <div class="active-count" id="active-count"></div>
 
     <div class="periods">
@@ -585,7 +648,7 @@ function dashboardHTML(code: string, groupName: string, memberCount: number) {
       </div>
     </div>
 
-    <div id="content"></div>
+    <div id="content">${raw(ssrContent)}</div>
 
     <div class="chart-section">
       <div class="chart-header">

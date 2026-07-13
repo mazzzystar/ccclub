@@ -5,6 +5,7 @@ import type { Env } from "./types.js";
 import type { AgentSource, RankResponse, RankingEntry } from "@ccclub/shared";
 import { AGENT_LABELS } from "@ccclub/shared";
 import { htmlEsc } from "./og-utils.js";
+import { rankRoutes } from "./routes/rankings.js";
 import { LANDING_LANGS, LANDING_T, landingPath, type LandingLang } from "./landing-i18n.js";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -54,7 +55,7 @@ app.get("/", async (c) => {
     }
   }
   c.header("Vary", "Accept-Language");
-  return c.html(landingHTML("en", await fetchDemoBoard()));
+  return c.html(landingHTML("en", await fetchDemoBoard(c.env, c.executionCtx)));
 });
 
 for (const lang of LANDING_LANGS) {
@@ -62,7 +63,7 @@ for (const lang of LANDING_LANGS) {
   app.get(`/${lang}`, async (c) => {
     // Visiting a localized page directly is also a choice worth remembering.
     setCookie(c, LANG_COOKIE, lang, { path: "/", maxAge: LANG_COOKIE_MAX_AGE, sameSite: "Lax" });
-    return c.html(landingHTML(lang, await fetchDemoBoard()));
+    return c.html(landingHTML(lang, await fetchDemoBoard(c.env, c.executionCtx)));
   });
 }
 
@@ -85,15 +86,14 @@ interface ActivityResponse {
   series: Array<{ displayName: string; totalCost: number; blocks: Array<{ t: string | number; cost: number }> }>;
 }
 
-async function fetchDemoBoard(): Promise<string | null> {
+async function fetchDemoBoard(env: Env, ctx: ExecutionContext): Promise<string | null> {
   try {
+    // In-process dispatch into the rank sub-app: a Worker cannot HTTP-fetch
+    // its own zone, and this reuses the same KV-backed rank/activity caches.
     const [rankRes, activityRes] = await Promise.all([
-      fetch(`https://ccclub.dev/api/rank/${DEMO_GROUP}?period=daily&tz=${DEMO_TZ}`, {
-        signal: AbortSignal.timeout(5_000),
-      }),
-      fetch(`https://ccclub.dev/api/activity/${DEMO_GROUP}?range=24h&tz=${DEMO_TZ}`, {
-        signal: AbortSignal.timeout(5_000),
-      }).catch(() => null),
+      Promise.resolve(rankRoutes.request(`/rank/${DEMO_GROUP}?period=daily&tz=${DEMO_TZ}`, {}, env, ctx)),
+      Promise.resolve(rankRoutes.request(`/activity/${DEMO_GROUP}?range=24h&tz=${DEMO_TZ}`, {}, env, ctx))
+        .catch(() => null),
     ]);
     if (!rankRes.ok) return null;
     const rank = (await rankRes.json()) as RankResponse;

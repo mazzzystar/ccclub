@@ -7,19 +7,20 @@ import ora from "ora";
 import { requireConfig, loadConfig, getLastSyncPath, getLastSyncTimePath } from "../config.js";
 import { collectUsageEntries } from "../collector.js";
 import { parseSources } from "../sources/index.js";
-import { DEFAULT_SOURCES } from "@ccclub/shared";
 import { aggregateToBlocks } from "../aggregator.js";
 import { loadPricing, refreshPricingCache } from "../pricing.js";
 import { refreshRankCache } from "../statusline.js";
 import { createScanCacheFactory } from "../scan-cache.js";
-import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
-import { AGENT_LABELS, AGENT_SOURCES } from "@ccclub/shared";
+import { AGENT_LABELS, AGENT_SOURCES, CCCLUB_CONFIG_DIR, DEFAULT_SOURCES } from "@ccclub/shared";
 import type { AgentSource, SyncRequest, SyncResponse, UsageBlock } from "@ccclub/shared";
 import { formatFetchError } from "../fetch-error.js";
 import { fetchUsageLimits } from "../usage-limits.js";
 
-// Bump this when block format or source coverage changes to auto-trigger a
-// full re-sync ("11": OpenClaw source added — upload its history too).
+// Bump this only when the BLOCK FORMAT changes (new fields, different
+// aggregation) — it forces a one-time full re-sync for every user, which also
+// reprices history against the current table. Newly supported sources do NOT
+// need a bump: filterBlocksToSync uploads the full history of any source that
+// has no per-source sync marker yet.
 const SYNC_FORMAT_VERSION = "11";
 
 function getSyncVersionPath(): string {
@@ -123,7 +124,8 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
     }
 
     let lastSyncBySource: Partial<Record<AgentSource, string>> = {};
-    if (existsSync(getLastSyncBySourcePath())) {
+    const hasSourceState = existsSync(getLastSyncBySourcePath());
+    if (hasSourceState) {
       try {
         lastSyncBySource = JSON.parse(await readFile(getLastSyncBySourcePath(), "utf-8")) as Partial<Record<AgentSource, string>>;
       } catch {
@@ -131,20 +133,13 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
       }
     }
 
-    let blocksToSync: UsageBlock[];
-    if (lastSync && !firstSync) {
-      blocksToSync = allBlocks.filter((b) => {
-        const source = b.source ?? "claude";
-        const sourceLastSync = lastSyncBySource[source] ?? lastSync;
-        return new Date(b.blockStart).getTime() >= new Date(sourceLastSync).getTime();
-      });
-    } else {
-      blocksToSync = allBlocks;
-    }
+    const blocksToSync = filterBlocksToSync(allBlocks, { lastSync, lastSyncBySource, hasSourceState, firstSync });
 
     if (blocksToSync.length === 0) {
       if (spinner) spinner.succeed("Already up to date");
-      await writeFile(getLastSyncBySourcePath(), JSON.stringify(getLatestBlockStartBySource(allBlocks), null, 2));
+      // Merge instead of overwrite: a CCCLUB_SOURCES-filtered run must not
+      // erase the sync markers of sources it did not collect.
+      await writeFile(getLastSyncBySourcePath(), JSON.stringify({ ...lastSyncBySource, ...getLatestBlockStartBySource(allBlocks) }, null, 2));
       await writeFile(getSyncVersionPath(), SYNC_FORMAT_VERSION);
       // Even with no new blocks, upload usage snapshot so others see fresh data
       if (usageSnapshot) {
@@ -186,7 +181,7 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
     // Save last sync timestamp and format version
     const latest = blocksToSync[blocksToSync.length - 1];
     await writeFile(lastSyncPath, latest.blockStart);
-    await writeFile(getLastSyncBySourcePath(), JSON.stringify(getLatestBlockStartBySource(allBlocks), null, 2));
+    await writeFile(getLastSyncBySourcePath(), JSON.stringify({ ...lastSyncBySource, ...getLatestBlockStartBySource(allBlocks) }, null, 2));
     await writeFile(getSyncVersionPath(), SYNC_FORMAT_VERSION);
     await writeFile(getLastSyncTimePath(), String(Date.now()));
 
@@ -209,6 +204,37 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
   } finally {
     await pricingRefresh;
   }
+}
+
+/**
+ * Which blocks to upload. Incremental per source; a source with no sync
+ * marker yet (newly supported by the CLI, or a tool the user just started
+ * using) uploads its FULL history — falling back to the global cutoff would
+ * silently skip everything older than the user's latest activity.
+ * Exported for tests.
+ */
+export function filterBlocksToSync(
+  allBlocks: UsageBlock[],
+  state: {
+    lastSync: string | null;
+    lastSyncBySource: Partial<Record<AgentSource, string>>;
+    hasSourceState: boolean;
+    firstSync: boolean;
+  },
+): UsageBlock[] {
+  if (!state.lastSync || state.firstSync) return allBlocks;
+  const globalCutoff = new Date(state.lastSync).getTime();
+
+  return allBlocks.filter((block) => {
+    const source = block.source ?? "claude";
+    const sourceLastSync = state.lastSyncBySource[source];
+    if (sourceLastSync == null) {
+      // Pre-source-tracking installs have no marker file at all; keep the old
+      // global-cutoff behavior for them instead of a surprise full upload.
+      return state.hasSourceState ? true : new Date(block.blockStart).getTime() >= globalCutoff;
+    }
+    return new Date(block.blockStart).getTime() >= new Date(sourceLastSync).getTime();
+  });
 }
 
 function getLatestBlockStartBySource(blocks: UsageBlock[]): Partial<Record<AgentSource, string>> {

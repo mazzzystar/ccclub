@@ -186,10 +186,12 @@ const AGENT_LABELS_OG: Record<AgentSource, string> = {
   opencode: "OpenCode",
   amp: "Amp",
   pi: "pi-agent",
+  // Wire-compat only: openclaw blocks are excluded from rankings server-side
+  // and never render; the key exists because Record<AgentSource, …> needs it.
   openclaw: "OpenClaw",
 };
 
-const AGENT_ORDER_OG: AgentSource[] = ["claude", "codex", "opencode", "amp", "pi", "openclaw"];
+const AGENT_ORDER_OG: AgentSource[] = ["claude", "codex", "opencode", "amp", "pi"];
 
 function formatAgentSummary(agents: AgentSource[]): string {
   const ordered = AGENT_ORDER_OG.filter((a) => agents.includes(a));

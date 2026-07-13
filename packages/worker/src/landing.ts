@@ -495,14 +495,17 @@ function landingHTML(lang: LandingLang, demoBoard: string | null = null) {
       color: #75c993; font-size: 13px; line-height: 1.4;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .copy-icon {
-      width: 20px; height: 20px; color: #a8a19a; flex: 0 0 auto;
+    .copy-box {
+      display: flex; align-items: center; justify-content: center;
+      width: 26px; height: 26px; border-radius: 7px; flex: 0 0 auto;
+      transition: background 0.15s ease;
     }
-    .copy-feedback {
-      min-height: 18px; margin-top: 9px; color: #3f8f5a;
-      font-size: 12px; opacity: 0; transition: opacity 0.18s ease;
-    }
-    .copy-feedback.show { opacity: 1; }
+    .copy-box svg { width: 18px; height: 18px; }
+    .copy-icon { color: #a8a19a; }
+    .check-icon { display: none; color: #111; }
+    .setup-command.copied .copy-box { background: var(--success); }
+    .setup-command.copied .copy-icon { display: none; }
+    .setup-command.copied .check-icon { display: block; }
     .setup-after-demo { padding: 0 0 64px; }
 
     /* Divider */
@@ -644,9 +647,11 @@ function landingHTML(lang: LandingLang, demoBoard: string | null = null) {
           </div>
           <button class="setup-command" id="copy-setup" type="button" data-copy="npx ccclub init">
             <code class="mono" id="setup-code">npx ccclub init</code>
-            <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 16H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <span class="copy-box" aria-hidden="true">
+              <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 16H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            </span>
           </button>
-          <div class="copy-feedback" id="copy-feedback">Copied</div>
         </div>
       </div>
     </div>
@@ -760,10 +765,10 @@ function landingHTML(lang: LandingLang, demoBoard: string | null = null) {
       });
     });
     document.getElementById("copy-setup").addEventListener("click", function() {
-      var feedback = document.getElementById("copy-feedback");
-      navigator.clipboard.writeText(this.getAttribute("data-copy") || "").then(function() {
-        feedback.classList.add("show");
-        setTimeout(function() { feedback.classList.remove("show"); }, 1800);
+      var btn = this;
+      navigator.clipboard.writeText(btn.getAttribute("data-copy") || "").then(function() {
+        btn.classList.add("copied");
+        setTimeout(function() { btn.classList.remove("copied"); }, 1600);
       });
     });
   </script>

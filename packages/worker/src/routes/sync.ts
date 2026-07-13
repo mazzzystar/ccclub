@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "../types.js";
-import { AGENT_SOURCES, OPT_IN_SOURCES } from "@ccclub/shared";
+import { AGENT_SOURCES, OPT_IN_SOURCES, isRankedSource } from "@ccclub/shared";
 import type { UserRecord, UsageData, SyncResponse, SyncRequest, UsageBlock } from "@ccclub/shared";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -59,9 +59,14 @@ app.post("/sync", async (c) => {
 
   // Merge blocks - deduplicate by source + blockStart. Old blocks did not have source;
   // treat those as Claude so pre-multi-agent data remains compatible.
+  // Non-coding (opt-in) sources are dropped at storage time: 0.6.0/0.6.1
+  // clients still upload them, and nothing they send may reach rankings.
   const blockMap = new Map<string, UsageBlock>();
   for (const b of existing.blocks) blockMap.set(`${b.source ?? "claude"}:${b.blockStart}`, b);
-  for (const b of blocks) blockMap.set(`${b.source ?? "claude"}:${b.blockStart}`, b);
+  for (const b of blocks) {
+    if (!isRankedSource(b.source)) continue;
+    blockMap.set(`${b.source ?? "claude"}:${b.blockStart}`, b);
+  }
 
   let merged: UsageBlock[] = Array.from(blockMap.values()).sort(
     (a, b) => new Date(a.blockStart).getTime() - new Date(b.blockStart).getTime(),

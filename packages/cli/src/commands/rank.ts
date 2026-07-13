@@ -14,7 +14,7 @@ import { maybeAutoEnableStatusline } from "../statusline-install.js";
 import { writeRankCache } from "../statusline.js";
 
 const ACTIVE_THRESHOLD_MS = 15 * 60 * 1000;
-const AGENT_ORDER: AgentSource[] = ["claude", "codex", "opencode", "amp", "pi", "openclaw"];
+const AGENT_ORDER: AgentSource[] = ["claude", "codex", "opencode", "amp", "pi"];
 
 export interface RankCommandOptions {
   // Commander's optional-value flags (`-d [days]`) yield `true` when passed bare.

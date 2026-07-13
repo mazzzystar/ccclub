@@ -8,6 +8,15 @@ export const OPT_IN_SOURCES: readonly AgentSource[] = ["openclaw"];
 export const DEFAULT_SOURCES: readonly AgentSource[] =
   AGENT_SOURCES.filter((source) => !OPT_IN_SOURCES.includes(source));
 
+/**
+ * Non-coding sources are excluded from every ranking computation server-side,
+ * regardless of what clients upload — the leaderboard measures coding, and a
+ * padded-looking source must not be usable to inflate rank.
+ */
+export function isRankedSource(source: AgentSource | undefined): boolean {
+  return !OPT_IN_SOURCES.includes(source ?? "claude");
+}
+
 export const AGENT_LABELS: Record<AgentSource, string> = {
   claude: "Claude",
   codex: "Codex",

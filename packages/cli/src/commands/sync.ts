@@ -6,7 +6,8 @@ import chalk from "chalk";
 import ora from "ora";
 import { requireConfig, loadConfig, getLastSyncPath, getLastSyncTimePath } from "../config.js";
 import { collectUsageEntries } from "../collector.js";
-import { parseSources, resolveTrackedSources } from "../sources/index.js";
+import { parseSources } from "../sources/index.js";
+import { DEFAULT_SOURCES } from "@ccclub/shared";
 import { aggregateToBlocks } from "../aggregator.js";
 import { loadPricing, refreshPricingCache } from "../pricing.js";
 import { refreshRankCache } from "../statusline.js";
@@ -82,9 +83,10 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
   const log = silent ? () => {} : console.log;
   const spinner = silent ? null : ora("Collecting usage data...").start();
 
-  // Durable source set (defaults + opt-ins); CCCLUB_SOURCES stays a
-  // temporary per-run collection filter and never affects trackedSources.
-  const trackedSources = resolveTrackedSources(config.extraSources);
+  // Reporting trackedSources lets the server prune non-coding sources that
+  // 0.6.0/0.6.1 uploaded; CCCLUB_SOURCES stays a per-run collection filter
+  // and never affects it.
+  const trackedSources = [...DEFAULT_SOURCES];
   const collectSources = process.env.CCCLUB_SOURCES?.trim()
     ? parseSources(process.env.CCCLUB_SOURCES)
     : trackedSources;

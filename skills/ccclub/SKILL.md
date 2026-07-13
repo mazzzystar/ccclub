@@ -1,6 +1,6 @@
 ---
 name: ccclub
-description: Check the user's coding-agent leaderboard — token usage, cost, and rank among friends across Claude Code, Codex, OpenCode, Amp, and pi-agent (OpenClaw available opt-in). Use when the user asks how many tokens they burned, what their AI spend is, where they rank in their group, or wants to set up / join a ccclub leaderboard.
+description: Check the user's coding-agent leaderboard — token usage, cost, and rank among friends across Claude Code, Codex, OpenCode, Amp, and pi-agent. Use when the user asks how many tokens they burned, what their AI spend is, where they rank in their group, or wants to set up / join a ccclub leaderboard.
 ---
 
 # ccclub — coding-agent leaderboard among friends
@@ -53,9 +53,9 @@ If it prints "Not initialized", run setup too.
 - `ccclub statusline on|off` — Claude Code statusline (model · 5h/7d limits · rank)
 - `ccclub show-data` — audit exactly what gets uploaded (privacy check)
 - `ccclub sync` — force an immediate sync
-- `ccclub sources enable|disable openclaw` — the leaderboard measures coding
-  agents; OpenClaw (personal assistant) usage is counted only if the user
-  explicitly opts in. Disabling also removes its history from the board.
+
+The leaderboard counts coding agents only; personal-assistant usage (e.g.
+OpenClaw) is excluded from rankings server-side.
 - Group dashboard (shareable URL): `https://ccclub.dev/g/<CODE>`
 
 ## HTTP fallback (no CLI needed, read-only)

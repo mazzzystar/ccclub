@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { html, raw } from "hono/html";
 import type { Env } from "./types.js";
+import { isRankedSource } from "@ccclub/shared";
 import type { AgentSource, GroupRecord, RankingEntry, UsageData } from "@ccclub/shared";
 import { computeGlobalRankings } from "./routes/rankings.js";
 import { cachedPngResponse, getColor, hashCode, htmlEsc, latinOnly, ogCacheUrl, renderToPng, sanitizeCode, svgEsc, truncate } from "./og-utils.js";
@@ -128,6 +129,7 @@ app.get("/g/:code/og.png", async (c) => {
 
       if (usage) {
         for (const block of usage.blocks) {
+          if (!isRankedSource(block.source)) continue;
           const t = new Date(block.blockStart).getTime();
           if (t < startMs || t >= endMs) continue;
           const activityTime = new Date(block.lastActivityAt || block.blockEnd || block.blockStart).getTime();

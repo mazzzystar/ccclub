@@ -2,7 +2,7 @@
 
 # ccclub.dev
 
-Claude Code and Codex leaderboard among friends. Track coding agent token usage, costs, active status, and agent mix across Claude Code, Codex, OpenCode, Amp, pi-agent, and OpenClaw.
+Claude Code and Codex leaderboard among friends. Track coding agent token usage, costs, active status, and agent mix across Claude Code, Codex, OpenCode, Amp, and pi-agent.
 
 <img src="assets/demo.png" alt="ccclub" width="80%" />
 
@@ -39,11 +39,10 @@ Supported sources:
 | OpenCode | `~/.local/share/opencode` |
 | Amp | `~/.local/share/amp/threads` |
 | pi-agent | `~/.pi/agent/sessions` |
-| OpenClaw (opt-in) | `~/.openclaw/agents/*/sessions` |
 
-If you use the default locations, there is nothing to configure. Custom locations are supported with `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_DATA_DIR`, `AMP_DATA_DIR`, `PI_AGENT_DIR`, and `OPENCLAW_DATA_DIR`.
+If you use the default locations, there is nothing to configure. Custom locations are supported with `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_DATA_DIR`, `AMP_DATA_DIR`, and `PI_AGENT_DIR`.
 
-OpenClaw is a personal assistant rather than a coding agent, so it is **off by default** — the leaderboard measures coding. Count it explicitly with `ccclub sources enable openclaw` (and remove it again, history included, with `ccclub sources disable openclaw`).
+The leaderboard deliberately tracks **coding agents only** — usage from personal-assistant tools (e.g. OpenClaw) is excluded server-side so it can never inflate anyone's rank.
 
 ## Commands
 

@@ -4,20 +4,21 @@ import type { ScanCacheFactory } from "../scan-cache.js";
 import { ampCollector } from "./amp.js";
 import { claudeCollector } from "./claude.js";
 import { codexCollector } from "./codex.js";
-import { openClawCollector } from "./openclaw.js";
 import { openCodeCollector } from "./opencode.js";
 import { piCollector } from "./pi.js";
 import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageTurn } from "./types.js";
 
 export type { CollectorContext, UsageTurn, SourceCollection } from "./types.js";
 
-const COLLECTORS: Record<AgentSource, AgentSourceCollector> = {
+// Deliberately no collector for opt-in/non-coding sources (openclaw): the
+// leaderboard measures coding agents, and the server excludes those sources
+// from rankings regardless of what any client uploads.
+const COLLECTORS: Partial<Record<AgentSource, AgentSourceCollector>> = {
   claude: claudeCollector,
   codex: codexCollector,
   opencode: openCodeCollector,
   amp: ampCollector,
   pi: piCollector,
-  openclaw: openClawCollector,
 };
 
 export interface CollectionResult {
@@ -27,8 +28,8 @@ export interface CollectionResult {
   warnings: string[];
 }
 
-function isAgentSource(value: string): value is AgentSource {
-  return (AGENT_SOURCES as readonly string[]).includes(value);
+function isCollectableSource(value: string): value is AgentSource {
+  return (AGENT_SOURCES as readonly string[]).includes(value) && COLLECTORS[value as AgentSource] != null;
 }
 
 export function parseSources(value: string | undefined): AgentSource[] {
@@ -36,21 +37,8 @@ export function parseSources(value: string | undefined): AgentSource[] {
   const sources = value
     .split(",")
     .map((source) => source.trim().toLowerCase())
-    .filter((source): source is AgentSource => isAgentSource(source));
+    .filter(isCollectableSource);
   return sources.length > 0 ? Array.from(new Set(sources)) : [...DEFAULT_SOURCES];
-}
-
-/**
- * Sources this install durably tracks: the coding-agent defaults plus any
- * opt-in sources from config. Unlike CCCLUB_SOURCES (a per-run filter),
- * this is what gets reported to the server as `trackedSources`.
- */
-export function resolveTrackedSources(extraSources: string[] | undefined): AgentSource[] {
-  const tracked = [...DEFAULT_SOURCES];
-  for (const source of extraSources ?? []) {
-    if (isAgentSource(source) && !tracked.includes(source)) tracked.push(source);
-  }
-  return tracked;
 }
 
 export function formatSourceList(sources: Iterable<AgentSource>): string {
@@ -74,6 +62,9 @@ export async function collectAllUsageEntries(options?: {
   const results = await Promise.all(
     selectedSources.map(async (source): Promise<SourceCollection> => {
       const collector = COLLECTORS[source];
+      if (collector == null) {
+        return { source, entries: [], turns: [], files: 0, warnings: [] };
+      }
       try {
         return await collector.collect(context);
       } catch (error) {

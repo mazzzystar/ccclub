@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "../types.js";
+import { isRankedSource } from "@ccclub/shared";
 import type {
   AgentSource,
   GroupRecord,
@@ -188,6 +189,7 @@ export async function computeGlobalRankings(env: Env, period: RankingPeriod, tz:
     const agentTotals = new Map<AgentSource, AgentTotals>();
 
     for (const block of usage.blocks) {
+      if (!isRankedSource(block.source)) continue;
       if (hasUsage(block)) {
         const activityTime = getBlockActivityTime(block);
         if (activityTime > lastActiveTime) {
@@ -324,6 +326,7 @@ app.get("/rank/:code", async (c) => {
 
     if (usage) {
       for (const block of usage.blocks) {
+        if (!isRankedSource(block.source)) continue;
         if (hasUsage(block)) {
           const activityTime = getBlockActivityTime(block);
           if (activityTime > lastActiveTime) {
@@ -511,6 +514,7 @@ app.get("/activity/:code", async (c) => {
     const parsed: BlockEntry[] = [];
     if (usage) {
       for (const block of usage.blocks) {
+        if (!isRankedSource(block.source)) continue;
         const blockTime = new Date(block.blockStart).getTime();
         if (blockTime >= startMs && blockTime < endMs) {
           parsed.push({

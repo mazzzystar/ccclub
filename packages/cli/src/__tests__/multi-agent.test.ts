@@ -6,7 +6,7 @@ import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
 import { createCostCalculator, DEFAULT_SOURCES, PRICING_SNAPSHOT } from "@ccclub/shared";
 import type { UsageEntry } from "@ccclub/shared";
-import { parseSources, resolveTrackedSources } from "../sources/index.js";
+import { parseSources } from "../sources/index.js";
 
 const calculateCost = createCostCalculator(PRICING_SNAPSHOT);
 
@@ -380,99 +380,13 @@ describe("multi-agent collection", () => {
     });
   });
 
-  it("loads OpenClaw session messages and skips trajectory traces", async () => {
-    const openClawDir = await makeTempDir();
-    const sessionsDir = join(openClawDir, "agents", "main", "sessions");
-    await mkdir(sessionsDir, { recursive: true });
-    const assistantMessage = {
-      type: "message",
-      id: "2a764536",
-      timestamp: "2026-04-25T07:01:16.186Z",
-      message: {
-        role: "assistant",
-        provider: "openrouter",
-        model: "moonshotai/kimi-k2.6",
-        usage: {
-          input: 10588,
-          output: 131,
-          cacheRead: 2496,
-          cacheWrite: 0,
-          totalTokens: 13215,
-          cost: { total: 0.0088609122 },
-        },
-      },
-    };
-    await writeFile(join(sessionsDir, "session-a.jsonl"), [
-      JSON.stringify({
-        type: "message",
-        id: "1f5b79c8",
-        timestamp: "2026-04-25T07:00:58.871Z",
-        message: { role: "user", content: [{ type: "text", text: "hi" }] },
-      }),
-      JSON.stringify(assistantMessage),
-    ].join("\n"));
-    // Trace export repeating the same usage in another schema — must be ignored.
-    await writeFile(join(sessionsDir, "session-a.trajectory.jsonl"), JSON.stringify({
-      traceSchema: "openclaw-trajectory",
-      type: "model.completed",
-      ts: "2026-04-25T07:01:30.737Z",
-      data: { usage: { input: 11000, output: 516, cacheRead: 28720, total: 40236 } },
-    }));
-    vi.stubEnv("OPENCLAW_DATA_DIR", openClawDir);
-
-    const result = await collectUsageEntries({ sources: ["openclaw"] });
-
-    expect(result.entries).toHaveLength(1);
-    expect(result.entries[0]).toMatchObject({
-      source: "openclaw",
-      sessionId: "session-a",
-      model: "openrouter/moonshotai/kimi-k2.6",
-      inputTokens: 10588,
-      outputTokens: 131,
-      cacheReadTokens: 2496,
-      cacheCreationTokens: 0,
-      totalTokens: 13215,
-    });
-    expect(result.entries[0].costUSD).toBeCloseTo(0.0088609122);
-    expect(result.sources[0].files).toBe(1);
-  });
-
-  it("scopes OpenClaw dedup keys to the session, like pi", async () => {
-    const openClawDir = await makeTempDir();
-    const sessionsDir = join(openClawDir, "agents", "main", "sessions");
-    await mkdir(sessionsDir, { recursive: true });
-    const line = JSON.stringify({
-      type: "message",
-      id: "2a764536",
-      timestamp: "2026-04-25T07:01:16.186Z",
-      message: {
-        role: "assistant",
-        model: "gpt-5",
-        usage: { input: 100, output: 10, cacheRead: 0, cacheWrite: 0, totalTokens: 110, cost: { total: 0.01 } },
-      },
-    });
-    await writeFile(join(sessionsDir, "session-a.jsonl"), line);
-    await writeFile(join(sessionsDir, "session-a-copy.jsonl"), line);
-    vi.stubEnv("OPENCLAW_DATA_DIR", openClawDir);
-
-    const result = await collectUsageEntries({ sources: ["openclaw"] });
-
-    // Unlike Codex (which forks copy history verbatim), OpenClaw sessions are
-    // independent — identical usage in two sessions is two real events.
-    expect(result.entries).toHaveLength(2);
-    expect(new Set(result.entries.map((entry) => entry.sessionId)).size).toBe(2);
-  });
-
-  it("excludes opt-in sources from defaults and includes them only when enabled", () => {
+  it("never collects non-coding sources, even when requested explicitly", () => {
     // OpenClaw is a personal assistant — the coding leaderboard must not
-    // count it unless the user opted in.
-    expect(parseSources(undefined)).not.toContain("openclaw");
+    // count it, and the server additionally excludes it from rankings.
+    expect(DEFAULT_SOURCES).not.toContain("openclaw");
     expect(parseSources(undefined)).toEqual([...DEFAULT_SOURCES]);
-    expect(parseSources("openclaw")).toEqual(["openclaw"]); // explicit filter still works
-
-    expect(resolveTrackedSources(undefined)).toEqual([...DEFAULT_SOURCES]);
-    expect(resolveTrackedSources(["openclaw"])).toContain("openclaw");
-    expect(resolveTrackedSources(["openclaw", "bogus", "claude"])).toEqual([...DEFAULT_SOURCES, "openclaw"]);
+    expect(parseSources("openclaw")).toEqual([...DEFAULT_SOURCES]); // not collectable
+    expect(parseSources("codex,openclaw")).toEqual(["codex"]);
   });
 
   it("keeps same-window blocks separate by agent source", () => {

@@ -1,17 +1,220 @@
 import { Hono } from "hono";
 import { html, raw } from "hono/html";
+import { getCookie, setCookie } from "hono/cookie";
 import type { Env } from "./types.js";
+import type { AgentSource, RankResponse, RankingEntry } from "@ccclub/shared";
+import { AGENT_LABELS } from "@ccclub/shared";
+import { htmlEsc } from "./og-utils.js";
 import { LANDING_LANGS, LANDING_T, landingPath, type LandingLang } from "./landing-i18n.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
-app.get("/", (c) => {
-  return c.html(landingHTML("en"));
+const LANG_COOKIE = "ccclub_lang";
+const LANG_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+
+function isLandingLang(value: string | undefined): value is LandingLang {
+  return value != null && (LANDING_LANGS as readonly string[]).includes(value);
+}
+
+/**
+ * First supported language by Accept-Language preference order, or null when
+ * English wins (also for bots, which mostly send no header or en).
+ */
+function detectPreferredLang(header: string | undefined): LandingLang | null {
+  if (!header) return null;
+  const ranked = header
+    .split(",")
+    .map((part) => {
+      const [tag, q] = part.trim().split(";q=");
+      return { tag: tag.toLowerCase(), q: q ? parseFloat(q) : 1 };
+    })
+    .filter((entry) => Number.isFinite(entry.q))
+    .sort((a, b) => b.q - a.q);
+  for (const { tag } of ranked) {
+    const primary = tag.split("-")[0];
+    if (primary === "en") return null;
+    if (isLandingLang(primary)) return primary;
+  }
+  return null;
+}
+
+app.get("/", async (c) => {
+  // `/?lang=xx` is an explicit choice (the footer language links) — remember
+  // it so browser-language detection never overrides the user again.
+  const explicit = c.req.query("lang");
+  if (isLandingLang(explicit)) {
+    setCookie(c, LANG_COOKIE, explicit, { path: "/", maxAge: LANG_COOKIE_MAX_AGE, sameSite: "Lax" });
+    if (explicit !== "en") return c.redirect(`/${explicit}`, 302);
+  } else {
+    const saved = getCookie(c, LANG_COOKIE);
+    const target = isLandingLang(saved) ? saved : detectPreferredLang(c.req.header("accept-language"));
+    if (target != null && target !== "en") {
+      c.header("Vary", "Accept-Language");
+      return c.redirect(`/${target}`, 302);
+    }
+  }
+  c.header("Vary", "Accept-Language");
+  return c.html(landingHTML("en", await fetchDemoBoard()));
 });
 
 for (const lang of LANDING_LANGS) {
   if (lang === "en") continue;
-  app.get(`/${lang}`, (c) => c.html(landingHTML(lang)));
+  app.get(`/${lang}`, async (c) => {
+    // Visiting a localized page directly is also a choice worth remembering.
+    setCookie(c, LANG_COOKIE, lang, { path: "/", maxAge: LANG_COOKIE_MAX_AGE, sameSite: "Lax" });
+    return c.html(landingHTML(lang, await fetchDemoBoard()));
+  });
+}
+
+// ── Live demo board (SSR) ────────────────────────────────────
+// The homepage preview renders the public demo group's real leaderboard in a
+// terminal-styled panel instead of a stale screenshot. Data comes from our
+// own cached rank/activity APIs; any failure falls back to the static image.
+
+const DEMO_GROUP = "YHAW6P";
+const DEMO_TZ = 480; // the demo group lives in UTC+8; "today" should match theirs
+const DEMO_ROWS = 8;
+const DEMO_ACTIVITY_ROWS = 6;
+const ACTIVITY_BUCKETS = 48;
+const ACTIVE_THRESHOLD_MS = 15 * 60 * 1000;
+
+interface ActivityResponse {
+  start: string;
+  end: string;
+  // block `t` is an ISO string in the API response
+  series: Array<{ displayName: string; totalCost: number; blocks: Array<{ t: string | number; cost: number }> }>;
+}
+
+async function fetchDemoBoard(): Promise<string | null> {
+  try {
+    const [rankRes, activityRes] = await Promise.all([
+      fetch(`https://ccclub.dev/api/rank/${DEMO_GROUP}?period=daily&tz=${DEMO_TZ}`, {
+        signal: AbortSignal.timeout(5_000),
+      }),
+      fetch(`https://ccclub.dev/api/activity/${DEMO_GROUP}?range=24h&tz=${DEMO_TZ}`, {
+        signal: AbortSignal.timeout(5_000),
+      }).catch(() => null),
+    ]);
+    if (!rankRes.ok) return null;
+    const rank = (await rankRes.json()) as RankResponse;
+    const activity = activityRes?.ok ? ((await activityRes.json()) as ActivityResponse) : null;
+    return renderDemoBoard(rank, activity);
+  } catch {
+    return null;
+  }
+}
+
+function formatDemoTokens(n: number): string {
+  if (n >= 1e9) return `${parseFloat((n / 1e9).toFixed(1))}B`;
+  if (n >= 1e6) return `${parseFloat((n / 1e6).toFixed(1))}M`;
+  if (n >= 1e3) return `${parseFloat((n / 1e3).toFixed(1))}K`;
+  return String(n);
+}
+
+function formatDemoCost(n: number): string {
+  if (n >= 1000) return `$${Math.round(n).toLocaleString("en-US")}`;
+  return `$${n.toFixed(2)}`;
+}
+
+function demoAgentsCell(entry: RankingEntry): string {
+  const breakdown = (entry.agentBreakdown ?? []).filter((a) => a.percent > 0);
+  if (breakdown.length === 0) {
+    return (entry.agents ?? []).map((a) => AGENT_LABELS[a] ?? a).join(", ") || "—";
+  }
+  if (breakdown.length === 1) return htmlEsc(AGENT_LABELS[breakdown[0].source] ?? breakdown[0].source);
+  return breakdown
+    .slice(0, 2)
+    .map((a) => `${htmlEsc(AGENT_LABELS[a.source] ?? a.source)} <span class="term-pct">${a.percent}%</span>`)
+    .join(" · ") + (breakdown.length > 2 ? " …" : "");
+}
+
+function renderDemoBoard(rank: RankResponse, activity: ActivityResponse | null): string {
+  const now = Date.now();
+  const rows = rank.rankings.filter((r) => r.costUSD > 0).slice(0, DEMO_ROWS);
+  if (rows.length === 0) return "";
+
+  const activeRows = rank.rankings.filter((r) => {
+    const t = r.lastActiveAt ? new Date(r.lastActiveAt).getTime() : 0;
+    return now - t < ACTIVE_THRESHOLD_MS;
+  });
+  const activeBySource = new Map<AgentSource, number>();
+  for (const r of activeRows) {
+    const source = r.lastActiveSource ?? r.agents?.[0];
+    if (source) activeBySource.set(source, (activeBySource.get(source) ?? 0) + 1);
+  }
+  const activeSplit = Array.from(activeBySource.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([source, count]) => `${AGENT_LABELS[source] ?? source} ${count}`)
+    .join(" · ");
+
+  const rankClass = (r: number) => (r === 1 ? "term-gold" : r === 2 ? "term-silver" : r === 3 ? "term-bronze" : "");
+  const body = rows.map((r) => {
+    const isActive = activeRows.includes(r);
+    const chats = r.chatCount || 0;
+    return `<tr class="${rankClass(r.rank)}">` +
+      `<td class="term-rank">${r.rank}</td>` +
+      `<td class="term-name">${isActive ? '<span class="term-dot">●</span> ' : ""}${htmlEsc(r.displayName)}</td>` +
+      `<td class="term-agents">${demoAgentsCell(r)}</td>` +
+      `<td class="term-cost">${formatDemoCost(r.costUSD)}</td>` +
+      `<td>${formatDemoTokens(r.totalTokens)}</td>` +
+      `<td>${chats}</td>` +
+      `<td>${chats > 0 ? formatDemoCost(r.costUSD / chats) : "—"}</td>` +
+      `</tr>`;
+  }).join("");
+
+  const hiddenCount = rank.group.memberCount - rows.length;
+
+  let activityHtml = "";
+  if (activity != null && activity.series.length > 0) {
+    const startMs = new Date(activity.start).getTime();
+    const endMs = new Date(activity.end).getTime();
+    const bucketMs = (endMs - startMs) / ACTIVITY_BUCKETS;
+    const series = activity.series.slice(0, DEMO_ACTIVITY_ROWS);
+    let maxBucket = 0;
+    const bucketed = series.map((s) => {
+      const buckets = new Array<number>(ACTIVITY_BUCKETS).fill(0);
+      for (const block of s.blocks) {
+        const t = new Date(block.t).getTime();
+        if (!Number.isFinite(t)) continue;
+        const index = Math.min(ACTIVITY_BUCKETS - 1, Math.max(0, Math.floor((t - startMs) / bucketMs)));
+        buckets[index] += block.cost;
+      }
+      for (const value of buckets) if (value > maxBucket) maxBucket = value;
+      return { name: s.displayName, totalCost: s.totalCost, buckets };
+    });
+
+    const BAR_W = 10;
+    const H = 20;
+    const lines = bucketed.map(({ name, totalCost, buckets }) => {
+      const bars = buckets.map((value, i) => {
+        // sqrt compression like the CLI so small activity stays visible
+        const height = value > 0 && maxBucket > 0
+          ? Math.max(2, Math.round(Math.sqrt(value / maxBucket) * (H - 2)))
+          : 1;
+        return `<rect x="${i * BAR_W}" y="${H - height}" width="${BAR_W - 2}" height="${height}" rx="1"/>`;
+      }).join("");
+      return `<div class="term-act-row">` +
+        `<span class="term-act-name">${htmlEsc(name)}</span>` +
+        `<svg viewBox="0 0 ${ACTIVITY_BUCKETS * BAR_W} ${H}" preserveAspectRatio="none" aria-hidden="true">${bars}</svg>` +
+        `<span class="term-act-cost">${formatDemoCost(totalCost)}</span>` +
+        `</div>`;
+    }).join("");
+    activityHtml =
+      `<div class="term-activity"><div class="term-act-title">Activity (24h)</div>${lines}` +
+      `<div class="term-act-axis"><span>0h</span><span>6h</span><span>12h</span><span>18h</span></div></div>`;
+  }
+
+  return `<div class="term" aria-label="Live leaderboard of the public demo group">` +
+    `<div class="term-title">${htmlEsc(rank.group.name)}</div>` +
+    `<div class="term-meta">TODAY · ${rank.start.slice(0, 10)} → ${rank.end.slice(0, 10)} · ${rank.group.memberCount} members</div>` +
+    (activeRows.length > 0 ? `<div class="term-active">${activeRows.length} active${activeSplit ? ` · ${activeSplit}` : ""}</div>` : "") +
+    `<div class="term-scroll"><table class="term-table"><thead><tr>` +
+    `<th>#</th><th>Name</th><th>Agents</th><th>Cost</th><th>Tokens</th><th>Turns</th><th>$/Turn</th>` +
+    `</tr></thead><tbody>${body}</tbody></table></div>` +
+    (hiddenCount > 0 ? `<div class="term-more">+ ${hiddenCount} more members</div>` : "") +
+    `<div class="term-link">Dashboard: <span>https://ccclub.dev/g/${DEMO_GROUP}</span></div>` +
+    activityHtml +
+    `</div>`;
 }
 
 const LANG_LABELS: Record<LandingLang, string> = {
@@ -22,7 +225,7 @@ const LANG_LABELS: Record<LandingLang, string> = {
   ru: "\u0420\u0443\u0441\u0441\u043a\u0438\u0439",
 };
 
-function landingHTML(lang: LandingLang) {
+function landingHTML(lang: LandingLang, demoBoard: string | null = null) {
   const t = LANDING_T[lang];
   const url = `https://ccclub.dev${landingPath(lang)}`;
   const jsonLd = {
@@ -166,6 +369,52 @@ function landingHTML(lang: LandingLang) {
     .preview-frame:hover .preview-title { color: var(--link); }
     .preview-frame img {
       display: block; width: 100%; height: auto; aspect-ratio: 1264 / 756; object-fit: cover;
+    }
+
+    /* Live demo board — terminal-styled, matching the CLI's look */
+    .term {
+      padding: 22px 24px 20px; background: #171412; color: var(--text);
+      font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace;
+      font-size: 13px; line-height: 1.5;
+    }
+    .term-title { font-weight: 700; color: var(--title); font-size: 15px; }
+    .term-meta { color: var(--faint); margin-top: 2px; }
+    .term-active { color: var(--success); margin-top: 2px; }
+    .term-scroll { overflow-x: auto; margin-top: 14px; }
+    .term-table { border-collapse: collapse; width: 100%; min-width: 560px; }
+    .term-table th, .term-table td {
+      border: 1px solid #3a342e; padding: 7px 12px; text-align: left; white-space: nowrap;
+    }
+    .term-table th { color: var(--link); font-weight: 600; }
+    .term-table td { color: var(--text); }
+    .term-agents, .term-table td.term-agents { color: var(--muted); }
+    .term-pct { color: var(--faint); }
+    .term-dot { color: var(--success); }
+    .term-gold td, .term-gold .term-agents { color: var(--gold); font-weight: 600; }
+    .term-silver td, .term-silver .term-agents { color: var(--silver); }
+    .term-bronze td, .term-bronze .term-agents { color: var(--bronze); }
+    .term-more { color: var(--faint); margin-top: 10px; }
+    .term-link { color: var(--faint); margin-top: 4px; }
+    .term-link span { color: var(--muted); }
+    .term-activity { margin-top: 18px; }
+    .term-act-title { color: var(--muted); margin-bottom: 6px; }
+    .term-act-row { display: flex; align-items: center; gap: 12px; margin: 3px 0; }
+    .term-act-name {
+      flex: 0 0 96px; color: var(--muted); overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
+    }
+    .term-act-row svg { flex: 1 1 auto; height: 16px; min-width: 0; }
+    .term-act-row svg rect { fill: rgba(212, 147, 94, 0.78); }
+    .term-act-cost { flex: 0 0 auto; color: var(--faint); min-width: 72px; text-align: right; }
+    .term-act-axis {
+      display: flex; justify-content: space-between; color: var(--faint);
+      margin: 4px 0 0 108px; font-size: 11px; max-width: calc(100% - 108px - 84px);
+    }
+    @media (max-width: 600px) {
+      .term { padding: 16px 14px 14px; font-size: 12px; }
+      .term-act-name { flex-basis: 72px; }
+      .term-act-cost { min-width: 56px; }
+      .term-act-axis { margin-left: 84px; max-width: calc(100% - 84px - 68px); }
     }
     .preview-caption {
       display: flex; justify-content: space-between; gap: 16px;
@@ -357,7 +606,7 @@ function landingHTML(lang: LandingLang) {
   <div class="wrap">
     <div class="preview-wrap">
       <a class="preview-frame" href="https://ccclub.dev/g/YHAW6P" aria-label="Open the live ccclub leaderboard preview">
-        <img src="/og.png" alt="ccclub leaderboard preview" width="1264" height="756" />
+        ${demoBoard ? raw(demoBoard) : html`<img src="/og.png" alt="ccclub leaderboard preview" width="1264" height="756" />`}
         <div class="preview-caption">
           <strong class="preview-title"><span class="live-dot" aria-hidden="true"></span>${t.previewTitle}</strong>
           <span>${t.previewCaption}</span>
@@ -368,18 +617,18 @@ function landingHTML(lang: LandingLang) {
     <div class="setup-after-demo">
       <div class="setup-panel">
         <div class="setup-tabs" role="tablist" aria-label="Setup mode">
-          <button class="setup-tab active" type="button" data-setup-mode="agent" role="tab" aria-selected="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="6" y="8" width="12" height="9" rx="2"/><path d="M12 5v3M9 17v2m6-2v2M8.5 12h.01M15.5 12h.01M4 11v3m16-3v3"/></svg>
-            ${t.tabAgent}
-          </button>
-          <button class="setup-tab" type="button" data-setup-mode="human" role="tab" aria-selected="false">
+          <button class="setup-tab active" type="button" data-setup-mode="human" role="tab" aria-selected="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>
             ${t.tabHuman}
           </button>
+          <button class="setup-tab" type="button" data-setup-mode="agent" role="tab" aria-selected="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="6" y="8" width="12" height="9" rx="2"/><path d="M12 5v3M9 17v2m6-2v2M8.5 12h.01M15.5 12h.01M4 11v3m16-3v3"/></svg>
+            ${t.tabAgent}
+          </button>
         </div>
         <div class="setup-body">
-          <p class="setup-title" id="setup-title">${t.agentTitle}</p>
-          <p class="setup-subtitle" id="setup-subtitle">${t.agentSubtitle}</p>
+          <p class="setup-title" id="setup-title">${t.humanTitle}</p>
+          <p class="setup-subtitle" id="setup-subtitle">${t.humanSubtitle}</p>
           <div class="supported-card" aria-label="Supported coding agents">
             <div class="agent-stack">
               <span class="agent-logo" title="Claude Code"><img src="/agent-icons/claude.svg" alt="Claude Code" /></span>
@@ -393,8 +642,8 @@ function landingHTML(lang: LandingLang) {
               <span>Claude Code · Codex · OpenCode · Amp · pi-agent</span>
             </div>
           </div>
-          <button class="setup-command" id="copy-setup" type="button" data-copy="Read https://ccclub.dev/llms-full.txt">
-            <code class="mono" id="setup-code">Read https://ccclub.dev/llms-full.txt</code>
+          <button class="setup-command" id="copy-setup" type="button" data-copy="npx ccclub init">
+            <code class="mono" id="setup-code">npx ccclub init</code>
             <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 16H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           </button>
           <div class="copy-feedback" id="copy-feedback">Copied</div>
@@ -466,7 +715,11 @@ function landingHTML(lang: LandingLang) {
       <div class="footer-langs">
         ${LANDING_LANGS.map((l, i) =>
           html`${i > 0 ? raw("&nbsp;\u00b7&nbsp;") : ""}${
-            l === lang ? html`<span>${LANG_LABELS[l]}</span>` : html`<a href="${landingPath(l)}">${LANG_LABELS[l]}</a>`
+            l === lang
+              ? html`<span>${LANG_LABELS[l]}</span>`
+              // "/?lang=en" records the choice so browser-language detection
+              // doesn't bounce the user straight back to the localized page.
+              : html`<a href="${l === "en" ? "/?lang=en" : landingPath(l)}">${LANG_LABELS[l]}</a>`
           }`,
         )}
       </div>

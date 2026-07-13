@@ -39,9 +39,11 @@ Supported sources:
 | OpenCode | `~/.local/share/opencode` |
 | Amp | `~/.local/share/amp/threads` |
 | pi-agent | `~/.pi/agent/sessions` |
-| OpenClaw | `~/.openclaw/agents/*/sessions` |
+| OpenClaw (opt-in) | `~/.openclaw/agents/*/sessions` |
 
 If you use the default locations, there is nothing to configure. Custom locations are supported with `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_DATA_DIR`, `AMP_DATA_DIR`, `PI_AGENT_DIR`, and `OPENCLAW_DATA_DIR`.
+
+OpenClaw is a personal assistant rather than a coding agent, so it is **off by default** — the leaderboard measures coding. Count it explicitly with `ccclub sources enable openclaw` (and remove it again, history included, with `ccclub sources disable openclaw`).
 
 ## Commands
 

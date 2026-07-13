@@ -7,10 +7,11 @@ import type { Env } from "./types.js";
 const LLMS_TXT = `# ccclub
 
 > Claude Code and Codex leaderboard among friends. The ccclub CLI reads local
-> coding-agent usage logs (Claude Code, Codex, OpenCode, Amp, pi-agent,
-> OpenClaw), aggregates them into anonymous 30-minute token/cost summaries,
-> and uploads only those counters to group leaderboards. No prompts, no code,
-> no file paths ever leave the machine.
+> coding-agent usage logs (Claude Code, Codex, OpenCode, Amp, pi-agent;
+> OpenClaw available opt-in via \`ccclub sources enable openclaw\`),
+> aggregates them into anonymous 30-minute token/cost summaries, and uploads
+> only those counters to group leaderboards. No prompts, no code, no file
+> paths ever leave the machine.
 
 ## CLI
 

@@ -4,8 +4,9 @@ import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
-import { createCostCalculator, PRICING_SNAPSHOT } from "@ccclub/shared";
+import { createCostCalculator, DEFAULT_SOURCES, PRICING_SNAPSHOT } from "@ccclub/shared";
 import type { UsageEntry } from "@ccclub/shared";
+import { parseSources, resolveTrackedSources } from "../sources/index.js";
 
 const calculateCost = createCostCalculator(PRICING_SNAPSHOT);
 
@@ -460,6 +461,18 @@ describe("multi-agent collection", () => {
     // independent — identical usage in two sessions is two real events.
     expect(result.entries).toHaveLength(2);
     expect(new Set(result.entries.map((entry) => entry.sessionId)).size).toBe(2);
+  });
+
+  it("excludes opt-in sources from defaults and includes them only when enabled", () => {
+    // OpenClaw is a personal assistant — the coding leaderboard must not
+    // count it unless the user opted in.
+    expect(parseSources(undefined)).not.toContain("openclaw");
+    expect(parseSources(undefined)).toEqual([...DEFAULT_SOURCES]);
+    expect(parseSources("openclaw")).toEqual(["openclaw"]); // explicit filter still works
+
+    expect(resolveTrackedSources(undefined)).toEqual([...DEFAULT_SOURCES]);
+    expect(resolveTrackedSources(["openclaw"])).toContain("openclaw");
+    expect(resolveTrackedSources(["openclaw", "bogus", "claude"])).toEqual([...DEFAULT_SOURCES, "openclaw"]);
   });
 
   it("keeps same-window blocks separate by agent source", () => {

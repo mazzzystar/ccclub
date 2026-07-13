@@ -4,14 +4,21 @@ import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
 import { loadPricing } from "../pricing.js";
 import { createScanCacheFactory } from "../scan-cache.js";
+import { parseSources, resolveTrackedSources } from "../sources/index.js";
+import { loadConfig } from "../config.js";
 
 export async function showDataCommand(): Promise<void> {
   console.log(chalk.bold("\n  What ccclub uploads:\n"));
   console.log(chalk.dim("  Only aggregated 30-minute block summaries. No conversation content,"));
   console.log(chalk.dim("  no file paths, no project names, no session details.\n"));
 
+  const config = await loadConfig();
   const { calculateCost, version } = await loadPricing();
   const { entries, humanTurns, sources, warnings } = await collectUsageEntries({
+    // Mirror exactly what sync would upload: defaults + opted-in sources.
+    sources: process.env.CCCLUB_SOURCES?.trim()
+      ? parseSources(process.env.CCCLUB_SOURCES)
+      : resolveTrackedSources(config?.extraSources),
     calculateCost,
     pricingVersion: version,
     openScanCache: createScanCacheFactory(),

@@ -12,6 +12,8 @@ export interface CliConfig {
   userId: string;
   displayName: string;
   groups: string[];      // invite codes
+  /** Opt-in sources the user enabled via `ccclub sources enable <source>`. */
+  extraSources?: string[];
 }
 
 function getConfigDir(): string {

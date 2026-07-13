@@ -1,4 +1,4 @@
-import { AGENT_LABELS, AGENT_SOURCES, PRICING_SNAPSHOT, createCostCalculator } from "@ccclub/shared";
+import { AGENT_LABELS, AGENT_SOURCES, DEFAULT_SOURCES, PRICING_SNAPSHOT, createCostCalculator } from "@ccclub/shared";
 import type { AgentSource, CostCalculator, UsageEntry } from "@ccclub/shared";
 import type { ScanCacheFactory } from "../scan-cache.js";
 import { ampCollector } from "./amp.js";
@@ -32,12 +32,25 @@ function isAgentSource(value: string): value is AgentSource {
 }
 
 export function parseSources(value: string | undefined): AgentSource[] {
-  if (value == null || value.trim() === "") return [...AGENT_SOURCES];
+  if (value == null || value.trim() === "") return [...DEFAULT_SOURCES];
   const sources = value
     .split(",")
     .map((source) => source.trim().toLowerCase())
     .filter((source): source is AgentSource => isAgentSource(source));
-  return sources.length > 0 ? Array.from(new Set(sources)) : [...AGENT_SOURCES];
+  return sources.length > 0 ? Array.from(new Set(sources)) : [...DEFAULT_SOURCES];
+}
+
+/**
+ * Sources this install durably tracks: the coding-agent defaults plus any
+ * opt-in sources from config. Unlike CCCLUB_SOURCES (a per-run filter),
+ * this is what gets reported to the server as `trackedSources`.
+ */
+export function resolveTrackedSources(extraSources: string[] | undefined): AgentSource[] {
+  const tracked = [...DEFAULT_SOURCES];
+  for (const source of extraSources ?? []) {
+    if (isAgentSource(source) && !tracked.includes(source)) tracked.push(source);
+  }
+  return tracked;
 }
 
 export function formatSourceList(sources: Iterable<AgentSource>): string {

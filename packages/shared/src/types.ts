@@ -1,6 +1,13 @@
 export const AGENT_SOURCES = ["claude", "codex", "opencode", "amp", "pi", "openclaw"] as const;
 export type AgentSource = (typeof AGENT_SOURCES)[number];
 
+// OpenClaw is a personal assistant, not a coding agent — counting it by
+// default would dilute what the coding leaderboard measures. Opt-in sources
+// are excluded unless the user runs `ccclub sources enable <source>`.
+export const OPT_IN_SOURCES: readonly AgentSource[] = ["openclaw"];
+export const DEFAULT_SOURCES: readonly AgentSource[] =
+  AGENT_SOURCES.filter((source) => !OPT_IN_SOURCES.includes(source));
+
 export const AGENT_LABELS: Record<AgentSource, string> = {
   claude: "Claude",
   codex: "Codex",
@@ -174,6 +181,12 @@ export interface JoinResponse {
 export interface SyncRequest {
   blocks: UsageBlock[];
   usageSnapshot?: UsageSnapshot;
+  /**
+   * Sources this client durably tracks (config-derived, not the per-run
+   * filter). The server prunes stored blocks of OPT_IN_SOURCES that are
+   * absent here, so disabling an opt-in source also cleans up history.
+   */
+  trackedSources?: AgentSource[];
 }
 export interface SyncResponse {
   synced: number;

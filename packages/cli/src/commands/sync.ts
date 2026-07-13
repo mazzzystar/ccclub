@@ -6,6 +6,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { requireConfig, loadConfig, getLastSyncPath, getLastSyncTimePath } from "../config.js";
 import { collectUsageEntries } from "../collector.js";
+import { parseSources, resolveTrackedSources } from "../sources/index.js";
 import { aggregateToBlocks } from "../aggregator.js";
 import { loadPricing, refreshPricingCache } from "../pricing.js";
 import { refreshRankCache } from "../statusline.js";
@@ -81,10 +82,22 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
   const log = silent ? () => {} : console.log;
   const spinner = silent ? null : ora("Collecting usage data...").start();
 
+  // Durable source set (defaults + opt-ins); CCCLUB_SOURCES stays a
+  // temporary per-run collection filter and never affects trackedSources.
+  const trackedSources = resolveTrackedSources(config.extraSources);
+  const collectSources = process.env.CCCLUB_SOURCES?.trim()
+    ? parseSources(process.env.CCCLUB_SOURCES)
+    : trackedSources;
+
   try {
     const { calculateCost, version } = await loadPricing();
     const [{ entries, humanTurns, sources, warnings }, usageSnapshot] = await Promise.all([
-      collectUsageEntries({ calculateCost, pricingVersion: version, openScanCache: createScanCacheFactory() }),
+      collectUsageEntries({
+        sources: collectSources,
+        calculateCost,
+        pricingVersion: version,
+        openScanCache: createScanCacheFactory(),
+      }),
       fetchUsageLimits().catch(() => null),
     ]);
     const activeSources = sources.filter((source) => source.entries.length > 0).map((source) => AGENT_LABELS[source.source]);
@@ -146,7 +159,7 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
 
     if (spinner) spinner.text = `Uploading ${blocksToSync.length} blocks...`;
 
-    const syncBody: SyncRequest = { blocks: blocksToSync };
+    const syncBody: SyncRequest = { blocks: blocksToSync, trackedSources };
     if (usageSnapshot) syncBody.usageSnapshot = usageSnapshot;
 
     const res = await fetch(`${config.apiUrl}/api/sync`, {

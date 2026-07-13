@@ -9,6 +9,7 @@ import { createGroupCommand } from "./commands/group.js";
 import { leaveCommand } from "./commands/leave.js";
 import { hookCommand } from "./commands/hook.js";
 import { statuslineCommand } from "./commands/statusline.js";
+import { sourcesCommand } from "./commands/sources.js";
 import { startUpdateCheck } from "./update-check.js";
 
 declare const __VERSION__: string;
@@ -106,6 +107,13 @@ program
   .description("Claude Code statusline: model · 5h/7d limits · rank")
   .action(statuslineCommand);
 
+program
+  .command("sources")
+  .argument("[action]", "enable | disable")
+  .argument("[source]", "opt-in source name, e.g. openclaw")
+  .description("List tracked sources or toggle opt-in ones (e.g. OpenClaw)")
+  .action(sourcesCommand);
+
 // Internal — auto-installed, users don't need to run this
 program
   .command("hook", { hidden: true })
@@ -118,7 +126,8 @@ Setup:
   ccclub join <code>      Join a friend's group
 
 Supported agents:
-  Claude Code, Codex, OpenCode, Amp, pi-agent, OpenClaw
+  Claude Code, Codex, OpenCode, Amp, pi-agent
+  Opt-in: OpenClaw (ccclub sources enable openclaw)
 
 Leaderboard options:
   -d <period>              Time window: 1 | 7 | 30 | all (default: today)

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "../types.js";
-import { AGENT_SOURCES } from "@ccclub/shared";
+import { AGENT_SOURCES, OPT_IN_SOURCES } from "@ccclub/shared";
 import type { UserRecord, UsageData, SyncResponse, SyncRequest, UsageBlock } from "@ccclub/shared";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -18,7 +18,7 @@ app.post("/sync", async (c) => {
     return c.json({ error: "invalid token" }, 401);
   }
 
-  const { blocks, usageSnapshot } = await c.req.json<SyncRequest>();
+  const { blocks, usageSnapshot, trackedSources } = await c.req.json<SyncRequest>();
   if (!Array.isArray(blocks) || blocks.length === 0) {
     return c.json({ error: "blocks array required" }, 400);
   }
@@ -63,9 +63,20 @@ app.post("/sync", async (c) => {
   for (const b of existing.blocks) blockMap.set(`${b.source ?? "claude"}:${b.blockStart}`, b);
   for (const b of blocks) blockMap.set(`${b.source ?? "claude"}:${b.blockStart}`, b);
 
-  const merged: UsageBlock[] = Array.from(blockMap.values()).sort(
+  let merged: UsageBlock[] = Array.from(blockMap.values()).sort(
     (a, b) => new Date(a.blockStart).getTime() - new Date(b.blockStart).getTime(),
   );
+
+  // Prune opt-in sources the client no longer tracks. Restricted to
+  // OPT_IN_SOURCES so a buggy or malicious payload can never wipe a user's
+  // coding history; old clients omit trackedSources and nothing is pruned.
+  if (Array.isArray(trackedSources)) {
+    const tracked = new Set(trackedSources);
+    const prune = new Set(OPT_IN_SOURCES.filter((source) => !tracked.has(source)));
+    if (prune.size > 0) {
+      merged = merged.filter((b) => !prune.has(b.source ?? "claude"));
+    }
+  }
 
   const usageData: UsageData = {
     blocks: merged,

@@ -10,7 +10,28 @@ import { getStatuslineState, hasOptedOut, installStatusline } from "../statuslin
 import { formatFetchError } from "../fetch-error.js";
 import type { JoinResponse } from "@ccclub/shared";
 
-export async function joinCommand(inviteCode: string): Promise<void> {
+/**
+ * Accept whatever the user pastes: a bare code (any case) or a full invite /
+ * dashboard URL ("https://ccclub.dev/invite/YHAW6P", "ccclub.dev/g/YHAW6P").
+ * Returns the normalized uppercase code, or null when nothing code-like is in
+ * the input.
+ */
+export function parseInviteCode(input: string): string | null {
+  const trimmed = input.trim();
+  if (trimmed === "") return null;
+  const fromUrl = /(?:invite|g)\/([A-Za-z0-9]{4,12})/.exec(trimmed)?.[1];
+  const candidate = fromUrl ?? trimmed;
+  return /^[A-Za-z0-9]{4,12}$/.test(candidate) ? candidate.toUpperCase() : null;
+}
+
+export async function joinCommand(rawCode: string): Promise<void> {
+  const inviteCode = parseInviteCode(rawCode);
+  if (inviteCode == null) {
+    console.error(chalk.red(`Couldn't find an invite code in "${rawCode}".`));
+    console.log(chalk.dim("  Use the 6-letter code or the full link, e.g.:  ccclub join YHAW6P"));
+    return;
+  }
+
   let config = await loadConfig();
   const apiUrl = getApiUrl();
   let token: string;

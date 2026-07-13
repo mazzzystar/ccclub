@@ -1,6 +1,6 @@
 {
   "name": "ccclub",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "type": "module",
   "description": "Claude Code and Codex leaderboard among friends for coding agent tokens and costs",
   "bin": {

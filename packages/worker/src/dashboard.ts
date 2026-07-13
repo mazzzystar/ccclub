@@ -618,6 +618,23 @@ function dashboardHTML(
     }
     .copy-btn:hover { border-color: var(--link); color: var(--text); }
 
+    /* Solo-group callout: shown above the table when the group has 1 member */
+    .solo-cta {
+      margin-bottom: 20px; padding: 22px 20px; text-align: center;
+      background: linear-gradient(180deg, rgba(212,147,94,0.08), rgba(212,147,94,0.02));
+      border: 1px solid rgba(212,147,94,0.25); border-radius: 12px;
+    }
+    .solo-cta-title { font-size: 16px; font-weight: 650; color: var(--text); margin-bottom: 4px; }
+    .solo-cta-sub { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+    .solo-cta-row {
+      display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center;
+    }
+    .solo-cta-row code {
+      font-family: "SF Mono", Menlo, monospace; font-size: 13px; color: var(--text);
+      background: var(--surface-soft); border: 1px solid var(--line-soft);
+      border-radius: 6px; padding: 8px 12px;
+    }
+
     /* Footer */
     .meta { color: var(--faint); font-size: 12px; margin-top: 24px; text-align: center; }
 
@@ -967,7 +984,26 @@ function dashboardHTML(
             h += '</tr>';
           });
           h += '</tbody></table></div>';
+          // Solo group: a leaderboard of one has no reason to stick around —
+          // put the invite front and center instead of buried in the footer.
+          if (!IS_GLOBAL && data.group.memberCount === 1) {
+            h = '<div class="solo-cta">' +
+              '<div class="solo-cta-title">It\\'s just you here</div>' +
+              '<div class="solo-cta-sub">A leaderboard needs rivals — invite a friend and see who burns more.</div>' +
+              '<div class="solo-cta-row"><code>ccclub.dev/invite/' + CODE + '</code>' +
+              '<button class="copy-btn" id="solo-copy-btn">Copy link</button></div>' +
+              '</div>' + h;
+          }
           document.getElementById("content").innerHTML = h;
+          var soloCopy = document.getElementById("solo-copy-btn");
+          if (soloCopy) {
+            soloCopy.addEventListener("click", function() {
+              navigator.clipboard.writeText("https://ccclub.dev/invite/" + CODE);
+              this.textContent = "Copied!";
+              var btn = this;
+              setTimeout(function() { btn.textContent = "Copy link"; }, 2000);
+            });
+          }
           document.getElementById("refresh-info").textContent =
             "Last updated " + new Date().toLocaleTimeString();
         })

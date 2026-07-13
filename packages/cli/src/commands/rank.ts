@@ -12,9 +12,36 @@ import { getUpdateResult } from "../update-check.js";
 import { fetchUsageLimits } from "../usage-limits.js";
 import { maybeAutoEnableStatusline } from "../statusline-install.js";
 import { writeRankCache } from "../statusline.js";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
+import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
 
 const ACTIVE_THRESHOLD_MS = 15 * 60 * 1000;
 const AGENT_ORDER: AgentSource[] = ["claude", "codex", "opencode", "amp", "pi"];
+
+// Gentle invite nudge for solo groups: a leaderboard of one has no reason to
+// stick around, and 77% of created groups never invite anyone. At most once
+// a week, and only when the user is already looking at their empty board.
+const INVITE_NUDGE_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+
+function getInviteNudgePath(): string {
+  return join(homedir(), CCCLUB_CONFIG_DIR, "invite-nudge");
+}
+
+function shouldNudgeInvite(): boolean {
+  try {
+    if (!existsSync(getInviteNudgePath())) return true;
+    const last = parseInt(readFileSync(getInviteNudgePath(), "utf-8").trim(), 10);
+    return !Number.isFinite(last) || Date.now() - last >= INVITE_NUDGE_INTERVAL_MS;
+  } catch {
+    return true;
+  }
+}
+
+function markInviteNudged(): void {
+  try { writeFileSync(getInviteNudgePath(), String(Date.now())); } catch { /* best effort */ }
+}
 
 export interface RankCommandOptions {
   // Commander's optional-value flags (`-d [days]`) yield `true` when passed bare.
@@ -185,6 +212,16 @@ export async function rankCommand(options: RankCommandOptions): Promise<void> {
 
     if (await statuslineEnabledPromise) {
       console.log(theme.success("\n  ✓ Claude Code statusline enabled") + theme.muted(' — model · 5h/7d limits · rank. Run "') + theme.text("ccclub statusline off") + theme.muted('" to remove.'));
+    }
+
+    const soloGroup = isGlobal
+      ? undefined
+      : groupResults.find((result) => result.rankData != null && result.rankData.group.memberCount === 1);
+    if (soloGroup?.rankData && shouldNudgeInvite()) {
+      const code = soloGroup.rankData.group.code;
+      console.log(theme.warning("\n  It's just you here") + theme.muted(" — a leaderboard needs rivals. See who burns more:"));
+      console.log(theme.muted("    Share  ") + theme.link(`${config.apiUrl}/invite/${code}`) + theme.muted("   or send:  ") + theme.text(`npx ccclub join ${code}`));
+      markInviteNudged();
     }
   } catch (err) {
     const message = `Error: ${formatFetchError(err)}`;

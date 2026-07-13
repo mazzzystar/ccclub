@@ -16,8 +16,9 @@ import type { AgentSource, SyncRequest, SyncResponse, UsageBlock } from "@ccclub
 import { formatFetchError } from "../fetch-error.js";
 import { fetchUsageLimits } from "../usage-limits.js";
 
-// Bump this when block format changes to auto-trigger full re-sync
-const SYNC_FORMAT_VERSION = "10";
+// Bump this when block format or source coverage changes to auto-trigger a
+// full re-sync ("11": OpenClaw source added — upload its history too).
+const SYNC_FORMAT_VERSION = "11";
 
 function getSyncVersionPath(): string {
   return join(homedir(), CCCLUB_CONFIG_DIR, "sync-version");

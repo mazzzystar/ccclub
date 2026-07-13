@@ -1,4 +1,4 @@
-import { BLOCK_DURATION_MS, calculateCost } from "@ccclub/shared";
+import { BLOCK_DURATION_MS } from "@ccclub/shared";
 import type { AgentSource, UsageEntry, UsageBlock } from "@ccclub/shared";
 import type { UsageTurn } from "./sources/index.js";
 
@@ -55,18 +55,8 @@ function aggregateSourceToBlocks(source: AgentSource, entries: UsageEntry[], hum
       totalTokens += entry.totalTokens;
       models.add(entry.model);
 
-      if (entry.costUSD > 0) {
-        costUSD += entry.costUSD;
-      } else {
-        costUSD += calculateCost(
-          entry.model,
-          entry.inputTokens,
-          entry.outputTokens,
-          entry.cacheCreationTokens,
-          entry.cacheReadTokens,
-          entry.reasoningTokens || 0,
-        );
-      }
+      // Cost is computed exactly once, by the collector that parsed the entry.
+      costUSD += entry.costUSD;
       const entryMs = new Date(entry.timestamp).getTime();
       if (Number.isFinite(entryMs) && entryMs > lastActivityMs) lastActivityMs = entryMs;
     }

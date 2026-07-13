@@ -4,10 +4,9 @@ import { homedir } from "node:os";
 import {
   CODEX_HOME_ENV,
   DEFAULT_CODEX_DIR,
-  calculateCost,
 } from "@ccclub/shared";
 import type { UsageEntry } from "@ccclub/shared";
-import type { AgentSourceCollector, SourceCollection, UsageTurn } from "./types.js";
+import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageTurn } from "./types.js";
 import {
   asNumber,
   asRecord,
@@ -94,7 +93,7 @@ function sessionIdForFile(sessionDir: string, file: string): string {
   return relative(sessionDir, file).split(sep).join("/").replace(/\.jsonl$/i, "");
 }
 
-export async function collectCodexUsage(): Promise<SourceCollection> {
+export async function collectCodexUsage(context: CollectorContext): Promise<SourceCollection> {
   const source = "codex";
   const [sessionDirs, costMultiplier] = await Promise.all([
     getCodexSessionDirs(),
@@ -208,7 +207,7 @@ export async function collectCodexUsage(): Promise<SourceCollection> {
           cacheReadTokens,
           reasoningTokens: rawUsage.reasoningTokens,
           totalTokens,
-          costUSD: calculateCost(model, inputTokens, rawUsage.outputTokens, 0, cacheReadTokens) * costMultiplier,
+          costUSD: context.calculateCost(model, inputTokens, rawUsage.outputTokens, 0, cacheReadTokens) * costMultiplier,
         });
       });
 

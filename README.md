@@ -112,12 +112,14 @@ You are **private by default** — visible only in groups you've joined. Global 
 
 ```
 packages/
-  shared/     Types + constants
+  shared/     Types, constants + model pricing
   cli/        ccclub — Commander.js CLI
   worker/     Cloudflare Worker — Hono API + KV + dashboard
 ```
 
 Auto-sync: `ccclub init` installs Claude Code `SessionEnd` + `Stop` hooks and a lightweight background sync that keeps Codex, OpenCode, Amp, and pi-agent fresh (throttled to once per 5 minutes).
+
+Model pricing: costs are computed locally against a compact price table derived from [LiteLLM](https://github.com/BerriAI/litellm) — the same upstream ccusage uses. The Worker refreshes it daily and serves it at `/api/pricing`; the CLI keeps a 24-hour local cache (`~/.ccclub/pricing.json`) with a bundled snapshot as offline fallback. New models are priced correctly within a day, with no CLI update required.
 
 ## Development
 

@@ -1,4 +1,13 @@
-import type { AgentSource, UsageEntry } from "@ccclub/shared";
+import type { AgentSource, CostCalculator, UsageEntry } from "@ccclub/shared";
+
+/**
+ * Dependencies handed to every collector. The cost calculator is injected so
+ * cost logic lives in exactly one pricing table per run (local cache or
+ * bundled snapshot), chosen by the command that starts collection.
+ */
+export interface CollectorContext {
+  calculateCost: CostCalculator;
+}
 
 export interface UsageTurn {
   source: AgentSource;
@@ -17,5 +26,5 @@ export interface SourceCollection {
 export interface AgentSourceCollector {
   source: AgentSource;
   label: string;
-  collect(): Promise<SourceCollection>;
+  collect(context: CollectorContext): Promise<SourceCollection>;
 }

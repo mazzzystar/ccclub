@@ -14,3 +14,7 @@ globs = ["**/*.ttf"]
 binding = "KV"
 id = "04ff7a30114d42f9bd986d692d888f96"
 preview_id = "f039624636834c6ca8954c98c6ff843f"
+
+# Daily model-pricing refresh from the LiteLLM feed (see src/pricing-refresh.ts).
+[triggers]
+crons = ["41 2 * * *"]

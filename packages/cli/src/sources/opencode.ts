@@ -3,10 +3,9 @@ import { homedir } from "node:os";
 import {
   DEFAULT_OPENCODE_DIR,
   OPENCODE_DATA_DIR_ENV,
-  calculateCost,
 } from "@ccclub/shared";
 import type { UsageEntry } from "@ccclub/shared";
-import type { AgentSourceCollector, SourceCollection, UsageTurn } from "./types.js";
+import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageTurn } from "./types.js";
 import {
   asNumber,
   asRecord,
@@ -29,7 +28,7 @@ function getOpenCodeDirs(): Promise<string[]> {
   return existingDirectories(dirs);
 }
 
-function parseOpenCodeMessage(row: OpenCodeMessageRow): UsageEntry | null {
+function parseOpenCodeMessage(row: OpenCodeMessageRow, context: CollectorContext): UsageEntry | null {
   const source = "opencode";
   const record = asRecord(row.data);
   if (record == null) return null;
@@ -60,7 +59,7 @@ function parseOpenCodeMessage(row: OpenCodeMessageRow): UsageEntry | null {
   }
 
   const sessionId = row.sessionId ?? asString(record.sessionID) ?? "unknown";
-  const costUSD = asNumber(record.cost) || calculateCost(
+  const costUSD = asNumber(record.cost) || context.calculateCost(
     model,
     inputTokens,
     outputTokens,
@@ -158,7 +157,7 @@ async function loadOpenCodeDbRows(openCodeDirs: string[]): Promise<OpenCodeMessa
   return rows;
 }
 
-export async function collectOpenCodeUsage(): Promise<SourceCollection> {
+export async function collectOpenCodeUsage(context: CollectorContext): Promise<SourceCollection> {
   const source = "opencode";
   const openCodeDirs = await getOpenCodeDirs();
   const [jsonRows, dbRows] = await Promise.all([
@@ -173,7 +172,7 @@ export async function collectOpenCodeUsage(): Promise<SourceCollection> {
   for (const row of rows) {
     if (seen.has(row.id)) continue;
     seen.add(row.id);
-    const entry = parseOpenCodeMessage(row);
+    const entry = parseOpenCodeMessage(row, context);
     if (entry == null) continue;
     entries.push(entry);
     turns.push({ source, timestamp: entry.timestamp, key: `${source}:${row.id}` });

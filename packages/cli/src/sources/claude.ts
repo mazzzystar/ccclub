@@ -4,10 +4,9 @@ import {
   CLAUDE_CONFIG_DIR_ENV,
   CLAUDE_CONFIG_PROJECTS_DIR,
   CLAUDE_PROJECTS_DIR,
-  calculateCost,
 } from "@ccclub/shared";
 import type { RawClaudeJSONLEntry, UsageEntry } from "@ccclub/shared";
-import type { AgentSourceCollector, SourceCollection, UsageTurn } from "./types.js";
+import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageTurn } from "./types.js";
 import {
   asRecord,
   asString,
@@ -50,7 +49,7 @@ function isClaudeHumanTurn(value: unknown): value is RawClaudeJSONLEntry {
   );
 }
 
-export async function collectClaudeUsage(): Promise<SourceCollection> {
+export async function collectClaudeUsage(context: CollectorContext): Promise<SourceCollection> {
   const source = "claude";
   const projectDirs = await getClaudeProjectDirs();
   const files = await globFiles(projectDirs, "**/*.jsonl");
@@ -120,7 +119,7 @@ export async function collectClaudeUsage(): Promise<SourceCollection> {
       const model = value.message.model || "unknown";
       const costUSD = value.costUSD && value.costUSD > 0
         ? value.costUSD
-        : calculateCost(model, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens);
+        : context.calculateCost(model, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens);
 
       const entry = {
         source,

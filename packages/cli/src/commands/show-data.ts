@@ -2,13 +2,16 @@ import chalk from "chalk";
 import { AGENT_LABELS } from "@ccclub/shared";
 import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
+import { loadCostCalculator } from "../pricing.js";
 
 export async function showDataCommand(): Promise<void> {
   console.log(chalk.bold("\n  What ccclub uploads:\n"));
   console.log(chalk.dim("  Only aggregated 30-minute block summaries. No conversation content,"));
   console.log(chalk.dim("  no file paths, no project names, no session details.\n"));
 
-  const { entries, humanTurns, sources, warnings } = await collectUsageEntries();
+  const { entries, humanTurns, sources, warnings } = await collectUsageEntries({
+    calculateCost: await loadCostCalculator(),
+  });
   const blocks = aggregateToBlocks(entries, humanTurns);
 
   if (blocks.length === 0) {

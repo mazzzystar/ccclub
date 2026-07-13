@@ -7,6 +7,7 @@ import ora from "ora";
 import { requireConfig, loadConfig, getLastSyncPath, getLastSyncTimePath } from "../config.js";
 import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
+import { loadCostCalculator, refreshPricingCache } from "../pricing.js";
 import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
 import { AGENT_LABELS, AGENT_SOURCES } from "@ccclub/shared";
 import type { AgentSource, SyncRequest, SyncResponse, UsageBlock } from "@ccclub/shared";
@@ -64,6 +65,11 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
   const config = silent ? await loadConfig() : await requireConfig();
   if (!config) return; // Not initialized — nothing to sync
 
+  // Refresh the pricing cache in the background (no-op if under 24h old).
+  // Cost calculation below uses the table already on disk; a fresh table
+  // takes effect on the next sync. refreshPricingCache never throws.
+  const pricingRefresh = refreshPricingCache(config.apiUrl);
+
   // Auto full-sync when block format version changes (e.g. chatCount added)
   if (!firstSync && needsFullSync()) {
     firstSync = true;
@@ -73,8 +79,9 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
   const spinner = silent ? null : ora("Collecting usage data...").start();
 
   try {
+    const calculateCost = await loadCostCalculator();
     const [{ entries, humanTurns, sources, warnings }, usageSnapshot] = await Promise.all([
-      collectUsageEntries(),
+      collectUsageEntries({ calculateCost }),
       fetchUsageLimits().catch(() => null),
     ]);
     const activeSources = sources.filter((source) => source.entries.length > 0).map((source) => AGENT_LABELS[source.source]);
@@ -177,6 +184,8 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
   } catch (err) {
     if (spinner) spinner.fail(`Sync error: ${formatFetchError(err)}`);
     if (silent) throw err; // Re-throw so hook caller can reset throttle
+  } finally {
+    await pricingRefresh;
   }
 }
 

@@ -3,10 +3,9 @@ import { homedir } from "node:os";
 import {
   AMP_DATA_DIR_ENV,
   DEFAULT_AMP_DIR,
-  calculateCost,
 } from "@ccclub/shared";
 import type { UsageEntry } from "@ccclub/shared";
-import type { AgentSourceCollector, SourceCollection, UsageTurn } from "./types.js";
+import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageTurn } from "./types.js";
 import {
   asNumber,
   asRecord,
@@ -40,7 +39,7 @@ function getAmpCacheTokens(messages: unknown, toMessageId: number): {
   return { cacheCreationTokens: 0, cacheReadTokens: 0 };
 }
 
-function parseAmpThread(data: unknown): UsageEntry[] {
+function parseAmpThread(data: unknown, context: CollectorContext): UsageEntry[] {
   const source = "amp";
   const thread = asRecord(data);
   const threadId = asString(thread?.id) ?? "unknown";
@@ -88,14 +87,14 @@ function parseAmpThread(data: unknown): UsageEntry[] {
       cacheCreationTokens,
       cacheReadTokens,
       totalTokens: inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens,
-      costUSD: calculateCost(model, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens),
+      costUSD: context.calculateCost(model, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens),
     });
   }
 
   return entries;
 }
 
-export async function collectAmpUsage(): Promise<SourceCollection> {
+export async function collectAmpUsage(context: CollectorContext): Promise<SourceCollection> {
   const source = "amp";
   const dirs = await getAmpDirs();
   const files = await globFiles(dirs.map((dir) => join(dir, "threads")), "**/*.json");
@@ -104,7 +103,7 @@ export async function collectAmpUsage(): Promise<SourceCollection> {
   const seen = new Set<string>();
 
   for (const file of files) {
-    for (const entry of parseAmpThread(await readJsonFile(file))) {
+    for (const entry of parseAmpThread(await readJsonFile(file), context)) {
       const key = entry.requestId ?? `${source}:${entry.sessionId}:${entry.timestamp}`;
       if (seen.has(key)) continue;
       seen.add(key);

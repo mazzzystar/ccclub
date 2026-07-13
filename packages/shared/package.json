@@ -12,7 +12,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "update-snapshot": "tsc && node scripts/generate-pricing-snapshot.mjs && tsc"
   },
   "devDependencies": {
     "typescript": "^5.7.0"

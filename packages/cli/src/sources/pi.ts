@@ -5,7 +5,7 @@ import {
   PI_AGENT_DIR_ENV,
 } from "@ccclub/shared";
 import type { UsageEntry } from "@ccclub/shared";
-import type { AgentSourceCollector, SourceCollection, UsageTurn } from "./types.js";
+import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageTurn } from "./types.js";
 import {
   asNumber,
   asRecord,
@@ -38,7 +38,7 @@ function normalizePiModel(model: string | undefined): string {
   return model == null ? "unknown" : `[pi] ${model}`;
 }
 
-export async function collectPiUsage(): Promise<SourceCollection> {
+export async function collectPiUsage(context: CollectorContext): Promise<SourceCollection> {
   const source = "pi";
   const dirs = await getPiSessionDirs();
   const files = await globFiles(dirs, "**/*.jsonl");
@@ -95,7 +95,9 @@ export async function collectPiUsage(): Promise<SourceCollection> {
         cacheCreationTokens,
         cacheReadTokens,
         totalTokens,
-        costUSD: asNumber(cost?.total),
+        // pi logs its own cost; older sessions without one fall back to table pricing.
+        costUSD: asNumber(cost?.total) ||
+          context.calculateCost(model, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens),
       });
       turns.push({ source, timestamp, key });
     });

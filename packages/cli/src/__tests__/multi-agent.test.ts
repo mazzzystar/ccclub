@@ -4,8 +4,10 @@ import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
-import { calculateCost } from "../../../shared/src/constants.js";
+import { createCostCalculator, PRICING_SNAPSHOT } from "@ccclub/shared";
 import type { UsageEntry } from "@ccclub/shared";
+
+const calculateCost = createCostCalculator(PRICING_SNAPSHOT);
 
 const tempDirs: string[] = [];
 

@@ -74,10 +74,39 @@ for (const lang of LANDING_LANGS) {
 
 const DEMO_GROUP = "YHAW6P";
 const DEMO_TZ = 480; // the demo group lives in UTC+8; "today" should match theirs
-const DEMO_ROWS = 8;
+const DEMO_ROWS = 7;
 const DEMO_ACTIVITY_ROWS = 6;
 const ACTIVITY_BUCKETS = 48;
 const ACTIVE_THRESHOLD_MS = 15 * 60 * 1000;
+
+// Mirrors the dashboard's avatar palette so the preview looks identical.
+const AVATAR_COLORS = [
+  "#c45c5c", "#d4845a", "#d4a03e", "#8aaa5a", "#5aad7d",
+  "#4a9b8a", "#4a8aaa", "#5a7aaa", "#7a6aaa", "#9a5aaa",
+  "#aa5a8a", "#c46a7a",
+];
+
+function avatarColor(userId: string): string {
+  let h = 0;
+  for (let i = 0; i < userId.length; i++) h = ((h << 5) - h + userId.charCodeAt(i)) | 0;
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+
+const AGENT_ICONS: Partial<Record<AgentSource, string>> = {
+  claude: "/agent-icons/claude.svg",
+  codex: "/agent-icons/codex.svg",
+  opencode: "/agent-icons/opencode.svg",
+  amp: "/agent-icons/amp.svg",
+};
+
+function agentIconHTML(source: AgentSource, size: number): string {
+  const icon = AGENT_ICONS[source];
+  if (icon) {
+    return `<img src="${icon}" alt="${htmlEsc(AGENT_LABELS[source] ?? source)}" width="${size}" height="${size}" loading="lazy" />`;
+  }
+  const letter = source === "pi" ? "π" : (AGENT_LABELS[source] ?? source).charAt(0);
+  return `<span class="demo-icon-fallback" style="width:${size}px;height:${size}px">${htmlEsc(letter)}</span>`;
+}
 
 interface ActivityResponse {
   start: string;
@@ -116,19 +145,32 @@ function formatDemoCost(n: number): string {
   return `$${n.toFixed(2)}`;
 }
 
-function demoAgentsCell(entry: RankingEntry): string {
+function demoAgentLine(entry: RankingEntry): string {
   const breakdown = (entry.agentBreakdown ?? []).filter((a) => a.percent > 0);
-  if (breakdown.length === 0) {
-    return (entry.agents ?? []).map((a) => AGENT_LABELS[a] ?? a).join(", ") || "—";
-  }
-  if (breakdown.length === 1) return htmlEsc(AGENT_LABELS[breakdown[0].source] ?? breakdown[0].source);
-  return breakdown
-    .slice(0, 2)
-    .map((a) => `${htmlEsc(AGENT_LABELS[a.source] ?? a.source)} <span class="term-pct">${a.percent}%</span>`)
-    .join(" · ") + (breakdown.length > 2 ? " …" : "");
+  const parts = breakdown.length > 0
+    ? breakdown.slice(0, 3).map((a) =>
+        `<span class="demo-agent">${agentIconHTML(a.source, 12)}${
+          breakdown.length > 1 ? `<span class="demo-agent-pct">${a.percent}%</span>` : ""
+        }</span>`)
+    : (entry.agents ?? []).slice(0, 3).map((a) => `<span class="demo-agent">${agentIconHTML(a, 12)}</span>`);
+  if (parts.length === 0) return "";
+  return `<div class="demo-agent-line">${parts.join("")}</div>`;
 }
 
-function renderDemoBoard(rank: RankResponse, activity: ActivityResponse | null): string {
+function demoAvatar(entry: RankingEntry, isActive: boolean): string {
+  const initial = htmlEsc((entry.displayName || "?").charAt(0).toUpperCase());
+  const color = avatarColor(entry.userId);
+  const fallback = `<span class="demo-avatar-fallback" style="background:${color}">${initial}</span>`;
+  const face = entry.avatar
+    ? `<img src="${htmlEsc(entry.avatar)}" alt="" loading="lazy" onerror="this.style.display='none'" />${fallback}`
+    : fallback;
+  const bubble = isActive
+    ? '<span class="typing-bubble"><span></span><span></span><span></span></span>'
+    : "";
+  return `<span class="demo-avatar">${face}${bubble}</span>`;
+}
+
+export function renderDemoBoard(rank: RankResponse, activity: ActivityResponse | null): string {
   const now = Date.now();
   const rows = rank.rankings.filter((r) => r.costUSD > 0).slice(0, DEMO_ROWS);
   if (rows.length === 0) return "";
@@ -144,21 +186,25 @@ function renderDemoBoard(rank: RankResponse, activity: ActivityResponse | null):
   }
   const activeSplit = Array.from(activeBySource.entries())
     .sort((a, b) => b[1] - a[1])
-    .map(([source, count]) => `${AGENT_LABELS[source] ?? source} ${count}`)
-    .join(" · ");
+    .map(([source, count]) => `<span class="demo-active-score">${agentIconHTML(source, 13)}${count}</span>`)
+    .join('<span class="demo-active-sep">·</span>');
 
-  const rankClass = (r: number) => (r === 1 ? "term-gold" : r === 2 ? "term-silver" : r === 3 ? "term-bronze" : "");
+  const maxCost = rows[0]?.costUSD ?? 0;
+  const rowClass = (r: number) => (r === 1 ? "demo-top-one" : r === 2 ? "demo-top-two" : r === 3 ? "demo-top-three" : "");
+  const rankClass = (r: number) => (r === 1 ? "demo-rank gold" : r === 2 ? "demo-rank silver" : r === 3 ? "demo-rank bronze" : "demo-rank");
   const body = rows.map((r) => {
     const isActive = activeRows.includes(r);
     const chats = r.chatCount || 0;
-    return `<tr class="${rankClass(r.rank)}">` +
-      `<td class="term-rank">${r.rank}</td>` +
-      `<td class="term-name">${isActive ? '<span class="term-dot">●</span> ' : ""}${htmlEsc(r.displayName)}</td>` +
-      `<td class="term-agents">${demoAgentsCell(r)}</td>` +
-      `<td class="term-cost">${formatDemoCost(r.costUSD)}</td>` +
-      `<td>${formatDemoTokens(r.totalTokens)}</td>` +
-      `<td>${chats}</td>` +
-      `<td>${chats > 0 ? formatDemoCost(r.costUSD / chats) : "—"}</td>` +
+    const barPct = maxCost > 0 ? Math.max(2, Math.round((r.costUSD / maxCost) * 100)) : 0;
+    return `<tr class="${rowClass(r.rank)}">` +
+      `<td class="${rankClass(r.rank)}">${r.rank}</td>` +
+      `<td><div class="demo-name-cell">${demoAvatar(r, isActive)}` +
+      `<div class="demo-name-body"><div class="demo-name-text">${htmlEsc(r.displayName)}</div>` +
+      demoAgentLine(r) +
+      `<div class="demo-bar" style="width:${barPct}%"></div></div></div></td>` +
+      `<td class="demo-cost">${formatDemoCost(r.costUSD)}</td>` +
+      `<td class="demo-dim">${formatDemoTokens(r.totalTokens)}</td>` +
+      `<td class="demo-dim">${chats}</td>` +
       `</tr>`;
   }).join("");
 
@@ -193,26 +239,29 @@ function renderDemoBoard(rank: RankResponse, activity: ActivityResponse | null):
           : 1;
         return `<rect x="${i * BAR_W}" y="${H - height}" width="${BAR_W - 2}" height="${height}" rx="1"/>`;
       }).join("");
-      return `<div class="term-act-row">` +
-        `<span class="term-act-name">${htmlEsc(name)}</span>` +
+      return `<div class="demo-act-row">` +
+        `<span class="demo-act-name">${htmlEsc(name)}</span>` +
         `<svg viewBox="0 0 ${ACTIVITY_BUCKETS * BAR_W} ${H}" preserveAspectRatio="none" aria-hidden="true">${bars}</svg>` +
-        `<span class="term-act-cost">${formatDemoCost(totalCost)}</span>` +
+        `<span class="demo-act-cost">${formatDemoCost(totalCost)}</span>` +
         `</div>`;
     }).join("");
     activityHtml =
-      `<div class="term-activity"><div class="term-act-title">Activity (24h)</div>${lines}` +
-      `<div class="term-act-axis"><span>0h</span><span>6h</span><span>12h</span><span>18h</span></div></div>`;
+      `<div class="demo-activity"><div class="demo-act-title">Activity (24h)</div>${lines}` +
+      `<div class="demo-act-axis"><span>0h</span><span>6h</span><span>12h</span><span>18h</span></div></div>`;
   }
 
-  return `<div class="term" aria-label="Live leaderboard of the public demo group">` +
-    `<div class="term-title">${htmlEsc(rank.group.name)}</div>` +
-    `<div class="term-meta">TODAY · ${rank.start.slice(0, 10)} → ${rank.end.slice(0, 10)} · ${rank.group.memberCount} members</div>` +
-    (activeRows.length > 0 ? `<div class="term-active">${activeRows.length} active${activeSplit ? ` · ${activeSplit}` : ""}</div>` : "") +
-    `<div class="term-scroll"><table class="term-table"><thead><tr>` +
-    `<th>#</th><th>Name</th><th>Agents</th><th>Cost</th><th>Tokens</th><th>Turns</th><th>$/Turn</th>` +
+  return `<div class="demo-dash" aria-label="Live leaderboard of the public demo group">` +
+    `<div class="demo-head">` +
+    `<div class="demo-title">${htmlEsc(rank.group.name)}</div>` +
+    `<div class="demo-sub">TODAY · ${rank.start.slice(0, 10)} → ${rank.end.slice(0, 10)} · ${rank.group.memberCount} members</div>` +
+    (activeRows.length > 0
+      ? `<div class="demo-active"><span class="demo-active-dot"></span>${activeRows.length} active${activeSplit ? `<span class="demo-active-split">${activeSplit}</span>` : ""}</div>`
+      : "") +
+    `</div>` +
+    `<div class="demo-shell"><table class="demo-table"><thead><tr>` +
+    `<th>#</th><th>Member</th><th>Cost</th><th>Tokens</th><th>Turns</th>` +
     `</tr></thead><tbody>${body}</tbody></table></div>` +
-    (hiddenCount > 0 ? `<div class="term-more">+ ${hiddenCount} more members</div>` : "") +
-    `<div class="term-link">Dashboard: <span>https://ccclub.dev/g/${DEMO_GROUP}</span></div>` +
+    (hiddenCount > 0 ? `<div class="demo-more">+ ${hiddenCount} more members on the live dashboard →</div>` : "") +
     activityHtml +
     `</div>`;
 }
@@ -371,50 +420,108 @@ function landingHTML(lang: LandingLang, demoBoard: string | null = null) {
       display: block; width: 100%; height: auto; aspect-ratio: 1264 / 756; object-fit: cover;
     }
 
-    /* Live demo board — terminal-styled, matching the CLI's look */
-    .term {
-      padding: 22px 24px 20px; background: #171412; color: var(--text);
-      font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace;
-      font-size: 13px; line-height: 1.5;
+    /* Live demo board — dashboard-styled: avatars, agent icons, live bubbles */
+    .demo-dash { padding: 20px 20px 18px; background: #171412; font-size: 13px; }
+    .demo-head { padding: 2px 4px 14px; }
+    .demo-title { font-weight: 650; color: var(--title); font-size: 17px; letter-spacing: -0.2px; }
+    .demo-sub { color: var(--faint); font-size: 12px; margin-top: 3px; }
+    .demo-active {
+      color: var(--success); font-size: 12.5px; margin-top: 6px;
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
     }
-    .term-title { font-weight: 700; color: var(--title); font-size: 15px; }
-    .term-meta { color: var(--faint); margin-top: 2px; }
-    .term-active { color: var(--success); margin-top: 2px; }
-    .term-scroll { overflow-x: auto; margin-top: 14px; }
-    .term-table { border-collapse: collapse; width: 100%; min-width: 560px; }
-    .term-table th, .term-table td {
-      border: 1px solid #3a342e; padding: 7px 12px; text-align: left; white-space: nowrap;
+    .demo-active-dot {
+      width: 7px; height: 7px; border-radius: 999px; background: var(--success);
+      animation: livePulse 1.8s ease-out infinite;
     }
-    .term-table th { color: var(--link); font-weight: 600; }
-    .term-table td { color: var(--text); }
-    .term-agents, .term-table td.term-agents { color: var(--muted); }
-    .term-pct { color: var(--faint); }
-    .term-dot { color: var(--success); }
-    .term-gold td, .term-gold .term-agents { color: var(--gold); font-weight: 600; }
-    .term-silver td, .term-silver .term-agents { color: var(--silver); }
-    .term-bronze td, .term-bronze .term-agents { color: var(--bronze); }
-    .term-more { color: var(--faint); margin-top: 10px; }
-    .term-link { color: var(--faint); margin-top: 4px; }
-    .term-link span { color: var(--muted); }
-    .term-activity { margin-top: 18px; }
-    .term-act-title { color: var(--muted); margin-bottom: 6px; }
-    .term-act-row { display: flex; align-items: center; gap: 12px; margin: 3px 0; }
-    .term-act-name {
+    .demo-active-split { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+    .demo-active-score { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+    .demo-active-score img { display: block; object-fit: contain; }
+    .demo-active-sep { color: var(--faint); margin: 0 2px; }
+    .demo-icon-fallback {
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 3px; background: rgba(138,132,128,0.16); color: var(--muted);
+      font-size: 9px; font-weight: 600;
+    }
+    .demo-shell {
+      overflow-x: auto; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.05); background: rgba(19,17,15,0.38);
+    }
+    .demo-table { width: 100%; border-collapse: collapse; min-width: 520px; }
+    .demo-table th {
+      color: var(--faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px;
+      font-weight: 500; text-align: left; padding: 9px 12px;
+      border-bottom: 1px solid var(--line); background: rgba(255,255,255,0.012);
+    }
+    .demo-table td { padding: 11px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .demo-table tbody tr:last-child td { border-bottom: none; }
+    .demo-top-one { background: rgba(214,181,109,0.045); }
+    .demo-top-two { background: rgba(174,183,191,0.028); }
+    .demo-top-three { background: rgba(197,138,97,0.032); }
+    .demo-rank { font-weight: 650; width: 34px; color: var(--faint); font-size: 13px; }
+    .demo-rank.gold { color: var(--gold); }
+    .demo-rank.silver { color: var(--silver); }
+    .demo-rank.bronze { color: var(--bronze); }
+    .demo-name-cell { display: flex; align-items: center; gap: 11px; }
+    .demo-name-body { flex: 1; min-width: 0; }
+    .demo-avatar { position: relative; flex-shrink: 0; width: 30px; height: 30px; display: block; }
+    .demo-avatar img, .demo-avatar-fallback {
+      width: 30px; height: 30px; border-radius: 50%; object-fit: cover;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 600; font-size: 12.5px; color: var(--bg);
+      position: absolute; inset: 0;
+    }
+    .demo-avatar img { z-index: 1; }
+    .typing-bubble {
+      position: absolute; top: -6px; right: -5px; z-index: 2;
+      background: #2b2724; border-radius: 8px; padding: 3px 5px;
+      display: flex; gap: 2px; align-items: center; box-shadow: 0 0 0 2px #171412;
+    }
+    .typing-bubble span {
+      width: 3.5px; height: 3.5px; border-radius: 50%; background: var(--text);
+      opacity: 0.15; animation: typing-fade 1.2s infinite ease-in-out;
+    }
+    .typing-bubble span:nth-child(2) { animation-delay: 0.3s; }
+    .typing-bubble span:nth-child(3) { animation-delay: 0.6s; }
+    @keyframes typing-fade {
+      0%, 100% { opacity: 0.15; }
+      30%, 50% { opacity: 1; }
+    }
+    .demo-name-text {
+      font-weight: 500; font-size: 13.5px; color: var(--text);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px;
+    }
+    .demo-agent-line { display: flex; align-items: center; gap: 8px; margin-top: 3px; }
+    .demo-agent { display: inline-flex; align-items: center; gap: 3px; }
+    .demo-agent img { display: block; object-fit: contain; opacity: 0.85; }
+    .demo-agent-pct { color: var(--faint); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+    .demo-bar {
+      height: 2.5px; margin-top: 6px; border-radius: 2px; max-width: 240px;
+      background: linear-gradient(90deg, rgba(212,147,94,0.75), rgba(212,147,94,0.25));
+    }
+    .demo-cost { color: var(--gold); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .demo-dim { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .demo-more { color: var(--faint); font-size: 12px; padding: 10px 4px 0; }
+    .demo-activity {
+      margin-top: 16px; font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12px;
+    }
+    .demo-act-title { color: var(--muted); margin-bottom: 6px; }
+    .demo-act-row { display: flex; align-items: center; gap: 12px; margin: 3px 0; }
+    .demo-act-name {
       flex: 0 0 96px; color: var(--muted); overflow: hidden;
       text-overflow: ellipsis; white-space: nowrap;
     }
-    .term-act-row svg { flex: 1 1 auto; height: 16px; min-width: 0; }
-    .term-act-row svg rect { fill: rgba(212, 147, 94, 0.78); }
-    .term-act-cost { flex: 0 0 auto; color: var(--faint); min-width: 72px; text-align: right; }
-    .term-act-axis {
+    .demo-act-row svg { flex: 1 1 auto; height: 16px; min-width: 0; }
+    .demo-act-row svg rect { fill: rgba(212, 147, 94, 0.78); }
+    .demo-act-cost { flex: 0 0 auto; color: var(--faint); min-width: 72px; text-align: right; }
+    .demo-act-axis {
       display: flex; justify-content: space-between; color: var(--faint);
       margin: 4px 0 0 108px; font-size: 11px; max-width: calc(100% - 108px - 84px);
     }
     @media (max-width: 600px) {
-      .term { padding: 16px 14px 14px; font-size: 12px; }
-      .term-act-name { flex-basis: 72px; }
-      .term-act-cost { min-width: 56px; }
-      .term-act-axis { margin-left: 84px; max-width: calc(100% - 84px - 68px); }
+      .demo-dash { padding: 14px 12px 12px; }
+      .demo-act-name { flex-basis: 72px; }
+      .demo-act-cost { min-width: 56px; }
+      .demo-act-axis { margin-left: 84px; max-width: calc(100% - 84px - 68px); }
     }
     .preview-caption {
       display: flex; justify-content: space-between; gap: 16px;

@@ -8,6 +8,7 @@ import { showDataCommand } from "./commands/show-data.js";
 import { createGroupCommand } from "./commands/group.js";
 import { leaveCommand } from "./commands/leave.js";
 import { hookCommand } from "./commands/hook.js";
+import { statuslineCommand } from "./commands/statusline.js";
 import { startUpdateCheck } from "./update-check.js";
 
 declare const __VERSION__: string;
@@ -98,6 +99,12 @@ program
   .description("Preview exactly what gets uploaded (privacy check)")
   .action(showDataCommand);
 
+program
+  .command("statusline")
+  .argument("[action]", "on | off")
+  .description("Claude Code statusline: model · 5h/7d limits · rank")
+  .action(statuslineCommand);
+
 // Internal — auto-installed, users don't need to run this
 program
   .command("hook", { hidden: true })
@@ -125,6 +132,7 @@ Examples:
   $ ccclub -d 1|7|30|all   Time window (default: today)
   $ ccclub --global        Global public leaderboard
   $ ccclub show-data       Preview exactly what gets uploaded
+  $ ccclub statusline off  Remove the Claude Code statusline
 `);
 
 program.parse();

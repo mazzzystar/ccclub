@@ -8,6 +8,7 @@ import { requireConfig, loadConfig, getLastSyncPath, getLastSyncTimePath } from 
 import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
 import { loadCostCalculator, refreshPricingCache } from "../pricing.js";
+import { refreshRankCache } from "../statusline.js";
 import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
 import { AGENT_LABELS, AGENT_SOURCES } from "@ccclub/shared";
 import type { AgentSource, SyncRequest, SyncResponse, UsageBlock } from "@ccclub/shared";
@@ -137,6 +138,7 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
           signal: AbortSignal.timeout(8_000),
         }).catch(() => {});
       }
+      await refreshRankCache(config);
       return;
     }
 
@@ -170,6 +172,9 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
     await writeFile(getLastSyncBySourcePath(), JSON.stringify(getLatestBlockStartBySource(allBlocks), null, 2));
     await writeFile(getSyncVersionPath(), SYNC_FORMAT_VERSION);
     await writeFile(getLastSyncTimePath(), String(Date.now()));
+
+    // The upload just changed today's numbers — refresh the statusline cache.
+    await refreshRankCache(config);
 
     const totalTokens = blocksToSync.reduce((s, b) => s + b.totalTokens, 0);
     const totalCost = blocksToSync.reduce((s, b) => s + b.costUSD, 0);

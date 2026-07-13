@@ -7,6 +7,7 @@ import { installHook, isHookInstalled } from "../hook.js";
 import { installHeartbeat, isHeartbeatInstalled } from "../heartbeat.js";
 import { doSync } from "./sync.js";
 import { ensureGlobalInstall } from "../global-install.js";
+import { getStatuslineState, hasOptedOut, installStatusline } from "../statusline-install.js";
 import { formatFetchError } from "../fetch-error.js";
 import { theme } from "../theme.js";
 import type { InitResponse } from "@ccclub/shared";
@@ -103,7 +104,13 @@ export async function initCommand(): Promise<void> {
     await doSync(true);
 
     // Auto-install globally so `ccclub` works without npx
-    await ensureGlobalInstall();
+    const globalOk = await ensureGlobalInstall();
+
+    // Claim the Claude Code statusline only when nothing else occupies it
+    // (an existing cc-costline or custom command is never touched).
+    if (globalOk && !hasOptedOut() && (await getStatuslineState()) === "none" && (await installStatusline())) {
+      console.log(chalk.dim('  ✓ Claude Code statusline enabled — model · 5h/7d limits · rank ("ccclub statusline off" to remove)'));
+    }
 
     printQuickStart();
 

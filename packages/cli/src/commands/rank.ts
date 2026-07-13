@@ -10,6 +10,8 @@ import { installHook, isHookInstalled } from "../hook.js";
 import { installHeartbeat, isHeartbeatInstalled } from "../heartbeat.js";
 import { getUpdateResult } from "../update-check.js";
 import { fetchUsageLimits } from "../usage-limits.js";
+import { maybeAutoEnableStatusline } from "../statusline-install.js";
+import { writeRankCache } from "../statusline.js";
 
 const ACTIVE_THRESHOLD_MS = 15 * 60 * 1000;
 const AGENT_ORDER: AgentSource[] = ["claude", "codex", "opencode", "amp", "pi"];
@@ -72,6 +74,8 @@ export async function rankCommand(options: { days?: string; period?: string; gro
 
   // Fire in parallel with rank API — resolves by the time rank data arrives
   const localUsagePromise = fetchUsageLimits().catch(() => null);
+  // One-time enable for users who set up ccclub before the statusline existed.
+  const statuslineEnabledPromise = maybeAutoEnableStatusline().catch(() => false);
 
   const spinner = ora("Loading leaderboard...").start();
 
@@ -128,6 +132,15 @@ export async function rankCommand(options: { days?: string; period?: string; gro
       if (activityData) renderActivity(activityData, range);
 
       if (i < groupResults.length - 1) console.log("");
+
+      // Freshly fetched today-rank for the primary group → update the
+      // statusline cache for free.
+      if (period === "daily" && code === config.groups[0]) {
+        const me = rankData.rankings.find((r) => r.userId === config.userId);
+        if (me) {
+          await writeRankCache({ rank: me.rank, total: rankData.rankings.length, costUSD: me.costUSD });
+        }
+      }
     }
 
     if (includeCache) {
@@ -139,6 +152,10 @@ export async function rankCommand(options: { days?: string; period?: string; gro
     const update = await getUpdateResult();
     if (update) {
       console.log(theme.warningBold("\n  Update available") + theme.muted(`: ${update.current} → ${update.latest}  Run `) + theme.linkText("npm i -g ccclub@latest"));
+    }
+
+    if (await statuslineEnabledPromise) {
+      console.log(theme.success("\n  ✓ Claude Code statusline enabled") + theme.muted(' — model · 5h/7d limits · rank. Run "') + theme.text("ccclub statusline off") + theme.muted('" to remove.'));
     }
   } catch (err) {
     spinner.fail(`Error: ${formatFetchError(err)}`);

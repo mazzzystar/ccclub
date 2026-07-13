@@ -8,22 +8,28 @@ function run(cmd: string): Promise<string> {
   });
 }
 
+/** Check npm's global list, not PATH (npx temporarily adds itself to PATH). */
+export async function isGloballyInstalled(): Promise<boolean> {
+  const globalList = await run("npm list -g ccclub --depth=0");
+  return globalList.includes("ccclub@");
+}
+
 /**
  * Check if `ccclub` is globally installed (not just available via npx).
  * If not, install it globally so users can run `ccclub` directly.
+ * Returns true when the global install is present afterwards.
  */
-export async function ensureGlobalInstall(): Promise<void> {
-  // Check npm global list, not PATH (npx temporarily adds to PATH)
-  const globalList = await run("npm list -g ccclub --depth=0");
-  if (globalList.includes("ccclub@")) return;
+export async function ensureGlobalInstall(): Promise<boolean> {
+  if (await isGloballyInstalled()) return true;
 
   console.log(chalk.dim("\n  Installing ccclub globally so you can run it directly..."));
 
   const result = await run("npm install -g ccclub");
   if (result) {
     console.log(theme.success("  Done!") + chalk.dim(" You can now use ") + theme.text("ccclub") + chalk.dim(" directly."));
-  } else {
-    console.log(chalk.dim("  Could not auto-install. Run manually:"));
-    console.log(theme.text("    npm install -g ccclub"));
+    return true;
   }
+  console.log(chalk.dim("  Could not auto-install. Run manually:"));
+  console.log(theme.text("    npm install -g ccclub"));
+  return false;
 }

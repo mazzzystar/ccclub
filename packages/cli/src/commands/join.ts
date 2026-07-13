@@ -6,6 +6,7 @@ import { loadConfig, saveConfig, generateDeviceToken, getApiUrl, getDefaultDispl
 import { installHook } from "../hook.js";
 import { doSync } from "./sync.js";
 import { ensureGlobalInstall } from "../global-install.js";
+import { getStatuslineState, hasOptedOut, installStatusline } from "../statusline-install.js";
 import { formatFetchError } from "../fetch-error.js";
 import type { JoinResponse } from "@ccclub/shared";
 
@@ -85,7 +86,11 @@ export async function joinCommand(inviteCode: string): Promise<void> {
     console.log("");
     await doSync(true);
     // Auto-install globally so `ccclub` works without npx
-    await ensureGlobalInstall();
+    const globalOk = await ensureGlobalInstall();
+    // Claim the Claude Code statusline only when nothing else occupies it.
+    if (globalOk && !hasOptedOut() && (await getStatuslineState()) === "none" && (await installStatusline())) {
+      console.log(chalk.dim('  ✓ Claude Code statusline enabled — model · 5h/7d limits · rank ("ccclub statusline off" to remove)'));
+    }
   }
 
   console.log("");

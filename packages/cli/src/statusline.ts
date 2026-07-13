@@ -42,6 +42,8 @@ interface RankCacheEntry {
   total: number;
   costUSD: number;
   fetchedAt: number;
+  /** Group dashboard URL; the rank segment becomes a terminal hyperlink. */
+  url?: string;
 }
 
 function readJsonFile(path: string): Record<string, unknown> | null {
@@ -91,7 +93,18 @@ function readRankCache(path: string, now: number): RankCacheEntry | null {
   const fetchedAt = asFiniteNumber(raw?.fetchedAt);
   if (rank == null || total == null || costUSD == null || fetchedAt == null) return null;
   if (now - fetchedAt > RANK_MAX_AGE_MS || !isSameLocalDay(fetchedAt, now)) return null;
-  return { rank, total, costUSD, fetchedAt };
+  const url = typeof raw?.url === "string" && /^https?:\/\//.test(raw.url) ? raw.url : undefined;
+  return { rank, total, costUSD, fetchedAt, url };
+}
+
+/**
+ * OSC 8 terminal hyperlink: invisible wrapper, so the UI is unchanged —
+ * supporting terminals (Ghostty, iTerm2, VS Code, …) make the text
+ * cmd/ctrl-clickable; others ignore the sequence and show plain text.
+ */
+function hyperlink(text: string, url: string | undefined): string {
+  if (!url) return text;
+  return `\x1b]8;;${url}\x1b\\${text}\x1b]8;;\x1b\\`;
 }
 
 export function formatCost(n: number): string {
@@ -155,10 +168,11 @@ export function renderStatusline(
 
   const rank = readRankCache(options.rankCachePath ?? getRankCachePath(), now);
   if (rank) {
-    segments.push(
+    segments.push(hyperlink(
       `${rankColor(rank.rank)}#${rank.rank}${RESET}${DIM}/${rank.total}${RESET} ` +
       `${GOLD}${formatCost(rank.costUSD)}${RESET}`,
-    );
+      rank.url,
+    ));
   }
 
   if (segments.length === 0) return "";
@@ -167,7 +181,7 @@ export function renderStatusline(
 
 /** Persist a rank snapshot for the statusline to read. Never throws. */
 export async function writeRankCache(
-  entry: { rank: number; total: number; costUSD: number },
+  entry: { rank: number; total: number; costUSD: number; url?: string },
   cachePath = getRankCachePath(),
 ): Promise<void> {
   try {
@@ -200,7 +214,12 @@ export async function refreshRankCache(
     if (me == null || asFiniteNumber(me.rank) == null || asFiniteNumber(me.costUSD) == null) return;
 
     await writeRankCache(
-      { rank: me.rank as number, total: rankings.length, costUSD: me.costUSD as number },
+      {
+        rank: me.rank as number,
+        total: rankings.length,
+        costUSD: me.costUSD as number,
+        url: `${config.apiUrl}/g/${encodeURIComponent(code)}`,
+      },
       cachePath,
     );
   } catch {

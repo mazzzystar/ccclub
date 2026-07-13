@@ -26,8 +26,9 @@ afterEach(async () => {
 });
 
 function stripAnsi(text: string): string {
+  // SGR colors and OSC 8 hyperlink wrappers.
   // eslint-disable-next-line no-control-regex
-  return text.replace(/\x1b\[[0-9;]*m/g, "");
+  return text.replace(/\x1b\[[0-9;]*m/g, "").replace(/\x1b\]8;;[^\x1b]*\x1b\\/g, "");
 }
 
 interface CacheSetup {
@@ -117,6 +118,41 @@ describe("renderStatusline", () => {
       { now: NOW, usageCachePath: join(dir, "u"), rankCachePath: join(dir, "r") },
     ));
     expect(line).toBe(" Fable 5 (200K)");
+  });
+});
+
+describe("rank hyperlink", () => {
+  const DASHBOARD = "https://ccclub.dev/g/YHAW6P";
+
+  async function renderWithRankUrl(dir: string, url: unknown): Promise<string> {
+    const rankCachePath = join(dir, "rank-cache.json");
+    await writeFile(rankCachePath, JSON.stringify({
+      rank: 11, total: 67, costUSD: 19.02, fetchedAt: NOW - 60_000, url,
+    }));
+    return renderStatusline(STDIN_JSON, {
+      now: NOW,
+      usageCachePath: join(dir, "no-usage"),
+      rankCachePath,
+    });
+  }
+
+  it("wraps the rank segment in an OSC 8 hyperlink to the group dashboard", async () => {
+    const line = await renderWithRankUrl(await makeTempDir(), DASHBOARD);
+    expect(line).toContain(`\x1b]8;;${DASHBOARD}\x1b\\`); // open
+    expect(line).toContain("\x1b]8;;\x1b\\"); // close
+    // The visible text is unchanged.
+    expect(stripAnsi(line)).toBe(" Fable 5 | #11/67 $19.0");
+  });
+
+  it("renders plain text when the cache has no url (e.g. written by an older version)", async () => {
+    const line = await renderWithRankUrl(await makeTempDir(), undefined);
+    expect(line).not.toContain("\x1b]8");
+    expect(stripAnsi(line)).toBe(" Fable 5 | #11/67 $19.0");
+  });
+
+  it("ignores non-http urls", async () => {
+    const line = await renderWithRankUrl(await makeTempDir(), "javascript:alert(1)");
+    expect(line).not.toContain("\x1b]8");
   });
 });
 

@@ -138,7 +138,12 @@ export async function rankCommand(options: { days?: string; period?: string; gro
       if (period === "daily" && code === config.groups[0]) {
         const me = rankData.rankings.find((r) => r.userId === config.userId);
         if (me) {
-          await writeRankCache({ rank: me.rank, total: rankData.rankings.length, costUSD: me.costUSD });
+          await writeRankCache({
+            rank: me.rank,
+            total: rankData.rankings.length,
+            costUSD: me.costUSD,
+            url: `${config.apiUrl}/g/${encodeURIComponent(code)}`,
+          });
         }
       }
     }

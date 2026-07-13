@@ -14,9 +14,20 @@ import { maybeAutoEnableStatusline } from "../statusline-install.js";
 import { writeRankCache } from "../statusline.js";
 
 const ACTIVE_THRESHOLD_MS = 15 * 60 * 1000;
-const AGENT_ORDER: AgentSource[] = ["claude", "codex", "opencode", "amp", "pi"];
+const AGENT_ORDER: AgentSource[] = ["claude", "codex", "opencode", "amp", "pi", "openclaw"];
 
-export async function rankCommand(options: { days?: string; period?: string; group?: string; global?: boolean; cache?: boolean; all?: boolean }): Promise<void> {
+export interface RankCommandOptions {
+  // Commander's optional-value flags (`-d [days]`) yield `true` when passed bare.
+  days?: string | boolean;
+  period?: string | boolean;
+  group?: string;
+  global?: boolean;
+  cache?: boolean;
+  all?: boolean;
+  json?: boolean;
+}
+
+export async function rankCommand(options: RankCommandOptions): Promise<void> {
   const config = await requireConfig();
   const includeCache = options.cache !== false;
 
@@ -75,9 +86,13 @@ export async function rankCommand(options: { days?: string; period?: string; gro
   // Fire in parallel with rank API — resolves by the time rank data arrives
   const localUsagePromise = fetchUsageLimits().catch(() => null);
   // One-time enable for users who set up ccclub before the statusline existed.
-  const statuslineEnabledPromise = maybeAutoEnableStatusline().catch(() => false);
+  // Skipped in JSON mode: machine consumers should never trigger installs.
+  const statuslineEnabledPromise = options.json
+    ? Promise.resolve(false)
+    : maybeAutoEnableStatusline().catch(() => false);
 
-  const spinner = ora("Loading leaderboard...").start();
+  // Spinner only for interactive human use; never on pipes or JSON output.
+  const spinner = options.json || !process.stdout.isTTY ? null : ora("Loading leaderboard...").start();
 
   try {
     // Fire all rank + activity fetches simultaneously across all groups
@@ -96,7 +111,7 @@ export async function rankCommand(options: { days?: string; period?: string; gro
       })
     );
 
-    spinner.stop();
+    spinner?.stop();
 
     const localSnapshot = await localUsagePromise;
 
@@ -112,6 +127,15 @@ export async function rankCommand(options: { days?: string; period?: string; gro
     if (process.env.CCCLUB_DEBUG) {
       console.error("[usage-debug] localSnapshot:", localSnapshot);
       console.error("[usage-debug] config.userId:", config.userId);
+    }
+
+    // Machine-readable mode: raw server responses, nothing else on stdout.
+    if (options.json) {
+      const groups = groupResults
+        .filter((result) => result.rankData != null)
+        .map((result) => result.rankData);
+      console.log(JSON.stringify({ period, groups }, null, 2));
+      return;
     }
 
     for (let i = 0; i < groupResults.length; i++) {
@@ -163,7 +187,10 @@ export async function rankCommand(options: { days?: string; period?: string; gro
       console.log(theme.success("\n  ✓ Claude Code statusline enabled") + theme.muted(' — model · 5h/7d limits · rank. Run "') + theme.text("ccclub statusline off") + theme.muted('" to remove.'));
     }
   } catch (err) {
-    spinner.fail(`Error: ${formatFetchError(err)}`);
+    const message = `Error: ${formatFetchError(err)}`;
+    if (spinner) spinner.fail(message);
+    else console.error(message);
+    process.exitCode = 1;
   }
 }
 

@@ -51,8 +51,13 @@ export async function loadPricingTable(cachePath = getPricingCachePath()): Promi
   return cached == null ? PRICING_SNAPSHOT : mergePricingTables(PRICING_SNAPSHOT, cached.table);
 }
 
-export async function loadCostCalculator(cachePath = getPricingCachePath()): Promise<CostCalculator> {
-  return createCostCalculator(await loadPricingTable(cachePath));
+/** Calculator plus the table version, which collectors key their caches on. */
+export async function loadPricing(cachePath = getPricingCachePath()): Promise<{
+  calculateCost: CostCalculator;
+  version: string;
+}> {
+  const table = await loadPricingTable(cachePath);
+  return { calculateCost: createCostCalculator(table), version: table.version };
 }
 
 /**

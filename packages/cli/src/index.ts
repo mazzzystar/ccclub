@@ -25,7 +25,7 @@ if (process.argv.slice(2).includes("-v")) {
 
 program
   .name("ccclub")
-  .description("Claude Code, Codex, OpenCode, Amp, and pi-agent usage leaderboard among friends")
+  .description("Claude Code, Codex, OpenCode, Amp, pi-agent, and OpenClaw usage leaderboard among friends")
   .version(VERSION);
 
 // Default command — just running `ccclub` shows the leaderboard
@@ -39,6 +39,7 @@ program
   .addOption(new Option("--cache", "Include cache tokens in count (default)").hideHelp())
   .option("--no-cache", "Exclude cache tokens from token counts")
   .option("--all", "Show all members including those with no activity")
+  .option("--json", "Output raw leaderboard data as JSON (for scripts and agents)")
   .action(rankCommand);
 
 // --- Setup (one-time) ---
@@ -117,7 +118,7 @@ Setup:
   ccclub join <code>      Join a friend's group
 
 Supported agents:
-  Claude Code, Codex, OpenCode, Amp, pi-agent
+  Claude Code, Codex, OpenCode, Amp, pi-agent, OpenClaw
 
 Leaderboard options:
   -d <period>              Time window: 1 | 7 | 30 | all (default: today)
@@ -131,6 +132,7 @@ Examples:
   $ ccclub                 Show today's leaderboard (default)
   $ ccclub -d 1|7|30|all   Time window (default: today)
   $ ccclub --global        Global public leaderboard
+  $ ccclub --json          Leaderboard as JSON (pipe to jq, feed to agents)
   $ ccclub show-data       Preview exactly what gets uploaded
   $ ccclub statusline off  Remove the Claude Code statusline
 `);

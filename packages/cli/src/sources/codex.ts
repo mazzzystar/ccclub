@@ -5,7 +5,7 @@ import {
   CODEX_HOME_ENV,
   DEFAULT_CODEX_DIR,
 } from "@ccclub/shared";
-import type { UsageEntry } from "@ccclub/shared";
+import type { CostCalculator, UsageEntry } from "@ccclub/shared";
 import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageTurn } from "./types.js";
 import {
   asNumber,
@@ -15,6 +15,7 @@ import {
   globFiles,
   parsePathList,
   readJsonlFile,
+  statFile,
   toIsoTimestamp,
 } from "./shared.js";
 
@@ -93,6 +94,120 @@ function sessionIdForFile(sessionDir: string, file: string): string {
   return relative(sessionDir, file).split(sep).join("/").replace(/\.jsonl$/i, "");
 }
 
+// Per-file parse result. Entries keep their content dedupe key as requestId;
+// forked sessions replay identical history, so dedup must span files.
+interface CodexFileScan {
+  entries: UsageEntry[];
+  turns: UsageTurn[];
+}
+
+async function scanCodexFile(
+  file: string,
+  sessionId: string,
+  calculateCost: CostCalculator,
+  costMultiplier: number,
+): Promise<CodexFileScan> {
+  const source = "codex";
+  const entries: UsageEntry[] = [];
+  const turns: UsageTurn[] = [];
+  let previousTotal: RawCodexUsage | null = null;
+  let currentModel: string | undefined;
+  let sawTaskStarted = false;
+  const fallbackUserTurns: UsageTurn[] = [];
+  const seenFallbackUserTurns = new Set<string>();
+
+  await readJsonlFile(file, (value) => {
+    const record = asRecord(value);
+    if (record == null) return;
+    const payload = asRecord(record.payload);
+    const type = asString(record.type);
+
+    if (type === "turn_context") {
+      currentModel = extractModelFromPayload(payload) ?? currentModel;
+      return;
+    }
+
+    if (type === "event_msg" && payload?.type === "task_started") {
+      const timestamp = toIsoTimestamp(payload.started_at ?? record.timestamp);
+      if (timestamp == null) return;
+      const turnId = asString(payload.turn_id);
+      const key = turnId != null
+        ? `${source}:${turnId}:${timestamp}`
+        : `${source}:${timestamp}:task_started`;
+      sawTaskStarted = true;
+      turns.push({ source, timestamp, key });
+      return;
+    }
+
+    if (type === "event_msg" && payload?.type === "user_message") {
+      const timestamp = toIsoTimestamp(record.timestamp);
+      if (timestamp == null) return;
+      const key = `${source}:${timestamp}:user_message`;
+      if (!seenFallbackUserTurns.has(key)) {
+        seenFallbackUserTurns.add(key);
+        fallbackUserTurns.push({ source, timestamp, key });
+      }
+      return;
+    }
+
+    if (type !== "event_msg" || payload?.type !== "token_count") return;
+    const timestamp = toIsoTimestamp(record.timestamp);
+    if (timestamp == null) return;
+
+    const info = asRecord(payload.info);
+    const lastUsage = normalizeRawUsage(info?.last_token_usage);
+    const totalUsage = normalizeRawUsage(info?.total_token_usage);
+    const rawUsage = lastUsage ?? (totalUsage == null ? null : subtractUsage(totalUsage, previousTotal));
+    if (totalUsage != null) previousTotal = totalUsage;
+    if (rawUsage == null) return;
+
+    currentModel = extractModelFromPayload(payload) ?? currentModel;
+    const model = currentModel ?? "gpt-5";
+    const cacheReadTokens = Math.min(rawUsage.cachedInputTokens, rawUsage.inputTokens);
+    const inputTokens = Math.max(rawUsage.inputTokens - cacheReadTokens, 0);
+    const totalTokens = rawUsage.totalTokens > 0
+      ? rawUsage.totalTokens
+      : inputTokens + cacheReadTokens + rawUsage.outputTokens + rawUsage.reasoningTokens;
+
+    if (
+      inputTokens === 0 &&
+      cacheReadTokens === 0 &&
+      rawUsage.outputTokens === 0 &&
+      rawUsage.reasoningTokens === 0
+    ) {
+      return;
+    }
+
+    const dedupeKey = [
+      timestamp,
+      model,
+      inputTokens,
+      cacheReadTokens,
+      rawUsage.outputTokens,
+      rawUsage.reasoningTokens,
+      totalTokens,
+    ].join(":");
+
+    entries.push({
+      source,
+      timestamp,
+      sessionId,
+      requestId: dedupeKey,
+      model,
+      inputTokens,
+      outputTokens: rawUsage.outputTokens,
+      cacheCreationTokens: 0,
+      cacheReadTokens,
+      reasoningTokens: rawUsage.reasoningTokens,
+      totalTokens,
+      costUSD: calculateCost(model, inputTokens, rawUsage.outputTokens, 0, cacheReadTokens) * costMultiplier,
+    });
+  });
+
+  if (!sawTaskStarted) turns.push(...fallbackUserTurns);
+  return { entries, turns };
+}
+
 export async function collectCodexUsage(context: CollectorContext): Promise<SourceCollection> {
   const source = "codex";
   const [sessionDirs, costMultiplier] = await Promise.all([
@@ -100,123 +215,41 @@ export async function collectCodexUsage(context: CollectorContext): Promise<Sour
     getCodexCostMultiplier(),
   ]);
   const files = await globFiles(sessionDirs, "**/*.jsonl");
+  const cache = await context.openScanCache?.<CodexFileScan>(
+    source,
+    `${context.pricingVersion}:fast=${costMultiplier}`,
+  );
+
   const entries: UsageEntry[] = [];
   const turns: UsageTurn[] = [];
   const seen = new Set<string>();
   const seenTurns = new Set<string>();
 
-  function addTurn(timestamp: string, key: string): void {
-    if (seenTurns.has(key)) return;
-    seenTurns.add(key);
-    turns.push({ source, timestamp, key });
-  }
-
   for (const sessionDir of sessionDirs) {
     const sessionFiles = files.filter((file) => file.startsWith(`${sessionDir}${sep}`));
     for (const file of sessionFiles) {
-      const sessionId = sessionIdForFile(sessionDir, file);
-      let previousTotal: RawCodexUsage | null = null;
-      let currentModel: string | undefined;
-      let sawTaskStarted = false;
-      const fallbackUserTurns: UsageTurn[] = [];
-      const seenFallbackUserTurns = new Set<string>();
+      const stat = await statFile(file);
+      let scan = stat != null ? cache?.get(file, stat) : undefined;
+      if (scan == null) {
+        scan = await scanCodexFile(file, sessionIdForFile(sessionDir, file), context.calculateCost, costMultiplier);
+        if (stat != null) cache?.set(file, stat, scan);
+      }
 
-      await readJsonlFile(file, (value) => {
-        const record = asRecord(value);
-        if (record == null) return;
-        const payload = asRecord(record.payload);
-        const type = asString(record.type);
-
-        if (type === "turn_context") {
-          currentModel = extractModelFromPayload(payload) ?? currentModel;
-          return;
-        }
-
-        if (type === "event_msg" && payload?.type === "task_started") {
-          const timestamp = toIsoTimestamp(payload.started_at ?? record.timestamp);
-          if (timestamp == null) return;
-          const turnId = asString(payload.turn_id);
-          const key = turnId != null
-            ? `${source}:${turnId}:${timestamp}`
-            : `${source}:${timestamp}:task_started`;
-          sawTaskStarted = true;
-          addTurn(timestamp, key);
-          return;
-        }
-
-        if (type === "event_msg" && payload?.type === "user_message") {
-          const timestamp = toIsoTimestamp(record.timestamp);
-          if (timestamp == null) return;
-          const key = `${source}:${timestamp}:user_message`;
-          if (!seenFallbackUserTurns.has(key)) {
-            seenFallbackUserTurns.add(key);
-            fallbackUserTurns.push({ source, timestamp, key });
-          }
-          return;
-        }
-
-        if (type !== "event_msg" || payload?.type !== "token_count") return;
-        const timestamp = toIsoTimestamp(record.timestamp);
-        if (timestamp == null) return;
-
-        const info = asRecord(payload.info);
-        const lastUsage = normalizeRawUsage(info?.last_token_usage);
-        const totalUsage = normalizeRawUsage(info?.total_token_usage);
-        const rawUsage = lastUsage ?? (totalUsage == null ? null : subtractUsage(totalUsage, previousTotal));
-        if (totalUsage != null) previousTotal = totalUsage;
-        if (rawUsage == null) return;
-
-        currentModel = extractModelFromPayload(payload) ?? currentModel;
-        const model = currentModel ?? "gpt-5";
-        const cacheReadTokens = Math.min(rawUsage.cachedInputTokens, rawUsage.inputTokens);
-        const inputTokens = Math.max(rawUsage.inputTokens - cacheReadTokens, 0);
-        const totalTokens = rawUsage.totalTokens > 0
-          ? rawUsage.totalTokens
-          : inputTokens + cacheReadTokens + rawUsage.outputTokens + rawUsage.reasoningTokens;
-
-        if (
-          inputTokens === 0 &&
-          cacheReadTokens === 0 &&
-          rawUsage.outputTokens === 0 &&
-          rawUsage.reasoningTokens === 0
-        ) {
-          return;
-        }
-
-        const dedupeKey = [
-          timestamp,
-          model,
-          inputTokens,
-          cacheReadTokens,
-          rawUsage.outputTokens,
-          rawUsage.reasoningTokens,
-          totalTokens,
-        ].join(":");
-        if (seen.has(dedupeKey)) return;
+      for (const entry of scan.entries) {
+        const dedupeKey = entry.requestId ?? "";
+        if (seen.has(dedupeKey)) continue;
         seen.add(dedupeKey);
-
-        entries.push({
-          source,
-          timestamp,
-          sessionId,
-          requestId: dedupeKey,
-          model,
-          inputTokens,
-          outputTokens: rawUsage.outputTokens,
-          cacheCreationTokens: 0,
-          cacheReadTokens,
-          reasoningTokens: rawUsage.reasoningTokens,
-          totalTokens,
-          costUSD: context.calculateCost(model, inputTokens, rawUsage.outputTokens, 0, cacheReadTokens) * costMultiplier,
-        });
-      });
-
-      if (!sawTaskStarted) {
-        for (const turn of fallbackUserTurns) addTurn(turn.timestamp, turn.key);
+        entries.push(entry);
+      }
+      for (const turn of scan.turns) {
+        if (seenTurns.has(turn.key)) continue;
+        seenTurns.add(turn.key);
+        turns.push(turn);
       }
     }
   }
 
+  await cache?.save();
   return { source, entries, turns, files: files.length, warnings: [] };
 }
 

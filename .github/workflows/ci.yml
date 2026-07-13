@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm -r build
+
+      - name: Typecheck CLI
+        run: pnpm --filter ccclub exec tsc --noEmit
+
+      - name: Typecheck worker
+        run: pnpm --filter @ccclub/worker exec tsc --noEmit
+
+      - name: Run CLI tests
+        run: pnpm --filter ccclub test

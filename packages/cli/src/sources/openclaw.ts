@@ -1,8 +1,8 @@
-import { basename, join } from "node:path";
+import { basename, join, sep } from "node:path";
 import { homedir } from "node:os";
 import {
-  DEFAULT_PI_AGENT_SESSIONS_DIR,
-  PI_AGENT_DIR_ENV,
+  DEFAULT_OPENCLAW_DIR,
+  OPENCLAW_DATA_DIR_ENV,
 } from "@ccclub/shared";
 import type { UsageEntry } from "@ccclub/shared";
 import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageTurn } from "./types.js";
@@ -18,38 +18,34 @@ import {
   toIsoTimestamp,
 } from "./shared.js";
 
-function getPiSessionDirs(): Promise<string[]> {
-  const dirs = parsePathList(process.env[PI_AGENT_DIR_ENV], [join(homedir(), DEFAULT_PI_AGENT_SESSIONS_DIR)]);
+// OpenClaw's agent runtime derives from pi-mono, so its session logs are a
+// superset of the pi format: `message` records with per-response usage and a
+// provider-reported cost. Sessions live under agents/<name>/sessions/.
+
+function getOpenClawDirs(): Promise<string[]> {
+  const dirs = parsePathList(process.env[OPENCLAW_DATA_DIR_ENV], [join(homedir(), DEFAULT_OPENCLAW_DIR)]);
   return existingDirectories(dirs);
 }
 
-function extractSessionId(file: string): string {
-  const name = basename(file, ".jsonl");
-  const index = name.indexOf("_");
-  return index === -1 ? name : name.slice(index + 1);
+/** agents/<name>/sessions/<uuid>.jsonl → "<name>" */
+function extractAgentName(file: string): string {
+  const parts = file.split(sep);
+  const agentsIndex = parts.lastIndexOf("agents");
+  return agentsIndex >= 0 ? (parts[agentsIndex + 1] ?? "unknown") : "unknown";
 }
 
-function extractProject(file: string): string {
-  const parts = file.split(/[\\/]/g);
-  const sessionsIndex = parts.findIndex((part) => part === "sessions");
-  return sessionsIndex >= 0 ? (parts[sessionsIndex + 1] ?? "unknown") : "unknown";
-}
-
-function normalizePiModel(model: string | undefined): string {
-  return model == null ? "unknown" : `[pi] ${model}`;
-}
-
-async function scanPiFile(file: string, context: CollectorContext): Promise<UsageEntry[]> {
-  const source = "pi";
-  const sessionId = extractSessionId(file);
-  const project = extractProject(file);
+async function scanOpenClawFile(file: string, context: CollectorContext): Promise<UsageEntry[]> {
+  const source = "openclaw";
+  const sessionId = basename(file, ".jsonl");
+  const agent = extractAgentName(file);
   const entries: UsageEntry[] = [];
 
   await readJsonlFile(file, (value) => {
     const record = asRecord(value);
-    const message = asRecord(record?.message);
+    if (record?.type !== "message") return;
+    const message = asRecord(record.message);
     const usage = asRecord(message?.usage);
-    const timestamp = toIsoTimestamp(record?.timestamp);
+    const timestamp = toIsoTimestamp(record.timestamp);
     if (timestamp == null || usage == null || message?.role !== "assistant") return;
 
     const inputTokens = asNumber(usage.input);
@@ -61,12 +57,14 @@ async function scanPiFile(file: string, context: CollectorContext): Promise<Usag
     }
 
     const cost = asRecord(usage.cost);
-    const model = normalizePiModel(asString(message.model));
+    const provider = asString(message.provider);
+    const bareModel = asString(message.model) ?? "unknown";
+    const model = provider == null ? bareModel : `${provider}/${bareModel}`;
     const totalTokens = asNumber(usage.totalTokens) ||
       inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens;
     const key = [
       source,
-      project,
+      agent,
       sessionId,
       timestamp,
       model,
@@ -88,7 +86,7 @@ async function scanPiFile(file: string, context: CollectorContext): Promise<Usag
       cacheCreationTokens,
       cacheReadTokens,
       totalTokens,
-      // pi logs its own cost; older sessions without one fall back to table pricing.
+      // OpenClaw logs the provider-reported cost; fall back to table pricing.
       costUSD: asNumber(cost?.total) ||
         context.calculateCost(model, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens),
     });
@@ -97,10 +95,13 @@ async function scanPiFile(file: string, context: CollectorContext): Promise<Usag
   return entries;
 }
 
-export async function collectPiUsage(context: CollectorContext): Promise<SourceCollection> {
-  const source = "pi";
-  const dirs = await getPiSessionDirs();
-  const files = await globFiles(dirs, "**/*.jsonl");
+export async function collectOpenClawUsage(context: CollectorContext): Promise<SourceCollection> {
+  const source = "openclaw";
+  const dirs = await getOpenClawDirs();
+  const allFiles = await globFiles(dirs, "agents/*/sessions/**/*.jsonl");
+  // *.trajectory.jsonl files are trace exports that repeat the same usage in
+  // a different schema — reading both would double count.
+  const files = allFiles.filter((file) => !file.endsWith(".trajectory.jsonl"));
   const cache = await context.openScanCache?.<UsageEntry[]>(source, context.pricingVersion);
   const entries: UsageEntry[] = [];
   const turns: UsageTurn[] = [];
@@ -110,7 +111,7 @@ export async function collectPiUsage(context: CollectorContext): Promise<SourceC
     const stat = await statFile(file);
     let parsed = stat != null ? cache?.get(file, stat) : undefined;
     if (parsed == null) {
-      parsed = await scanPiFile(file, context);
+      parsed = await scanOpenClawFile(file, context);
       if (stat != null) cache?.set(file, stat, parsed);
     }
 
@@ -128,8 +129,8 @@ export async function collectPiUsage(context: CollectorContext): Promise<SourceC
   return { source, entries, turns, files: files.length, warnings: [] };
 }
 
-export const piCollector: AgentSourceCollector = {
-  source: "pi",
-  label: "pi-agent",
-  collect: collectPiUsage,
+export const openClawCollector: AgentSourceCollector = {
+  source: "openclaw",
+  label: "OpenClaw",
+  collect: collectOpenClawUsage,
 };

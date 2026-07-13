@@ -184,9 +184,10 @@ const AGENT_LABELS_OG: Record<AgentSource, string> = {
   opencode: "OpenCode",
   amp: "Amp",
   pi: "pi-agent",
+  openclaw: "OpenClaw",
 };
 
-const AGENT_ORDER_OG: AgentSource[] = ["claude", "codex", "opencode", "amp", "pi"];
+const AGENT_ORDER_OG: AgentSource[] = ["claude", "codex", "opencode", "amp", "pi", "openclaw"];
 
 function formatAgentSummary(agents: AgentSource[]): string {
   const ordered = AGENT_ORDER_OG.filter((a) => agents.includes(a));

@@ -1,4 +1,5 @@
 import type { AgentSource, CostCalculator, UsageEntry } from "@ccclub/shared";
+import type { ScanCacheFactory } from "../scan-cache.js";
 
 /**
  * Dependencies handed to every collector. The cost calculator is injected so
@@ -7,6 +8,10 @@ import type { AgentSource, CostCalculator, UsageEntry } from "@ccclub/shared";
  */
 export interface CollectorContext {
   calculateCost: CostCalculator;
+  /** Version of the pricing table behind calculateCost; part of cache keys. */
+  pricingVersion: string;
+  /** When absent (tests, library use), collectors parse everything cold. */
+  openScanCache?: ScanCacheFactory;
 }
 
 export interface UsageTurn {

@@ -1,4 +1,4 @@
-export const AGENT_SOURCES = ["claude", "codex", "opencode", "amp", "pi"] as const;
+export const AGENT_SOURCES = ["claude", "codex", "opencode", "amp", "pi", "openclaw"] as const;
 export type AgentSource = (typeof AGENT_SOURCES)[number];
 
 export const AGENT_LABELS: Record<AgentSource, string> = {
@@ -7,6 +7,7 @@ export const AGENT_LABELS: Record<AgentSource, string> = {
   opencode: "OpenCode",
   amp: "Amp",
   pi: "pi-agent",
+  openclaw: "OpenClaw",
 };
 
 // Raw JSONL entry from Claude Code's projects directory

@@ -14,6 +14,7 @@ import {
   globFiles,
   parsePathList,
   readJsonFile,
+  statFile,
   toIsoTimestamp,
 } from "./shared.js";
 
@@ -98,12 +99,20 @@ export async function collectAmpUsage(context: CollectorContext): Promise<Source
   const source = "amp";
   const dirs = await getAmpDirs();
   const files = await globFiles(dirs.map((dir) => join(dir, "threads")), "**/*.json");
+  const cache = await context.openScanCache?.<UsageEntry[]>(source, context.pricingVersion);
   const entries: UsageEntry[] = [];
   const turns: UsageTurn[] = [];
   const seen = new Set<string>();
 
   for (const file of files) {
-    for (const entry of parseAmpThread(await readJsonFile(file), context)) {
+    const stat = await statFile(file);
+    let parsed = stat != null ? cache?.get(file, stat) : undefined;
+    if (parsed == null) {
+      parsed = parseAmpThread(await readJsonFile(file), context);
+      if (stat != null) cache?.set(file, stat, parsed);
+    }
+
+    for (const entry of parsed) {
       const key = entry.requestId ?? `${source}:${entry.sessionId}:${entry.timestamp}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -112,6 +121,7 @@ export async function collectAmpUsage(context: CollectorContext): Promise<Source
     }
   }
 
+  await cache?.save();
   return { source, entries, turns, files: files.length, warnings: [] };
 }
 

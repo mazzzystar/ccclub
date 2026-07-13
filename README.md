@@ -2,7 +2,7 @@
 
 # ccclub.dev
 
-Claude Code and Codex leaderboard among friends. Track coding agent token usage, costs, active status, and agent mix across Claude Code, Codex, OpenCode, Amp, and pi-agent.
+Claude Code and Codex leaderboard among friends. Track coding agent token usage, costs, active status, and agent mix across Claude Code, Codex, OpenCode, Amp, pi-agent, and OpenClaw.
 
 <img src="assets/demo.png" alt="ccclub" width="80%" />
 
@@ -39,8 +39,9 @@ Supported sources:
 | OpenCode | `~/.local/share/opencode` |
 | Amp | `~/.local/share/amp/threads` |
 | pi-agent | `~/.pi/agent/sessions` |
+| OpenClaw | `~/.openclaw/agents/*/sessions` |
 
-If you use the default locations, there is nothing to configure. Custom locations are supported with `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_DATA_DIR`, `AMP_DATA_DIR`, and `PI_AGENT_DIR`.
+If you use the default locations, there is nothing to configure. Custom locations are supported with `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_DATA_DIR`, `AMP_DATA_DIR`, `PI_AGENT_DIR`, and `OPENCLAW_DATA_DIR`.
 
 ## Commands
 
@@ -61,6 +62,7 @@ ccclub --no-cache                  # Exclude cache tokens from count
 ccclub --all                       # Show all members, including those with no activity today
 ccclub --global                    # Everyone who opted in
 ccclub -g YHAW6P                   # Specific group
+ccclub --json                      # Raw JSON output — pipe to jq, feed to agents
 ```
 
 If you want more, it's there:
@@ -138,6 +140,10 @@ packages/
 Auto-sync: `ccclub init` installs Claude Code `SessionEnd` + `Stop` hooks and a lightweight background sync that keeps Codex, OpenCode, Amp, and pi-agent fresh (throttled to once per 5 minutes).
 
 Model pricing: costs are computed locally against a compact price table derived from [LiteLLM](https://github.com/BerriAI/litellm) — the same upstream ccusage uses. The Worker refreshes it daily and serves it at `/api/pricing`; the CLI keeps a 24-hour local cache (`~/.ccclub/pricing.json`) with a bundled snapshot as offline fallback. New models are priced correctly within a day, with no CLI update required.
+
+Scan cache: sync only re-reads log files whose mtime/size changed (`~/.ccclub/scan-cache/`), so steady-state syncs take milliseconds regardless of history size.
+
+For agents and scripts: `ccclub --json` prints the raw leaderboard JSON, and [ccclub.dev/llms.txt](https://ccclub.dev/llms.txt) documents the public HTTP API.
 
 ## Development
 

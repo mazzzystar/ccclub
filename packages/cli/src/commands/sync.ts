@@ -7,8 +7,9 @@ import ora from "ora";
 import { requireConfig, loadConfig, getLastSyncPath, getLastSyncTimePath } from "../config.js";
 import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
-import { loadCostCalculator, refreshPricingCache } from "../pricing.js";
+import { loadPricing, refreshPricingCache } from "../pricing.js";
 import { refreshRankCache } from "../statusline.js";
+import { createScanCacheFactory } from "../scan-cache.js";
 import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
 import { AGENT_LABELS, AGENT_SOURCES } from "@ccclub/shared";
 import type { AgentSource, SyncRequest, SyncResponse, UsageBlock } from "@ccclub/shared";
@@ -80,9 +81,9 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
   const spinner = silent ? null : ora("Collecting usage data...").start();
 
   try {
-    const calculateCost = await loadCostCalculator();
+    const { calculateCost, version } = await loadPricing();
     const [{ entries, humanTurns, sources, warnings }, usageSnapshot] = await Promise.all([
-      collectUsageEntries({ calculateCost }),
+      collectUsageEntries({ calculateCost, pricingVersion: version, openScanCache: createScanCacheFactory() }),
       fetchUsageLimits().catch(() => null),
     ]);
     const activeSources = sources.filter((source) => source.entries.length > 0).map((source) => AGENT_LABELS[source.source]);

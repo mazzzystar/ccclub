@@ -1,8 +1,10 @@
 import { AGENT_LABELS, AGENT_SOURCES, PRICING_SNAPSHOT, createCostCalculator } from "@ccclub/shared";
 import type { AgentSource, CostCalculator, UsageEntry } from "@ccclub/shared";
+import type { ScanCacheFactory } from "../scan-cache.js";
 import { ampCollector } from "./amp.js";
 import { claudeCollector } from "./claude.js";
 import { codexCollector } from "./codex.js";
+import { openClawCollector } from "./openclaw.js";
 import { openCodeCollector } from "./opencode.js";
 import { piCollector } from "./pi.js";
 import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageTurn } from "./types.js";
@@ -15,6 +17,7 @@ const COLLECTORS: Record<AgentSource, AgentSourceCollector> = {
   opencode: openCodeCollector,
   amp: ampCollector,
   pi: piCollector,
+  openclaw: openClawCollector,
 };
 
 export interface CollectionResult {
@@ -44,12 +47,16 @@ export function formatSourceList(sources: Iterable<AgentSource>): string {
 export async function collectAllUsageEntries(options?: {
   sources?: AgentSource[];
   calculateCost?: CostCalculator;
+  pricingVersion?: string;
+  openScanCache?: ScanCacheFactory;
 }): Promise<CollectionResult> {
   const selectedSources = options?.sources ?? parseSources(process.env.CCCLUB_SOURCES);
   const context: CollectorContext = {
     // Commands pass the locally cached table; the bundled snapshot keeps
     // collection working without any setup (tests, first run).
     calculateCost: options?.calculateCost ?? createCostCalculator(PRICING_SNAPSHOT),
+    pricingVersion: options?.pricingVersion ?? PRICING_SNAPSHOT.version,
+    openScanCache: options?.openScanCache,
   };
   const results = await Promise.all(
     selectedSources.map(async (source): Promise<SourceCollection> => {

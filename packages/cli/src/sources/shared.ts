@@ -18,6 +18,15 @@ export function parsePathList(value: string | undefined, fallback: string[]): st
   return Array.from(new Set(raw.map((p) => resolve(resolveHomePath(p)))));
 }
 
+export async function statFile(path: string): Promise<{ mtimeMs: number; size: number } | null> {
+  try {
+    const info = await stat(path);
+    return { mtimeMs: info.mtimeMs, size: info.size };
+  } catch {
+    return null;
+  }
+}
+
 export async function existingDirectories(paths: string[]): Promise<string[]> {
   const results = await Promise.all(
     paths.map(async (path) => {

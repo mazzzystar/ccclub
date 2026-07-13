@@ -2,15 +2,19 @@ import chalk from "chalk";
 import { AGENT_LABELS } from "@ccclub/shared";
 import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
-import { loadCostCalculator } from "../pricing.js";
+import { loadPricing } from "../pricing.js";
+import { createScanCacheFactory } from "../scan-cache.js";
 
 export async function showDataCommand(): Promise<void> {
   console.log(chalk.bold("\n  What ccclub uploads:\n"));
   console.log(chalk.dim("  Only aggregated 30-minute block summaries. No conversation content,"));
   console.log(chalk.dim("  no file paths, no project names, no session details.\n"));
 
+  const { calculateCost, version } = await loadPricing();
   const { entries, humanTurns, sources, warnings } = await collectUsageEntries({
-    calculateCost: await loadCostCalculator(),
+    calculateCost,
+    pricingVersion: version,
+    openScanCache: createScanCacheFactory(),
   });
   const blocks = aggregateToBlocks(entries, humanTurns);
 

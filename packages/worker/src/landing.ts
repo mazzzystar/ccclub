@@ -145,6 +145,11 @@ function formatDemoCost(n: number): string {
   return `$${n.toFixed(2)}`;
 }
 
+/** The demo group's "today" as its local (UTC+8) calendar date. */
+function demoLocalDay(startIso: string): string {
+  return new Date(new Date(startIso).getTime() + DEMO_TZ * 60_000).toISOString().slice(0, 10);
+}
+
 function demoAgentLine(entry: RankingEntry): string {
   const breakdown = (entry.agentBreakdown ?? []).filter((a) => a.percent > 0);
   const parts = breakdown.length > 0
@@ -253,7 +258,7 @@ export function renderDemoBoard(rank: RankResponse, activity: ActivityResponse |
   return `<div class="demo-dash" aria-label="Live leaderboard of the public demo group">` +
     `<div class="demo-head">` +
     `<div class="demo-title">${htmlEsc(rank.group.name)}</div>` +
-    `<div class="demo-sub">TODAY · ${rank.start.slice(0, 10)} → ${rank.end.slice(0, 10)} · ${rank.group.memberCount} members</div>` +
+    `<div class="demo-sub">TODAY · ${demoLocalDay(rank.start)} · ${rank.group.memberCount} members</div>` +
     (activeRows.length > 0
       ? `<div class="demo-active"><span class="demo-active-dot"></span>${activeRows.length} active${activeSplit ? `<span class="demo-active-split">${activeSplit}</span>` : ""}</div>`
       : "") +

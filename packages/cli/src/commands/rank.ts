@@ -43,6 +43,21 @@ function markInviteNudged(): void {
   try { writeFileSync(getInviteNudgePath(), String(Date.now())); } catch { /* best effort */ }
 }
 
+/**
+ * Window boundaries come back as UTC instants; slicing them as ISO strings
+ * showed UTC dates, so "TODAY" looked like a two-day range for anyone east
+ * of Greenwich. Render the viewer's local calendar dates instead, collapse
+ * single-day windows, and omit the meaningless all-time bounds.
+ */
+export function formatLocalDateRange(startIso: string, endIso: string, period: RankingPeriod): string {
+  if (period === "all-time") return "";
+  const ymd = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const start = ymd(new Date(startIso));
+  const end = ymd(new Date(new Date(endIso).getTime() - 1)); // end boundary is exclusive
+  return start === end ? start : `${start} → ${end}`;
+}
+
 export interface RankCommandOptions {
   // Commander's optional-value flags (`-d [days]`) yield `true` when passed bare.
   days?: string | boolean;
@@ -260,7 +275,8 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
   const now = Date.now();
   const activeEntries = data.rankings.filter((r) => isEntryActive(r, now));
   const activeCount = activeEntries.length;
-  console.log(theme.muted(`  ${periodLabel[period] || period.toUpperCase()} · ${data.start.slice(0, 10)} → ${data.end.slice(0, 10)} · ${data.group.memberCount} members`));
+  const range = formatLocalDateRange(data.start, data.end, period);
+  console.log(theme.muted(`  ${periodLabel[period] || period.toUpperCase()}${range ? ` · ${range}` : ""} · ${data.group.memberCount} members`));
   if (activeCount > 0) {
     const activeSplit = formatActiveSourceSplit(activeEntries);
     console.log(theme.success(`  ${activeCount} active`) + (activeSplit ? ` ${activeSplit}` : ""));

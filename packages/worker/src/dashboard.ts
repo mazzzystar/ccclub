@@ -901,9 +901,19 @@ function dashboardHTML(
         .then(function(res) { return res.json(); })
         .then(function(data) {
           document.getElementById("title").textContent = data.group.name;
+          // Boundaries are UTC instants; render the viewer's local calendar
+          // dates (end is exclusive) so "Today" reads as one day, not two.
+          var rangeText = "";
+          if (period !== "all-time") {
+            var localYMD = function(d) {
+              return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2);
+            };
+            var startDay = localYMD(new Date(data.start));
+            var endDay = localYMD(new Date(new Date(data.end).getTime() - 1));
+            rangeText = (startDay === endDay ? startDay : startDay + " \u2014 " + endDay) + " \u00b7 ";
+          }
           document.getElementById("date-range").textContent =
-            data.start.slice(0,10) + " \u2014 " + data.end.slice(0,10) +
-            " \u00b7 " + data.group.memberCount + (IS_GLOBAL ? " public users" : " members");
+            rangeText + data.group.memberCount + (IS_GLOBAL ? " public users" : " members");
 
           var now = Date.now();
           var agentSet = {};

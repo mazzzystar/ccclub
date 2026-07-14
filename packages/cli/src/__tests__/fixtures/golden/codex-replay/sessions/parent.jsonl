@@ -1,0 +1,5 @@
+{"timestamp":"2026-05-12T08:00:00.000Z","type":"session_meta","payload":{"id":"parent","timestamp":"2026-05-12T08:00:00.000Z","cwd":"/synthetic/project"}}
+{"timestamp":"2026-05-12T08:00:00.000Z","type":"turn_context","payload":{"model":"gpt-5.2"}}
+{"timestamp":"2026-05-12T08:00:30.000Z","type":"event_msg","payload":{"type":"task_started","turn_id":"parent-turn","started_at":"2026-05-12T08:00:30.000Z"}}
+{"timestamp":"2026-05-12T08:01:00.000Z","type":"event_msg","payload":{"type":"token_count","info":{"model":"gpt-5.2","last_token_usage":{"input_tokens":1000,"output_tokens":200,"total_tokens":1200},"total_token_usage":{"input_tokens":1000,"output_tokens":200,"total_tokens":1200}}}}
+{"timestamp":"2026-05-12T08:02:00.000Z","type":"event_msg","payload":{"type":"token_count","info":{"model":"gpt-5.2","last_token_usage":{"input_tokens":500,"output_tokens":100,"total_tokens":600},"total_token_usage":{"input_tokens":1500,"output_tokens":300,"total_tokens":1800}}}}

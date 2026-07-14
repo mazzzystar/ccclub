@@ -5,7 +5,8 @@ import {
   OPENCODE_DATA_DIR_ENV,
 } from "@ccclub/shared";
 import type { UsageEntry } from "@ccclub/shared";
-import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageTurn } from "./types.js";
+import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageFact, UsageTurn } from "./types.js";
+import { priceUsageFact } from "./types.js";
 import {
   asNumber,
   asRecord,
@@ -28,15 +29,17 @@ interface OpenCodeMessageRow {
 // between the DB and JSON copies of the same message stays stable.
 interface OpenCodeParsedRow {
   id: string;
-  entry: UsageEntry | null;
+  entry: UsageFact | null;
 }
+
+const OPENCODE_SCAN_VERSION = 1;
 
 function getOpenCodeDirs(): Promise<string[]> {
   const dirs = parsePathList(process.env[OPENCODE_DATA_DIR_ENV], [join(homedir(), DEFAULT_OPENCODE_DIR)]);
   return existingDirectories(dirs);
 }
 
-function parseOpenCodeMessage(row: OpenCodeMessageRow, context: CollectorContext): UsageEntry | null {
+function parseOpenCodeMessage(row: OpenCodeMessageRow): UsageFact | null {
   const source = "opencode";
   const record = asRecord(row.data);
   if (record == null) return null;
@@ -67,14 +70,7 @@ function parseOpenCodeMessage(row: OpenCodeMessageRow, context: CollectorContext
   }
 
   const sessionId = row.sessionId ?? asString(record.sessionID) ?? "unknown";
-  const costUSD = asNumber(record.cost) || context.calculateCost(
-    model,
-    inputTokens,
-    outputTokens,
-    cacheCreationTokens,
-    cacheReadTokens,
-    reasoningTokens,
-  );
+  const reportedCostUSD = asNumber(record.cost);
 
   return {
     source,
@@ -88,7 +84,7 @@ function parseOpenCodeMessage(row: OpenCodeMessageRow, context: CollectorContext
     cacheReadTokens,
     reasoningTokens,
     totalTokens: inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens + reasoningTokens,
-    costUSD,
+    ...(reportedCostUSD > 0 ? { reportedCostUSD } : {}),
   };
 }
 
@@ -100,7 +96,7 @@ async function loadOpenCodeJsonRows(
   const files = await globFiles(await existingDirectories(messageDirs), "**/*.json");
   // Message files are written once per message, which makes them ideal cache
   // targets: thousands of files of which only the newest ever change.
-  const cache = await context.openScanCache?.<OpenCodeParsedRow | null>("opencode", context.pricingVersion);
+  const cache = await context.openScanCache?.<OpenCodeParsedRow | null>("opencode", `parser=${OPENCODE_SCAN_VERSION}`);
   const rows: OpenCodeParsedRow[] = [];
 
   for (const file of files) {
@@ -116,7 +112,7 @@ async function loadOpenCodeJsonRows(
     const id = asString(record?.id);
     const row = id == null
       ? null
-      : { id, entry: parseOpenCodeMessage({ id, sessionId: asString(record?.sessionID), data }, context) };
+      : { id, entry: parseOpenCodeMessage({ id, sessionId: asString(record?.sessionID), data }) };
     if (stat != null) cache?.set(file, stat, row);
     if (row != null) rows.push(row);
   }
@@ -138,7 +134,6 @@ async function loadNodeSqlite(): Promise<{ DatabaseSync: new (path: string, opti
 // A couple of sqlite reads per sync is cheap; the JSON file sprawl is not.
 async function loadOpenCodeDbRows(
   openCodeDirs: string[],
-  context: CollectorContext,
 ): Promise<{ rows: OpenCodeParsedRow[]; files: number }> {
   const dbFiles = Array.from(new Set([
     ...(await globFiles(openCodeDirs, "opencode.db")),
@@ -166,7 +161,7 @@ async function loadOpenCodeDbRows(
         if (id == null || dataText == null) continue;
         try {
           const data = JSON.parse(dataText) as unknown;
-          rows.push({ id, entry: parseOpenCodeMessage({ id, sessionId: asString(raw.session_id), data }, context) });
+          rows.push({ id, entry: parseOpenCodeMessage({ id, sessionId: asString(raw.session_id), data }) });
         } catch {
           // Ignore malformed message rows.
         }
@@ -190,7 +185,7 @@ export async function collectOpenCodeUsage(context: CollectorContext): Promise<S
   const openCodeDirs = await getOpenCodeDirs();
   const [jsonResult, dbResult] = await Promise.all([
     loadOpenCodeJsonRows(openCodeDirs, context),
-    loadOpenCodeDbRows(openCodeDirs, context),
+    loadOpenCodeDbRows(openCodeDirs),
   ]);
   const rows = [...dbResult.rows, ...jsonResult.rows];
   const entries: UsageEntry[] = [];
@@ -201,8 +196,9 @@ export async function collectOpenCodeUsage(context: CollectorContext): Promise<S
     if (seen.has(row.id)) continue;
     seen.add(row.id);
     if (row.entry == null) continue;
-    entries.push(row.entry);
-    turns.push({ source, timestamp: row.entry.timestamp, key: `${source}:${row.id}` });
+    const entry = priceUsageFact(row.entry, context);
+    entries.push(entry);
+    turns.push({ source, timestamp: entry.timestamp, key: `${source}:${row.id}` });
   }
 
   return {

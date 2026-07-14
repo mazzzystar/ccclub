@@ -9,7 +9,9 @@ import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
 // per-file parse results keyed by (mtime, size) and only re-reads files that
 // changed. Cross-file work (dedup, aggregation) still runs on every sync.
 
-const CACHE_FORMAT_VERSION = 1;
+// v2 stores pricing-independent usage facts. Old files are discarded once and
+// rebuilt from source logs; subsequent pricing changes no longer invalidate it.
+const CACHE_FORMAT_VERSION = 2;
 
 export interface FileStat {
   mtimeMs: number;
@@ -46,6 +48,7 @@ export function createScanCacheFactory(dir = getScanCacheDir()): ScanCacheFactor
     const path = join(dir, `${source}.json`);
 
     let previous: CacheFileShape["files"] = {};
+    let cacheWasUsable = false;
     try {
       const raw = JSON.parse(await readFile(path, "utf-8")) as CacheFileShape;
       if (
@@ -56,6 +59,7 @@ export function createScanCacheFactory(dir = getScanCacheDir()): ScanCacheFactor
         typeof raw.files === "object"
       ) {
         previous = raw.files;
+        cacheWasUsable = true;
       }
     } catch {
       // Missing or corrupt cache — every file parses cold this run.
@@ -64,6 +68,7 @@ export function createScanCacheFactory(dir = getScanCacheDir()): ScanCacheFactor
     // Only files touched this run are written back, so entries for deleted
     // files are pruned without any explicit bookkeeping.
     const next: CacheFileShape["files"] = {};
+    let dirty = false;
 
     return {
       get(file, stat) {
@@ -74,9 +79,20 @@ export function createScanCacheFactory(dir = getScanCacheDir()): ScanCacheFactor
       },
       set(file, stat, data) {
         next[file] = { mtimeMs: stat.mtimeMs, size: stat.size, data };
+        dirty = true;
       },
       async save() {
         try {
+          // A fully hot scan touched every previous file and parsed nothing.
+          // Preserve the existing file byte-for-byte instead of rewriting a
+          // tens-of-megabytes JSON cache every five minutes.
+          if (
+            cacheWasUsable &&
+            !dirty &&
+            Object.keys(next).length === Object.keys(previous).length
+          ) {
+            return;
+          }
           await mkdir(dir, { recursive: true });
           const payload: CacheFileShape = { version: CACHE_FORMAT_VERSION, metaToken, files: next };
           // Write-then-rename: concurrent hook and heartbeat syncs never see a torn file.

@@ -7,8 +7,9 @@ import {
   CODEX_HOME_ENV,
   DEFAULT_CODEX_DIR,
 } from "@ccclub/shared";
-import type { CostCalculator, UsageEntry } from "@ccclub/shared";
-import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageTurn } from "./types.js";
+import type { UsageEntry } from "@ccclub/shared";
+import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageFact, UsageTurn } from "./types.js";
+import { priceUsageFact } from "./types.js";
 import {
   asNumber,
   asRecord,
@@ -31,7 +32,7 @@ interface RawCodexUsage {
 
 // Part of the per-file scan-cache key. Bump whenever parsing/dedup semantics
 // change so a new release cannot reuse entries produced by an older parser.
-const CODEX_SCAN_VERSION = 2;
+const CODEX_SCAN_VERSION = 3;
 const codexFastServiceTierRegex = /(?:^|\n)\s*service_tier\s*=\s*["']?(?:fast|priority)["']?/iu;
 
 interface CodexUsageSource {
@@ -200,20 +201,18 @@ async function detectReplaySecond(file: string): Promise<string | null> {
 // Per-file parse result. Entries keep their content dedupe key as requestId;
 // forked sessions replay identical history, so dedup must span files.
 interface CodexFileScan {
-  entries: UsageEntry[];
+  entries: UsageFact[];
   turns: UsageTurn[];
 }
 
 async function scanCodexFile(
   file: string,
   sessionId: string,
-  calculateCost: CostCalculator,
-  pricingTier: "standard" | "fast",
 ): Promise<CodexFileScan> {
   const source = "codex";
   const replaySecond = await detectReplaySecond(file);
   let skippingReplay = replaySecond != null;
-  const entries: UsageEntry[] = [];
+  const entries: UsageFact[] = [];
   const turns: UsageTurn[] = [];
   let previousTotal: RawCodexUsage | null = null;
   let currentModel: string | undefined;
@@ -320,7 +319,6 @@ async function scanCodexFile(
       cacheReadTokens,
       reasoningTokens: rawUsage.reasoningTokens,
       totalTokens,
-      costUSD: calculateCost(model, inputTokens, rawUsage.outputTokens, 0, cacheReadTokens, 0, 0, pricingTier),
     });
   });
 
@@ -337,7 +335,7 @@ export async function collectCodexUsage(context: CollectorContext): Promise<Sour
   const files = await getCodexUsageFiles(usageSources);
   const cache = await context.openScanCache?.<CodexFileScan>(
     source,
-    `${context.pricingVersion}:parser=${CODEX_SCAN_VERSION}:tier=${pricingTier}`,
+    `parser=${CODEX_SCAN_VERSION}`,
   );
 
   const entries: UsageEntry[] = [];
@@ -352,13 +350,12 @@ export async function collectCodexUsage(context: CollectorContext): Promise<Sour
       scan = await scanCodexFile(
         file,
         sessionIdForFile(usageSource.dir, file),
-        context.calculateCost,
-        pricingTier,
       );
       if (stat != null) cache?.set(file, stat, scan);
     }
 
-    for (const entry of scan.entries) {
+    for (const fact of scan.entries) {
+      const entry = priceUsageFact(fact, context, pricingTier);
       const dedupeKey = entry.requestId ?? "";
       if (seen.has(dedupeKey)) continue;
       seen.add(dedupeKey);

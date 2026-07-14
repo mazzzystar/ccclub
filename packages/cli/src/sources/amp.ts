@@ -5,7 +5,8 @@ import {
   DEFAULT_AMP_DIR,
 } from "@ccclub/shared";
 import type { UsageEntry } from "@ccclub/shared";
-import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageTurn } from "./types.js";
+import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageFact, UsageTurn } from "./types.js";
+import { priceUsageFact } from "./types.js";
 import {
   asNumber,
   asRecord,
@@ -40,7 +41,9 @@ function getAmpCacheTokens(messages: unknown, toMessageId: number): {
   return { cacheCreationTokens: 0, cacheReadTokens: 0 };
 }
 
-function parseAmpThread(data: unknown, context: CollectorContext): UsageEntry[] {
+const AMP_SCAN_VERSION = 1;
+
+function parseAmpThread(data: unknown): UsageFact[] {
   const source = "amp";
   const thread = asRecord(data);
   const threadId = asString(thread?.id) ?? "unknown";
@@ -48,7 +51,7 @@ function parseAmpThread(data: unknown, context: CollectorContext): UsageEntry[] 
   const events = usageLedger?.events;
   if (!Array.isArray(events)) return [];
 
-  const entries: UsageEntry[] = [];
+  const entries: UsageFact[] = [];
   for (const rawEvent of events) {
     const event = asRecord(rawEvent);
     if (event == null) continue;
@@ -88,7 +91,6 @@ function parseAmpThread(data: unknown, context: CollectorContext): UsageEntry[] 
       cacheCreationTokens,
       cacheReadTokens,
       totalTokens: inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens,
-      costUSD: context.calculateCost(model, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens),
     });
   }
 
@@ -99,7 +101,7 @@ export async function collectAmpUsage(context: CollectorContext): Promise<Source
   const source = "amp";
   const dirs = await getAmpDirs();
   const files = await globFiles(dirs.map((dir) => join(dir, "threads")), "**/*.json");
-  const cache = await context.openScanCache?.<UsageEntry[]>(source, context.pricingVersion);
+  const cache = await context.openScanCache?.<UsageFact[]>(source, `parser=${AMP_SCAN_VERSION}`);
   const entries: UsageEntry[] = [];
   const turns: UsageTurn[] = [];
   const seen = new Set<string>();
@@ -108,11 +110,12 @@ export async function collectAmpUsage(context: CollectorContext): Promise<Source
     const stat = await statFile(file);
     let parsed = stat != null ? cache?.get(file, stat) : undefined;
     if (parsed == null) {
-      parsed = parseAmpThread(await readJsonFile(file), context);
+      parsed = parseAmpThread(await readJsonFile(file));
       if (stat != null) cache?.set(file, stat, parsed);
     }
 
-    for (const entry of parsed) {
+    for (const fact of parsed) {
+      const entry = priceUsageFact(fact, context);
       const key = entry.requestId ?? `${source}:${entry.sessionId}:${entry.timestamp}`;
       if (seen.has(key)) continue;
       seen.add(key);

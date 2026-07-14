@@ -5,7 +5,8 @@ import {
   PI_AGENT_DIR_ENV,
 } from "@ccclub/shared";
 import type { UsageEntry } from "@ccclub/shared";
-import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageTurn } from "./types.js";
+import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageFact, UsageTurn } from "./types.js";
+import { priceUsageFact } from "./types.js";
 import {
   asNumber,
   asRecord,
@@ -39,11 +40,13 @@ function normalizePiModel(model: string | undefined): string {
   return model == null ? "unknown" : `[pi] ${model}`;
 }
 
-async function scanPiFile(file: string, context: CollectorContext): Promise<UsageEntry[]> {
+const PI_SCAN_VERSION = 1;
+
+async function scanPiFile(file: string): Promise<UsageFact[]> {
   const source = "pi";
   const sessionId = extractSessionId(file);
   const project = extractProject(file);
-  const entries: UsageEntry[] = [];
+  const entries: UsageFact[] = [];
 
   await readJsonlFile(file, (value) => {
     const record = asRecord(value);
@@ -61,6 +64,7 @@ async function scanPiFile(file: string, context: CollectorContext): Promise<Usag
     }
 
     const cost = asRecord(usage.cost);
+    const reportedCostUSD = asNumber(cost?.total);
     const model = normalizePiModel(asString(message.model));
     const totalTokens = asNumber(usage.totalTokens) ||
       inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens;
@@ -89,8 +93,7 @@ async function scanPiFile(file: string, context: CollectorContext): Promise<Usag
       cacheReadTokens,
       totalTokens,
       // pi logs its own cost; older sessions without one fall back to table pricing.
-      costUSD: asNumber(cost?.total) ||
-        context.calculateCost(model, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens),
+      ...(reportedCostUSD > 0 ? { reportedCostUSD } : {}),
     });
   });
 
@@ -101,7 +104,7 @@ export async function collectPiUsage(context: CollectorContext): Promise<SourceC
   const source = "pi";
   const dirs = await getPiSessionDirs();
   const files = await globFiles(dirs, "**/*.jsonl");
-  const cache = await context.openScanCache?.<UsageEntry[]>(source, context.pricingVersion);
+  const cache = await context.openScanCache?.<UsageFact[]>(source, `parser=${PI_SCAN_VERSION}`);
   const entries: UsageEntry[] = [];
   const turns: UsageTurn[] = [];
   const seen = new Set<string>();
@@ -110,12 +113,13 @@ export async function collectPiUsage(context: CollectorContext): Promise<SourceC
     const stat = await statFile(file);
     let parsed = stat != null ? cache?.get(file, stat) : undefined;
     if (parsed == null) {
-      parsed = await scanPiFile(file, context);
+      parsed = await scanPiFile(file);
       if (stat != null) cache?.set(file, stat, parsed);
     }
 
     // Dedup spans files: replayed session copies share the same content key.
-    for (const entry of parsed) {
+    for (const fact of parsed) {
+      const entry = priceUsageFact(fact, context);
       const key = entry.requestId ?? "";
       if (seen.has(key)) continue;
       seen.add(key);

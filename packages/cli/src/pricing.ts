@@ -52,7 +52,7 @@ export async function loadPricingTable(cachePath = getPricingCachePath()): Promi
   return cached == null ? PRICING_SNAPSHOT : mergePricingTables(PRICING_SNAPSHOT, cached.table);
 }
 
-/** Calculator plus the table version, which collectors key their caches on. */
+/** Calculator plus the table version used to detect when uploaded history needs repricing. */
 export async function loadPricing(cachePath = getPricingCachePath()): Promise<{
   calculateCost: CostCalculator;
   version: string;

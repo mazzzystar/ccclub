@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, writeFile, utimes } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, stat, writeFile, utimes } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach, vi } from "vitest";
@@ -62,6 +62,25 @@ describe("scan cache factory", () => {
     const third = await factory<string>("amp", "v1");
     expect(third.get("/gone.json", STAT_A)).toBeUndefined();
     expect(third.get("/kept.json", STAT_A)).toBe("kept");
+  });
+
+  it("does not rewrite a fully hot cache", async () => {
+    const dir = await makeTempDir();
+    const path = join(dir, "claude.json");
+    const factory = createScanCacheFactory(dir);
+
+    const first = await factory<string>("claude", "parser=1");
+    first.set("/a.jsonl", STAT_A, "parsed-a");
+    await first.save();
+
+    const fixedTime = new Date(1_700_000_000_000);
+    await utimes(path, fixedTime, fixedTime);
+
+    const hot = await factory<string>("claude", "parser=1");
+    expect(hot.get("/a.jsonl", STAT_A)).toBe("parsed-a");
+    await hot.save();
+
+    expect((await stat(path)).mtimeMs).toBe(fixedTime.getTime());
   });
 
   it("treats a corrupt cache file as cold and recovers on save", async () => {
@@ -128,7 +147,7 @@ describe("collector integration", () => {
     expect(reparsed.entries[0].outputTokens).toBe(222);
   });
 
-  it("invalidates cached costs when the pricing version changes", async () => {
+  it("reprices cached facts without re-reading unchanged logs", async () => {
     const codexHome = await makeTempDir();
     const sessionsDir = join(codexHome, "sessions");
     await mkdir(sessionsDir, { recursive: true });
@@ -143,16 +162,15 @@ describe("collector integration", () => {
     const priced = await collectUsageEntries({
       sources: ["codex"],
       openScanCache,
-      pricingVersion: "table-a",
       calculateCost: () => 1,
     });
     expect(priced.entries[0].costUSD).toBe(1);
 
-    // Same files, new pricing table → cache must not serve the old costs.
+    // Same files, new pricing table → the cached token fact is reused and
+    // receives the new price at collection time.
     const repriced = await collectUsageEntries({
       sources: ["codex"],
       openScanCache,
-      pricingVersion: "table-b",
       calculateCost: () => 2,
     });
     expect(repriced.entries[0].costUSD).toBe(2);

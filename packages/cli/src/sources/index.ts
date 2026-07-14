@@ -48,7 +48,6 @@ export function formatSourceList(sources: Iterable<AgentSource>): string {
 export async function collectAllUsageEntries(options?: {
   sources?: AgentSource[];
   calculateCost?: CostCalculator;
-  pricingVersion?: string;
   openScanCache?: ScanCacheFactory;
 }): Promise<CollectionResult> {
   const selectedSources = options?.sources ?? parseSources(process.env.CCCLUB_SOURCES);
@@ -56,7 +55,6 @@ export async function collectAllUsageEntries(options?: {
     // Commands pass the locally cached table; the bundled snapshot keeps
     // collection working without any setup (tests, first run).
     calculateCost: options?.calculateCost ?? createCostCalculator(PRICING_SNAPSHOT),
-    pricingVersion: options?.pricingVersion ?? PRICING_SNAPSHOT.version,
     openScanCache: options?.openScanCache,
   };
   const results = await Promise.all(

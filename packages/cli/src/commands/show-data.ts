@@ -4,18 +4,30 @@ import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
 import { loadPricing } from "../pricing.js";
 import { createScanCacheFactory } from "../scan-cache.js";
+import { acquireSyncLock } from "../sync-lock.js";
 
 export async function showDataCommand(): Promise<void> {
   console.log(chalk.bold("\n  What ccclub uploads:\n"));
   console.log(chalk.dim("  Only aggregated 30-minute block summaries. No conversation content,"));
   console.log(chalk.dim("  no file paths, no project names, no session details.\n"));
 
-  const { calculateCost, version } = await loadPricing();
-  const { entries, humanTurns, sources, warnings } = await collectUsageEntries({
-    calculateCost,
-    pricingVersion: version,
-    openScanCache: createScanCacheFactory(),
-  });
+  const lock = await acquireSyncLock();
+  if (lock == null) {
+    console.log(chalk.yellow("  A sync is already scanning local data. Try again in a moment."));
+    return;
+  }
+
+  let collection: Awaited<ReturnType<typeof collectUsageEntries>>;
+  try {
+    const { calculateCost } = await loadPricing();
+    collection = await collectUsageEntries({
+      calculateCost,
+      openScanCache: createScanCacheFactory(),
+    });
+  } finally {
+    await lock.release();
+  }
+  const { entries, humanTurns, sources, warnings } = collection;
   const blocks = aggregateToBlocks(entries, humanTurns);
 
   if (blocks.length === 0) {

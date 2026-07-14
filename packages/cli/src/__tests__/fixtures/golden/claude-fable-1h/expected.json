@@ -1,0 +1,11 @@
+{
+  "entries": 1,
+  "humanTurns": 1,
+  "inputTokens": 1000,
+  "outputTokens": 200,
+  "cacheCreationTokens": 5000,
+  "cacheCreation1hTokens": 5000,
+  "cacheReadTokens": 100000,
+  "totalTokens": 106200,
+  "costUSD": 0.22
+}

@@ -5,8 +5,9 @@ import {
   CLAUDE_CONFIG_PROJECTS_DIR,
   CLAUDE_PROJECTS_DIR,
 } from "@ccclub/shared";
-import type { CostCalculator, RawClaudeJSONLEntry, UsageEntry } from "@ccclub/shared";
-import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageTurn } from "./types.js";
+import type { RawClaudeJSONLEntry, UsageEntry } from "@ccclub/shared";
+import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageFact, UsageTurn } from "./types.js";
+import { priceUsageFact } from "./types.js";
 import {
   asRecord,
   asNumber,
@@ -61,18 +62,24 @@ function isClaudeHumanTurn(value: unknown): value is RawClaudeJSONLEntry {
 // Per-file parse result. Deduplication spans files (forks and sidechains
 // replay records), so rows keep their dedup keys and are merged afterwards.
 interface ClaudeUsageRow {
-  entry: UsageEntry;
+  entry: UsageFact;
   exactKey: string;
   messageKey?: string;
   isSidechain: boolean;
 }
+
+type PricedClaudeUsageRow = Omit<ClaudeUsageRow, "entry"> & { entry: UsageEntry };
 
 interface ClaudeFileScan {
   rows: ClaudeUsageRow[];
   turns: UsageTurn[];
 }
 
-async function scanClaudeFile(file: string, calculateCost: CostCalculator): Promise<ClaudeFileScan> {
+// Bump whenever Claude parsing or dedup inputs change. Pricing is deliberately
+// excluded: cached facts are repriced on every collection.
+const CLAUDE_SCAN_VERSION = 2;
+
+async function scanClaudeFile(file: string): Promise<ClaudeFileScan> {
   const source = "claude";
   const rows: ClaudeUsageRow[] = [];
   const turns: UsageTurn[] = [];
@@ -117,17 +124,7 @@ async function scanClaudeFile(file: string, calculateCost: CostCalculator): Prom
     );
     const cacheReadTokens = usage.cache_read_input_tokens || 0;
     const model = value.message.model || "unknown";
-    const costUSD = value.costUSD && value.costUSD > 0
-      ? value.costUSD
-      : calculateCost(
-          model,
-          inputTokens,
-          outputTokens,
-          cacheCreationTokens,
-          cacheReadTokens,
-          0,
-          cacheCreation1hTokens,
-        );
+    const reportedCostUSD = asNumber(value.costUSD);
 
     rows.push({
       exactKey,
@@ -145,7 +142,7 @@ async function scanClaudeFile(file: string, calculateCost: CostCalculator): Prom
         cacheCreation1hTokens,
         cacheReadTokens,
         totalTokens: inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens,
-        costUSD,
+        ...(reportedCostUSD > 0 ? { reportedCostUSD } : {}),
       },
     });
   });
@@ -167,7 +164,7 @@ export async function collectClaudeUsage(context: CollectorContext): Promise<Sou
   const source = "claude";
   const projectDirs = await getClaudeProjectDirs();
   const files = await globFiles(projectDirs, "**/*.jsonl");
-  const cache = await context.openScanCache?.<ClaudeFileScan>(source, context.pricingVersion);
+  const cache = await context.openScanCache?.<ClaudeFileScan>(source, `parser=${CLAUDE_SCAN_VERSION}`);
 
   // Cross-file dedup state; replayed records (forks, sidechains) collapse here.
   const entries: UsageEntry[] = [];
@@ -183,7 +180,7 @@ export async function collectClaudeUsage(context: CollectorContext): Promise<Sou
     messageEntryIndexes.set(key, indexes);
   }
 
-  function mergeRow(row: ClaudeUsageRow): void {
+  function mergeRow(row: PricedClaudeUsageRow): void {
     const messageIndexes = row.messageKey != null ? messageEntryIndexes.get(row.messageKey) : undefined;
     const existingIndex = exactEntryIndex.get(row.exactKey) ??
       messageIndexes?.find((index) => row.isSidechain || sidechainByEntryIndex[index]);
@@ -209,11 +206,13 @@ export async function collectClaudeUsage(context: CollectorContext): Promise<Sou
     const stat = await statFile(file);
     let scan = stat != null ? cache?.get(file, stat) : undefined;
     if (scan == null) {
-      scan = await scanClaudeFile(file, context.calculateCost);
+      scan = await scanClaudeFile(file);
       if (stat != null) cache?.set(file, stat, scan);
     }
 
-    for (const row of scan.rows) mergeRow(row);
+    for (const row of scan.rows) {
+      mergeRow({ ...row, entry: priceUsageFact(row.entry, context) });
+    }
     for (const turn of scan.turns) {
       if (seenTurns.has(turn.key)) continue;
       seenTurns.add(turn.key);

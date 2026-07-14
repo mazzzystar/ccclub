@@ -8,10 +8,40 @@ import type { ScanCacheFactory } from "../scan-cache.js";
  */
 export interface CollectorContext {
   calculateCost: CostCalculator;
-  /** Version of the pricing table behind calculateCost; part of cache keys. */
-  pricingVersion: string;
   /** When absent (tests, library use), collectors parse everything cold. */
   openScanCache?: ScanCacheFactory;
+}
+
+/**
+ * Pricing-independent usage parsed from one agent log record. Persisting facts
+ * instead of calculated cost lets a new pricing table reprice history without
+ * re-reading the original (potentially multi-GB) logs.
+ */
+export type UsageFact = Omit<UsageEntry, "costUSD"> & {
+  /** Provider-reported cost, when that source has historically treated it as authoritative. */
+  reportedCostUSD?: number;
+};
+
+export function priceUsageFact(
+  fact: UsageFact,
+  context: CollectorContext,
+  pricingTier: "standard" | "fast" = "standard",
+): UsageEntry {
+  const { reportedCostUSD, ...usage } = fact;
+  const calculated = context.calculateCost(
+    usage.model,
+    usage.inputTokens,
+    usage.outputTokens,
+    usage.cacheCreationTokens,
+    usage.cacheReadTokens,
+    usage.reasoningTokens || 0,
+    usage.cacheCreation1hTokens || 0,
+    pricingTier,
+  );
+  return {
+    ...usage,
+    costUSD: reportedCostUSD != null && reportedCostUSD > 0 ? reportedCostUSD : calculated,
+  };
 }
 
 export interface UsageTurn {

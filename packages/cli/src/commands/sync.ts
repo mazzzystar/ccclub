@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import chalk from "chalk";
 import ora from "ora";
 import { requireConfig, loadConfig, getLastSyncPath, getLastSyncTimePath } from "../config.js";
+import type { CliConfig } from "../config.js";
 import { collectUsageEntries } from "../collector.js";
 import { parseSources } from "../sources/index.js";
 import { aggregateToBlocks } from "../aggregator.js";
@@ -15,13 +16,14 @@ import { AGENT_LABELS, AGENT_SOURCES, CCCLUB_CONFIG_DIR, DEFAULT_SOURCES } from 
 import type { AgentSource, SyncRequest, SyncResponse, UsageBlock } from "@ccclub/shared";
 import { formatFetchError } from "../fetch-error.js";
 import { fetchUsageLimits } from "../usage-limits.js";
+import { acquireSyncLock } from "../sync-lock.js";
 
 // Bump this only when the BLOCK FORMAT changes (new fields, different
 // aggregation) — it forces a one-time full re-sync for every user, which also
 // reprices history against the current table. Newly supported sources do NOT
 // need a bump: filterBlocksToSync uploads the full history of any source that
 // has no per-source sync marker yet.
-const SYNC_FORMAT_VERSION = "13";
+const SYNC_FORMAT_VERSION = "14";
 
 function getSyncVersionPath(): string {
   return join(homedir(), CCCLUB_CONFIG_DIR, "sync-version");
@@ -29,6 +31,14 @@ function getSyncVersionPath(): string {
 
 function getLastSyncBySourcePath(): string {
   return join(homedir(), CCCLUB_CONFIG_DIR, "last-sync-sources.json");
+}
+
+function getSyncedPricingVersionPath(): string {
+  return join(homedir(), CCCLUB_CONFIG_DIR, "synced-pricing-version");
+}
+
+export function needsPricingResync(hasSyncedUsage: boolean, storedVersion: string | null, currentVersion: string): boolean {
+  return hasSyncedUsage && storedVersion !== currentVersion;
 }
 
 export function needsFullSync(): boolean {
@@ -71,6 +81,20 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
   const config = silent ? await loadConfig() : await requireConfig();
   if (!config) return; // Not initialized — nothing to sync
 
+  const lock = await acquireSyncLock();
+  if (lock == null) {
+    if (!silent) console.log(chalk.dim("  Sync already running; skipping duplicate."));
+    return;
+  }
+
+  try {
+    await performSync(config, firstSync, silent);
+  } finally {
+    await lock.release();
+  }
+}
+
+async function performSync(config: CliConfig, firstSync = false, silent = false): Promise<void> {
   // Refresh the pricing cache in the background (no-op if under 24h old).
   // Cost calculation below uses the table already on disk; a fresh table
   // takes effect on the next sync. refreshPricingCache never throws.
@@ -94,11 +118,21 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
 
   try {
     const { calculateCost, version } = await loadPricing();
+    const lastSyncPath = getLastSyncPath();
+    const pricingVersionPath = getSyncedPricingVersionPath();
+    let syncedPricingVersion: string | null = null;
+    try {
+      syncedPricingVersion = (await readFile(pricingVersionPath, "utf-8")).trim() || null;
+    } catch {
+      // Existing users do one full, cached-token reprice after this upgrade.
+    }
+    if (needsPricingResync(existsSync(lastSyncPath), syncedPricingVersion, version)) {
+      firstSync = true;
+    }
     const [{ entries, humanTurns, sources, warnings }, usageSnapshot] = await Promise.all([
       collectUsageEntries({
         sources: collectSources,
         calculateCost,
-        pricingVersion: version,
         openScanCache: createScanCacheFactory(),
       }),
       fetchUsageLimits().catch(() => null),
@@ -118,7 +152,6 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
     const allBlocks = aggregateToBlocks(entries, humanTurns);
 
     // Filter to blocks since last sync
-    const lastSyncPath = getLastSyncPath();
     let lastSync: string | null = null;
     if (existsSync(lastSyncPath)) {
       lastSync = (await readFile(lastSyncPath, "utf-8")).trim() || null;
@@ -142,6 +175,7 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
       // erase the sync markers of sources it did not collect.
       await writeFile(getLastSyncBySourcePath(), JSON.stringify({ ...lastSyncBySource, ...getLatestBlockStartBySource(allBlocks) }, null, 2));
       await writeFile(getSyncVersionPath(), SYNC_FORMAT_VERSION);
+      await writeFile(pricingVersionPath, version);
       // Even with no new blocks, upload usage snapshot so others see fresh data
       if (usageSnapshot) {
         fetch(`${config.apiUrl}/api/usage`, {
@@ -188,6 +222,7 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
     await writeFile(lastSyncPath, latest.blockStart);
     await writeFile(getLastSyncBySourcePath(), JSON.stringify({ ...lastSyncBySource, ...getLatestBlockStartBySource(allBlocks) }, null, 2));
     await writeFile(getSyncVersionPath(), SYNC_FORMAT_VERSION);
+    await writeFile(pricingVersionPath, version);
     await writeFile(getLastSyncTimePath(), String(Date.now()));
 
     // The upload just changed today's numbers — refresh the statusline cache.

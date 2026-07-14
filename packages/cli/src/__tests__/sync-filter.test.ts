@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { filterBlocksToSync } from "../commands/sync.js";
+import { filterBlocksToSync, needsPricingResync } from "../commands/sync.js";
 import type { UsageBlock } from "@ccclub/shared";
 
 const block = (source: UsageBlock["source"], blockStart: string): UsageBlock => ({
@@ -71,5 +71,14 @@ describe("filterBlocksToSync", () => {
       firstSync: false,
     });
     expect(result).toEqual([legacy]);
+  });
+});
+
+describe("needsPricingResync", () => {
+  it("replaces stored history only when an existing sync used another price table", () => {
+    expect(needsPricingResync(false, null, "pricing-v2")).toBe(false);
+    expect(needsPricingResync(true, null, "pricing-v2")).toBe(true);
+    expect(needsPricingResync(true, "pricing-v1", "pricing-v2")).toBe(true);
+    expect(needsPricingResync(true, "pricing-v2", "pricing-v2")).toBe(false);
   });
 });

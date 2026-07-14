@@ -17,6 +17,15 @@ const FEED = {
     output_cost_per_token: 0.00001,
     cache_read_input_token_cost: 1.25e-7,
   },
+  "gpt-5.5": {
+    mode: "responses",
+    input_cost_per_token: 0.000005,
+    output_cost_per_token: 0.00003,
+    cache_read_input_token_cost: 0.0000005,
+    input_cost_per_token_above_272k_tokens: 0.00001,
+    output_cost_per_token_above_272k_tokens: 0.000045,
+    cache_read_input_token_cost_above_272k_tokens: 0.000001,
+  },
   "claude-sonnet-4-6": {
     mode: "chat",
     litellm_provider: "anthropic",
@@ -72,6 +81,21 @@ describe("buildPricingTableFromLiteLLM", () => {
     expect(table?.models["gpt-4o-mini-tts"]).toBeUndefined();
   });
 
+  it("keeps OpenAI long-context rates and ccusage-compatible fast multipliers", () => {
+    const table = buildPricingTableFromLiteLLM(FEED, UPDATED_AT);
+    expect(table?.models["gpt-5.5"]).toEqual({
+      input: 5,
+      output: 30,
+      cacheCreation: 0,
+      cacheRead: 0.5,
+      longContextThreshold: 272_000,
+      inputLongContext: 10,
+      outputLongContext: 45,
+      cacheReadLongContext: 1,
+      fastMultiplier: 2.5,
+    });
+  });
+
   it("filters out model families coding agents never report", () => {
     const table = buildPricingTableFromLiteLLM(FEED, UPDATED_AT);
     expect(table?.models["llama-4-maverick"]).toBeUndefined();
@@ -98,7 +122,7 @@ describe("buildPricingTableFromLiteLLM", () => {
     const a = buildPricingTableFromLiteLLM(FEED, UPDATED_AT);
     const b = buildPricingTableFromLiteLLM(reversed, UPDATED_AT);
     expect(a?.version).toBe(b?.version);
-    expect(a?.version).toMatch(/^v2-\d+-[0-9a-f]{8}$/);
+    expect(a?.version).toMatch(/^v3-\d+-[0-9a-f]{8}$/);
   });
 
   it("changes the version hash when a price changes", () => {
@@ -118,6 +142,19 @@ describe("buildPricingTableFromLiteLLM", () => {
         ...FEED["claude-sonnet-4-6"],
         litellm_provider: "custom",
         cache_creation_input_token_cost_above_1hr: 0.000007,
+      },
+    };
+    const a = buildPricingTableFromLiteLLM(FEED, UPDATED_AT);
+    const b = buildPricingTableFromLiteLLM(changed, UPDATED_AT);
+    expect(a?.version).not.toBe(b?.version);
+  });
+
+  it("changes the version hash when long-context or fast pricing changes", () => {
+    const changed = {
+      ...FEED,
+      "gpt-5.5": {
+        ...FEED["gpt-5.5"],
+        provider_specific_entry: { fast: 3 },
       },
     };
     const a = buildPricingTableFromLiteLLM(FEED, UPDATED_AT);

@@ -1,6 +1,8 @@
-import { readFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { open, readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { homedir } from "node:os";
+import { createInterface } from "node:readline";
 import {
   CODEX_HOME_ENV,
   DEFAULT_CODEX_DIR,
@@ -27,28 +29,66 @@ interface RawCodexUsage {
   totalTokens: number;
 }
 
-const CODEX_FAST_COST_MULTIPLIER = 2;
+// Part of the per-file scan-cache key. Bump whenever parsing/dedup semantics
+// change so a new release cannot reuse entries produced by an older parser.
+const CODEX_SCAN_VERSION = 2;
 const codexFastServiceTierRegex = /(?:^|\n)\s*service_tier\s*=\s*["']?(?:fast|priority)["']?/iu;
+
+interface CodexUsageSource {
+  /** One configured CODEX_HOME. Distinguishes identical relative paths across homes. */
+  home: string;
+  /** A physical usage directory: live sessions or archived sessions. */
+  dir: string;
+}
+
+interface CodexUsageFile {
+  source: CodexUsageSource;
+  file: string;
+}
 
 function getCodexHomes(): string[] {
   return parsePathList(process.env[CODEX_HOME_ENV], [join(homedir(), DEFAULT_CODEX_DIR)]);
 }
 
-function getCodexSessionDirs(): Promise<string[]> {
+async function getCodexUsageSources(): Promise<CodexUsageSource[]> {
+  // Active files win when an archive move briefly leaves the same relative
+  // path in both directories. Different CODEX_HOMEs remain independent.
   const homes = getCodexHomes();
-  return existingDirectories(homes.map((home) => join(home, "sessions")));
+  const candidates = homes.flatMap((home) => [
+    { home, dir: join(home, "sessions") },
+    { home, dir: join(home, "archived_sessions") },
+  ]);
+  const existing = new Set(await existingDirectories(candidates.map(({ dir }) => dir)));
+  return candidates.filter(({ dir }) => existing.has(dir));
 }
 
-async function getCodexCostMultiplier(): Promise<number> {
+async function getCodexUsageFiles(sources: CodexUsageSource[]): Promise<CodexUsageFile[]> {
+  const seen = new Set<string>();
+  const files: CodexUsageFile[] = [];
+
+  for (const source of sources) {
+    for (const file of await globFiles([source.dir], "**/*.jsonl")) {
+      const relativePath = relative(source.dir, file).split(sep).join("/");
+      const key = `${source.home}\0${relativePath}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      files.push({ source, file });
+    }
+  }
+
+  return files;
+}
+
+async function getCodexPricingTier(): Promise<"standard" | "fast"> {
   for (const home of getCodexHomes()) {
     try {
       const config = await readFile(join(home, "config.toml"), "utf8");
-      if (codexFastServiceTierRegex.test(config)) return CODEX_FAST_COST_MULTIPLIER;
+      if (codexFastServiceTierRegex.test(config)) return "fast";
     } catch {
       // Missing or unreadable config means standard pricing.
     }
   }
-  return 1;
+  return "standard";
 }
 
 function normalizeRawUsage(value: unknown): RawCodexUsage | null {
@@ -94,6 +134,69 @@ function sessionIdForFile(sessionDir: string, file: string): string {
   return relative(sessionDir, file).split(sep).join("/").replace(/\.jsonl$/i, "");
 }
 
+function timestampSecond(value: unknown): string | null {
+  return toIsoTimestamp(value)?.slice(0, 19) ?? null;
+}
+
+async function hasReplayMarker(file: string): Promise<boolean> {
+  let handle: Awaited<ReturnType<typeof open>> | null = null;
+  try {
+    handle = await open(file, "r");
+    const buffer = Buffer.allocUnsafe(16 * 1024);
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+    const header = buffer.toString("utf8", 0, bytesRead);
+    return header.includes("thread_spawn") || header.includes("forked_from_id");
+  } catch {
+    return false;
+  } finally {
+    await handle?.close().catch(() => {});
+  }
+}
+
+/**
+ * Codex rewrites copied fork/sub-agent history with the child's outer
+ * timestamp. In affected rollouts, at least the first two copied token_count
+ * records share the child's creation second; the child's own work begins at a
+ * later second. This is the same conservative boundary used by ccusage 20:
+ * requiring two records avoids dropping a legitimate first request that just
+ * happened to complete in the session-creation second.
+ */
+async function detectReplaySecond(file: string): Promise<string | null> {
+  if (!await hasReplayMarker(file)) return null;
+
+  const stream = createReadStream(file, { encoding: "utf8" });
+  const lines = createInterface({ input: stream, crlfDelay: Number.POSITIVE_INFINITY });
+  let firstSecond: string | null = null;
+
+  try {
+    for await (const line of lines) {
+      let value: unknown;
+      try {
+        value = JSON.parse(line) as unknown;
+      } catch {
+        continue;
+      }
+      const record = asRecord(value);
+      const payload = asRecord(record?.payload);
+      if (record?.type !== "event_msg" || payload?.type !== "token_count") continue;
+      const info = asRecord(payload.info);
+      if (asRecord(info?.last_token_usage) == null && asRecord(info?.total_token_usage) == null) continue;
+      const second = timestampSecond(record.timestamp);
+      if (second == null) continue;
+      if (firstSecond == null) {
+        firstSecond = second;
+        continue;
+      }
+      return firstSecond === second ? second : null;
+    }
+  } finally {
+    lines.close();
+    stream.destroy();
+  }
+
+  return null;
+}
+
 // Per-file parse result. Entries keep their content dedupe key as requestId;
 // forked sessions replay identical history, so dedup must span files.
 interface CodexFileScan {
@@ -105,9 +208,11 @@ async function scanCodexFile(
   file: string,
   sessionId: string,
   calculateCost: CostCalculator,
-  costMultiplier: number,
+  pricingTier: "standard" | "fast",
 ): Promise<CodexFileScan> {
   const source = "codex";
+  const replaySecond = await detectReplaySecond(file);
+  let skippingReplay = replaySecond != null;
   const entries: UsageEntry[] = [];
   const turns: UsageTurn[] = [];
   let previousTotal: RawCodexUsage | null = null;
@@ -121,6 +226,8 @@ async function scanCodexFile(
     if (record == null) return;
     const payload = asRecord(record.payload);
     const type = asString(record.type);
+    const recordSecond = timestampSecond(record.timestamp);
+    const isReplayStamped = skippingReplay && recordSecond === replaySecond;
 
     if (type === "turn_context") {
       currentModel = extractModelFromPayload(payload) ?? currentModel;
@@ -128,6 +235,7 @@ async function scanCodexFile(
     }
 
     if (type === "event_msg" && payload?.type === "task_started") {
+      if (isReplayStamped) return;
       const timestamp = toIsoTimestamp(payload.started_at ?? record.timestamp);
       if (timestamp == null) return;
       const turnId = asString(payload.turn_id);
@@ -140,6 +248,7 @@ async function scanCodexFile(
     }
 
     if (type === "event_msg" && payload?.type === "user_message") {
+      if (isReplayStamped) return;
       const timestamp = toIsoTimestamp(record.timestamp);
       if (timestamp == null) return;
       const key = `${source}:${timestamp}:user_message`;
@@ -157,6 +266,17 @@ async function scanCodexFile(
     const info = asRecord(payload.info);
     const lastUsage = normalizeRawUsage(info?.last_token_usage);
     const totalUsage = normalizeRawUsage(info?.total_token_usage);
+
+    // Keep cumulative state aligned while discarding copied history. The first
+    // token_count in a later second is the child's/fork's own usage.
+    if (skippingReplay) {
+      if (recordSecond === replaySecond) {
+        if (totalUsage != null) previousTotal = totalUsage;
+        return;
+      }
+      skippingReplay = false;
+    }
+
     const rawUsage = lastUsage ?? (totalUsage == null ? null : subtractUsage(totalUsage, previousTotal));
     if (totalUsage != null) previousTotal = totalUsage;
     if (rawUsage == null) return;
@@ -200,7 +320,7 @@ async function scanCodexFile(
       cacheReadTokens,
       reasoningTokens: rawUsage.reasoningTokens,
       totalTokens,
-      costUSD: calculateCost(model, inputTokens, rawUsage.outputTokens, 0, cacheReadTokens) * costMultiplier,
+      costUSD: calculateCost(model, inputTokens, rawUsage.outputTokens, 0, cacheReadTokens, 0, 0, pricingTier),
     });
   });
 
@@ -210,14 +330,14 @@ async function scanCodexFile(
 
 export async function collectCodexUsage(context: CollectorContext): Promise<SourceCollection> {
   const source = "codex";
-  const [sessionDirs, costMultiplier] = await Promise.all([
-    getCodexSessionDirs(),
-    getCodexCostMultiplier(),
+  const [usageSources, pricingTier] = await Promise.all([
+    getCodexUsageSources(),
+    getCodexPricingTier(),
   ]);
-  const files = await globFiles(sessionDirs, "**/*.jsonl");
+  const files = await getCodexUsageFiles(usageSources);
   const cache = await context.openScanCache?.<CodexFileScan>(
     source,
-    `${context.pricingVersion}:fast=${costMultiplier}`,
+    `${context.pricingVersion}:parser=${CODEX_SCAN_VERSION}:tier=${pricingTier}`,
   );
 
   const entries: UsageEntry[] = [];
@@ -225,27 +345,29 @@ export async function collectCodexUsage(context: CollectorContext): Promise<Sour
   const seen = new Set<string>();
   const seenTurns = new Set<string>();
 
-  for (const sessionDir of sessionDirs) {
-    const sessionFiles = files.filter((file) => file.startsWith(`${sessionDir}${sep}`));
-    for (const file of sessionFiles) {
-      const stat = await statFile(file);
-      let scan = stat != null ? cache?.get(file, stat) : undefined;
-      if (scan == null) {
-        scan = await scanCodexFile(file, sessionIdForFile(sessionDir, file), context.calculateCost, costMultiplier);
-        if (stat != null) cache?.set(file, stat, scan);
-      }
+  for (const { source: usageSource, file } of files) {
+    const stat = await statFile(file);
+    let scan = stat != null ? cache?.get(file, stat) : undefined;
+    if (scan == null) {
+      scan = await scanCodexFile(
+        file,
+        sessionIdForFile(usageSource.dir, file),
+        context.calculateCost,
+        pricingTier,
+      );
+      if (stat != null) cache?.set(file, stat, scan);
+    }
 
-      for (const entry of scan.entries) {
-        const dedupeKey = entry.requestId ?? "";
-        if (seen.has(dedupeKey)) continue;
-        seen.add(dedupeKey);
-        entries.push(entry);
-      }
-      for (const turn of scan.turns) {
-        if (seenTurns.has(turn.key)) continue;
-        seenTurns.add(turn.key);
-        turns.push(turn);
-      }
+    for (const entry of scan.entries) {
+      const dedupeKey = entry.requestId ?? "";
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      entries.push(entry);
+    }
+    for (const turn of scan.turns) {
+      if (seenTurns.has(turn.key)) continue;
+      seenTurns.add(turn.key);
+      turns.push(turn);
     }
   }
 

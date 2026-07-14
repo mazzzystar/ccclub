@@ -311,6 +311,170 @@ describe("multi-agent collection", () => {
     expect(blocks[0].chatCount).toBe(1);
   });
 
+  it("skips re-stamped Codex subagent history and keeps only the child work", async () => {
+    const codexHome = await makeTempDir();
+    const sessionsDir = join(codexHome, "sessions");
+    await mkdir(sessionsDir, { recursive: true });
+    const tokenCount = (timestamp: string, input: number, output: number, total: number) => ({
+      timestamp,
+      type: "event_msg",
+      payload: {
+        type: "token_count",
+        info: {
+          model: "gpt-5.2",
+          last_token_usage: { input_tokens: input, output_tokens: output, total_tokens: input + output },
+          total_token_usage: { input_tokens: total - output, output_tokens: output, total_tokens: total },
+        },
+      },
+    });
+    await writeFile(join(sessionsDir, "parent.jsonl"), [
+      JSON.stringify({ timestamp: "2026-05-12T08:00:00.000Z", type: "turn_context", payload: { model: "gpt-5.2" } }),
+      JSON.stringify({
+        timestamp: "2026-05-12T08:00:30.000Z",
+        type: "event_msg",
+        payload: { type: "task_started", turn_id: "parent-turn", started_at: "2026-05-12T08:00:30.000Z" },
+      }),
+      JSON.stringify(tokenCount("2026-05-12T08:01:00.000Z", 1000, 200, 1200)),
+      JSON.stringify(tokenCount("2026-05-12T08:02:00.000Z", 500, 100, 1800)),
+    ].join("\n"));
+    const spawn = "2026-05-12T08:03:00.000Z";
+    await writeFile(join(sessionsDir, "subagent.jsonl"), [
+      JSON.stringify({
+        timestamp: spawn,
+        type: "session_meta",
+        payload: {
+          id: "child",
+          source: { subagent: { thread_spawn: { parent_thread_id: "parent" } } },
+        },
+      }),
+      JSON.stringify({ timestamp: spawn, type: "session_meta", payload: { id: "parent" } }),
+      JSON.stringify({
+        timestamp: spawn,
+        type: "event_msg",
+        payload: { type: "task_started", turn_id: "copied-parent-turn", started_at: "2026-05-12T08:00:30.000Z" },
+      }),
+      JSON.stringify(tokenCount(spawn, 1000, 200, 1200)),
+      JSON.stringify(tokenCount(spawn, 500, 100, 1800)),
+      JSON.stringify({
+        timestamp: "2026-05-12T08:04:00.000Z",
+        type: "event_msg",
+        payload: { type: "task_started", turn_id: "child-turn", started_at: "2026-05-12T08:04:00.000Z" },
+      }),
+      JSON.stringify(tokenCount("2026-05-12T08:04:10.000Z", 100, 20, 120)),
+    ].join("\n"));
+    vi.stubEnv("CODEX_HOME", codexHome);
+
+    const result = await collectUsageEntries({ sources: ["codex"] });
+    const blocks = aggregateToBlocks(result.entries, result.humanTurns);
+
+    expect(result.entries).toHaveLength(3);
+    expect(result.entries.reduce((sum, entry) => sum + entry.totalTokens, 0)).toBe(1920);
+    expect(result.humanTurns).toHaveLength(2);
+    expect(blocks.reduce((sum, block) => sum + block.chatCount, 0)).toBe(2);
+  });
+
+  it("keeps the cumulative baseline while skipping Codex replay records", async () => {
+    const codexHome = await makeTempDir();
+    const sessionsDir = join(codexHome, "sessions");
+    await mkdir(sessionsDir, { recursive: true });
+    const cumulative = (timestamp: string, input: number, cached: number, output: number) => JSON.stringify({
+      timestamp,
+      type: "event_msg",
+      payload: {
+        type: "token_count",
+        info: { model: "gpt-5.2", total_token_usage: {
+          input_tokens: input,
+          cached_input_tokens: cached,
+          output_tokens: output,
+          total_tokens: input + output,
+        } },
+      },
+    });
+    const spawn = "2026-05-12T08:03:00.000Z";
+    await writeFile(join(sessionsDir, "subagent.jsonl"), [
+      JSON.stringify({
+        timestamp: spawn,
+        type: "session_meta",
+        payload: { id: "child", forked_from_id: "parent" },
+      }),
+      cumulative(spawn, 1000, 100, 200),
+      cumulative(spawn, 1500, 150, 300),
+      cumulative("2026-05-12T08:04:00.000Z", 1600, 160, 320),
+    ].join("\n"));
+    vi.stubEnv("CODEX_HOME", codexHome);
+
+    const result = await collectUsageEntries({ sources: ["codex"] });
+
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0]).toMatchObject({
+      inputTokens: 90,
+      cacheReadTokens: 10,
+      outputTokens: 20,
+      totalTokens: 120,
+    });
+  });
+
+  it("does not infer replay from a single creation-second Codex usage event", async () => {
+    const codexHome = await makeTempDir();
+    const sessionsDir = join(codexHome, "sessions");
+    await mkdir(sessionsDir, { recursive: true });
+    await writeFile(join(sessionsDir, "fork.jsonl"), [
+      JSON.stringify({
+        timestamp: "2026-05-12T08:03:00.000Z",
+        type: "session_meta",
+        payload: { id: "fork", forked_from_id: "parent" },
+      }),
+      JSON.stringify({
+        timestamp: "2026-05-12T08:03:00.000Z",
+        type: "event_msg",
+        payload: { type: "token_count", info: {
+          model: "gpt-5.2",
+          last_token_usage: { input_tokens: 100, output_tokens: 20, total_tokens: 120 },
+        } },
+      }),
+      JSON.stringify({
+        timestamp: "2026-05-12T08:04:00.000Z",
+        type: "event_msg",
+        payload: { type: "token_count", info: {
+          model: "gpt-5.2",
+          last_token_usage: { input_tokens: 50, output_tokens: 10, total_tokens: 60 },
+        } },
+      }),
+    ].join("\n"));
+    vi.stubEnv("CODEX_HOME", codexHome);
+
+    const result = await collectUsageEntries({ sources: ["codex"] });
+
+    expect(result.entries).toHaveLength(2);
+    expect(result.entries.reduce((sum, entry) => sum + entry.totalTokens, 0)).toBe(180);
+  });
+
+  it("loads Codex archives and lets a live file win the same relative path", async () => {
+    const codexHome = await makeTempDir();
+    const sessionsDir = join(codexHome, "sessions");
+    const archivedDir = join(codexHome, "archived_sessions");
+    await mkdir(join(sessionsDir, "nested"), { recursive: true });
+    await mkdir(join(archivedDir, "nested"), { recursive: true });
+    const usageLine = (timestamp: string, input: number) => JSON.stringify({
+      timestamp,
+      type: "event_msg",
+      payload: { type: "token_count", info: {
+        model: "gpt-5.2",
+        last_token_usage: { input_tokens: input, output_tokens: 10, total_tokens: input + 10 },
+      } },
+    });
+    await writeFile(join(sessionsDir, "nested", "same.jsonl"), usageLine("2026-05-12T08:00:00.000Z", 100));
+    await writeFile(join(archivedDir, "nested", "same.jsonl"), usageLine("2026-05-12T08:00:00.000Z", 900));
+    await writeFile(join(archivedDir, "archive-only.jsonl"), usageLine("2026-05-12T09:00:00.000Z", 50));
+    vi.stubEnv("CODEX_HOME", codexHome);
+
+    const result = await collectUsageEntries({ sources: ["codex"] });
+
+    expect(result.sources[0].files).toBe(2);
+    expect(result.entries).toHaveLength(2);
+    expect(result.entries.reduce((sum, entry) => sum + entry.inputTokens, 0)).toBe(150);
+  });
+
   it("applies Codex fast service tier pricing from config", async () => {
     const codexHome = await makeTempDir();
     const sessionsDir = join(codexHome, "sessions");
@@ -343,7 +507,7 @@ describe("multi-agent collection", () => {
     const result = await collectUsageEntries({ sources: ["codex"] });
 
     expect(result.entries).toHaveLength(1);
-    expect(result.entries[0].costUSD).toBeCloseTo(0.00142);
+    expect(result.entries[0].costUSD).toBeCloseTo(0.001775, 8);
   });
 
   it("matches ccusage Codex fallback totals when total_tokens is omitted", async () => {
@@ -488,8 +652,8 @@ describe("multi-agent collection", () => {
   });
 
   it("prices current Claude and Codex models before broad family fallbacks", () => {
-    expect(calculateCost("gpt-5.5", 1_000_000, 1_000_000, 0, 1_000_000)).toBeCloseTo(35.5);
-    expect(calculateCost("openai/gpt-5.5-extra", 1_000_000, 0, 0, 0)).toBeCloseTo(5);
+    expect(calculateCost("gpt-5.5", 1_000_000, 1_000_000, 0, 1_000_000)).toBeCloseTo(56);
+    expect(calculateCost("openai/gpt-5.5-extra", 1_000_000, 0, 0, 0)).toBeCloseTo(10);
     expect(calculateCost("gpt-5.3-codex", 1_000_000, 1_000_000, 0, 1_000_000)).toBeCloseTo(15.925);
     expect(calculateCost("gpt-5.4-mini-latest", 1_000_000, 1_000_000, 0, 1_000_000)).toBeCloseTo(5.325);
     expect(calculateCost("codex-auto-review", 1_000_000, 1_000_000, 0, 1_000_000)).toBe(0);

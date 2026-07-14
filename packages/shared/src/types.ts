@@ -199,6 +199,12 @@ export interface SyncRequest {
   blocks: UsageBlock[];
   usageSnapshot?: UsageSnapshot;
   /**
+   * Sources whose stored history is atomically replaced by this request.
+   * Full-sync clients use this to remove obsolete blocks that disappear after
+   * parser or aggregation fixes; incremental clients omit it and merge.
+   */
+  replaceSources?: AgentSource[];
+  /**
    * Sources this client durably tracks (config-derived, not the per-run
    * filter). The server prunes stored blocks of OPT_IN_SOURCES that are
    * absent here, so disabling an opt-in source also cleans up history.

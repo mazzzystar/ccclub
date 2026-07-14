@@ -15,10 +15,18 @@ export interface ModelPricing {
    * tier versus 1.25× for 5m writes. Absent means the standard rate applies.
    */
   cacheCreation1h?: number;
+  /** Whole-request rates when the request's total input exceeds this model's threshold. */
+  longContextThreshold?: number;
+  inputLongContext?: number;
+  outputLongContext?: number;
+  cacheCreationLongContext?: number;
+  cacheReadLongContext?: number;
+  /** Provider/model-specific multiplier used by Codex priority (fast) mode. */
+  fastMultiplier?: number;
 }
 
 /** Bump when the compact table gains pricing fields older clients did not emit. */
-export const PRICING_TABLE_SCHEMA_VERSION = 2;
+export const PRICING_TABLE_SCHEMA_VERSION = 3;
 
 /**
  * A versioned set of model prices. The same shape is used for the bundled
@@ -52,6 +60,7 @@ export type CostCalculator = (
   reasoningTokens?: number,
   /** Subset of cacheCreationTokens written with a 1-hour TTL. */
   cacheCreation1hTokens?: number,
+  pricingTier?: "standard" | "fast",
 ) => number;
 
 const ZERO_PRICING: ModelPricing = { input: 0, output: 0, cacheCreation: 0, cacheRead: 0 };
@@ -152,7 +161,16 @@ export function resolveModelPricing(model: string, table: PricingTable): Resolve
  */
 export function createCostCalculator(table: PricingTable): CostCalculator {
   const resolved = new Map<string, ModelPricing>();
-  return (model, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens, reasoningTokens = 0, cacheCreation1hTokens = 0) => {
+  return (
+    model,
+    inputTokens,
+    outputTokens,
+    cacheCreationTokens,
+    cacheReadTokens,
+    reasoningTokens = 0,
+    cacheCreation1hTokens = 0,
+    pricingTier = "standard",
+  ) => {
     let pricing = resolved.get(model);
     if (pricing == null) {
       pricing = resolveModelPricing(model, table).pricing;
@@ -166,15 +184,38 @@ export function createCostCalculator(table: PricingTable): CostCalculator {
       Math.max(cacheCreation1hTokens, 0),
       Math.max(cacheCreationTokens, 0),
     );
-    const oneHourPrice = pricing.cacheCreation1h ?? pricing.cacheCreation;
+    // OpenAI's 272K pricing is a whole-request tier, not a marginal band. The
+    // Codex log reports cached input inside input_tokens; after normalization
+    // that total is reconstructed by adding the non-cached and cache buckets.
+    const totalInputTokens = inputTokens + cacheCreationTokens + cacheReadTokens;
+    const useLongContext = pricing.longContextThreshold != null &&
+      totalInputTokens > pricing.longContextThreshold;
+    const inputPrice = useLongContext ? pricing.inputLongContext ?? pricing.input : pricing.input;
+    const outputPrice = useLongContext ? pricing.outputLongContext ?? pricing.output : pricing.output;
+    const cacheCreationPrice = useLongContext
+      ? pricing.cacheCreationLongContext ?? pricing.cacheCreation
+      : pricing.cacheCreation;
+    const cacheReadPrice = useLongContext
+      ? pricing.cacheReadLongContext ?? pricing.cacheRead
+      : pricing.cacheRead;
+    const oneHourPrice = useLongContext
+      ? (pricing.inputLongContext ?? pricing.input) * 2
+      : pricing.cacheCreation1h ?? cacheCreationPrice;
+    // ccusage treats an absent/neutral (1×) model value as Codex's 2× fast
+    // fallback; only a provider/model-specific value other than 1 overrides it.
+    const modelFastMultiplier = pricing.fastMultiplier == null || pricing.fastMultiplier === 1
+      ? 2
+      : pricing.fastMultiplier;
+    const fastMultiplier = pricingTier === "fast" ? modelFastMultiplier : 1;
+
     return (
-      (inputTokens * pricing.input +
-        (outputTokens + reasoningTokens) * pricing.output +
-        cacheCreationTokens * pricing.cacheCreation +
-        oneHourTokens * (oneHourPrice - pricing.cacheCreation) +
-        cacheReadTokens * pricing.cacheRead) /
+      (inputTokens * inputPrice +
+        (outputTokens + reasoningTokens) * outputPrice +
+        cacheCreationTokens * cacheCreationPrice +
+        oneHourTokens * (oneHourPrice - cacheCreationPrice) +
+        cacheReadTokens * cacheReadPrice) /
       1_000_000
-    );
+    ) * fastMultiplier;
   };
 }
 
@@ -194,6 +235,12 @@ const MAX_PRICE_PER_MTOK = 10_000;
 
 function asValidPrice(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= MAX_PRICE_PER_MTOK
+    ? value
+    : null;
+}
+
+function asValidPositive(value: unknown, max: number): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 && value <= max
     ? value
     : null;
 }
@@ -222,6 +269,22 @@ export function parsePricingTable(value: unknown): PricingTable | null {
     const pricing: ModelPricing = { input, output, cacheCreation, cacheRead };
     const cacheCreation1h = asValidPrice(entry.cacheCreation1h);
     if (cacheCreation1h != null) pricing.cacheCreation1h = cacheCreation1h;
+    const longContextThreshold = asValidPositive(entry.longContextThreshold, 10_000_000);
+    const longContextFields: Array<[keyof ModelPricing, unknown]> = [
+      ["inputLongContext", entry.inputLongContext],
+      ["outputLongContext", entry.outputLongContext],
+      ["cacheCreationLongContext", entry.cacheCreationLongContext],
+      ["cacheReadLongContext", entry.cacheReadLongContext],
+    ];
+    if (longContextThreshold != null) {
+      pricing.longContextThreshold = longContextThreshold;
+      for (const [field, rawPrice] of longContextFields) {
+        const price = asValidPrice(rawPrice);
+        if (price != null) Object.assign(pricing, { [field]: price });
+      }
+    }
+    const fastMultiplier = asValidPositive(entry.fastMultiplier, 100);
+    if (fastMultiplier != null) pricing.fastMultiplier = fastMultiplier;
     validModels[model.toLowerCase()] = pricing;
   }
   if (Object.keys(validModels).length === 0) return null;

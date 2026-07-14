@@ -9,7 +9,7 @@ import type { PricingTable } from "@ccclub/shared";
 const API_URL = "https://ccclub.test";
 
 const REMOTE_TABLE: PricingTable = {
-  version: "v2-1-deadbeef",
+  version: "v3-1-deadbeef",
   updatedAt: "2026-06-01T00:00:00.000Z",
   source: "litellm",
   models: { "gpt-5": { input: 9, output: 90, cacheCreation: 0, cacheRead: 0.9 } },
@@ -80,16 +80,16 @@ describe("refreshPricingCache", () => {
   it("fetches and stores a new table when the cache is stale", async () => {
     const path = await makeCachePath();
     const staleTime = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
-    await writeCacheFile(path, staleTime, { ...REMOTE_TABLE, version: "v2-0-old" });
+    await writeCacheFile(path, staleTime, { ...REMOTE_TABLE, version: "v3-0-old" });
     const fetchMock = stubFetch(() => Response.json(REMOTE_TABLE));
 
     await refreshPricingCache(API_URL, path);
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe(`${API_URL}/api/pricing`);
-    expect((init.headers as Record<string, string>)["If-None-Match"]).toBe('"v2-0-old"');
+    expect((init.headers as Record<string, string>)["If-None-Match"]).toBe('"v3-0-old"');
     const stored = JSON.parse(await readFile(path, "utf-8"));
-    expect(stored.table.version).toBe("v2-1-deadbeef");
+    expect(stored.table.version).toBe("v3-1-deadbeef");
   });
 
   it("fetches without a cache file and creates one", async () => {

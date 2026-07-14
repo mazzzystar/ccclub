@@ -1,11 +1,11 @@
 // AUTO-GENERATED FILE — DO NOT EDIT BY HAND.
 // Regenerate with: pnpm --filter @ccclub/shared update-snapshot
-// Source: LiteLLM model_prices_and_context_window.json (2026-07-14T07:10:01.888Z)
+// Source: LiteLLM model_prices_and_context_window.json (2026-07-14T07:57:29.071Z)
 import type { PricingTable } from "./pricing.js";
 
 export const PRICING_SNAPSHOT: PricingTable = {
-  "version": "v2-298-f70ce03a",
-  "updatedAt": "2026-07-14T07:10:01.888Z",
+  "version": "v3-298-32cdf857",
+  "updatedAt": "2026-07-14T07:57:29.071Z",
   "source": "snapshot",
   "models": {
     "claude-3-5-haiku": {
@@ -48,8 +48,8 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
-      "cacheCreation1h": 6,
-      "cacheRead": 0.3
+      "cacheRead": 0.3,
+      "cacheCreation1h": 6
     },
     "claude-3-7-sonnet-latest": {
       "input": 3.3,
@@ -61,8 +61,8 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
-      "cacheCreation1h": 6,
-      "cacheRead": 0.3
+      "cacheRead": 0.3,
+      "cacheCreation1h": 6
     },
     "claude-3-haiku": {
       "input": 0.25,
@@ -74,8 +74,8 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 0.25,
       "output": 1.25,
       "cacheCreation": 0.3,
-      "cacheCreation1h": 0.5,
-      "cacheRead": 0.03
+      "cacheRead": 0.03,
+      "cacheCreation1h": 0.5
     },
     "claude-3-haiku@20240307": {
       "input": 0.25,
@@ -93,8 +93,8 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 15,
       "output": 75,
       "cacheCreation": 18.75,
-      "cacheCreation1h": 30,
-      "cacheRead": 1.5
+      "cacheRead": 1.5,
+      "cacheCreation1h": 30
     },
     "claude-3-opus@20240229": {
       "input": 15,
@@ -142,8 +142,8 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 15,
       "output": 75,
       "cacheCreation": 18.75,
-      "cacheCreation1h": 30,
-      "cacheRead": 1.5
+      "cacheRead": 1.5,
+      "cacheCreation1h": 30
     },
     "claude-4-sonnet": {
       "input": 3.3,
@@ -155,8 +155,8 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
-      "cacheCreation1h": 6,
-      "cacheRead": 0.3
+      "cacheRead": 0.3,
+      "cacheCreation1h": 6
     },
     "claude-4.5-haiku": {
       "input": 1,
@@ -174,36 +174,36 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 10,
       "output": 50,
       "cacheCreation": 12.5,
-      "cacheCreation1h": 20,
-      "cacheRead": 1
+      "cacheRead": 1,
+      "cacheCreation1h": 20
     },
     "claude-fable-5@default": {
       "input": 10,
       "output": 50,
       "cacheCreation": 12.5,
-      "cacheCreation1h": 20,
-      "cacheRead": 1
+      "cacheRead": 1,
+      "cacheCreation1h": 20
     },
     "claude-haiku-4-5": {
       "input": 1,
       "output": 5,
       "cacheCreation": 1.25,
-      "cacheCreation1h": 2,
-      "cacheRead": 0.1
+      "cacheRead": 0.1,
+      "cacheCreation1h": 2
     },
     "claude-haiku-4-5-20251001": {
       "input": 1,
       "output": 5,
       "cacheCreation": 1.25,
-      "cacheCreation1h": 2,
-      "cacheRead": 0.1
+      "cacheRead": 0.1,
+      "cacheCreation1h": 2
     },
     "claude-haiku-4-5@20251001": {
       "input": 1,
       "output": 5,
       "cacheCreation": 1.25,
-      "cacheCreation1h": 2,
-      "cacheRead": 0.1
+      "cacheRead": 0.1,
+      "cacheCreation1h": 2
     },
     "claude-haiku-4.5": {
       "input": 1,
@@ -221,113 +221,118 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 15,
       "output": 75,
       "cacheCreation": 18.75,
-      "cacheCreation1h": 30,
-      "cacheRead": 1.5
+      "cacheRead": 1.5,
+      "cacheCreation1h": 30
     },
     "claude-opus-4-1-20250805": {
       "input": 15,
       "output": 75,
       "cacheCreation": 18.75,
-      "cacheCreation1h": 30,
-      "cacheRead": 1.5
+      "cacheRead": 1.5,
+      "cacheCreation1h": 30
     },
     "claude-opus-4-1@20250805": {
       "input": 15,
       "output": 75,
       "cacheCreation": 18.75,
-      "cacheCreation1h": 30,
-      "cacheRead": 1.5
+      "cacheRead": 1.5,
+      "cacheCreation1h": 30
     },
     "claude-opus-4-20250514": {
       "input": 15,
       "output": 75,
       "cacheCreation": 18.75,
-      "cacheCreation1h": 30,
-      "cacheRead": 1.5
+      "cacheRead": 1.5,
+      "cacheCreation1h": 30
     },
     "claude-opus-4-5": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
-      "cacheCreation1h": 10,
-      "cacheRead": 0.5
+      "cacheRead": 0.5,
+      "cacheCreation1h": 10
     },
     "claude-opus-4-5-20251101": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
-      "cacheCreation1h": 10,
-      "cacheRead": 0.5
+      "cacheRead": 0.5,
+      "cacheCreation1h": 10
     },
     "claude-opus-4-5@20251101": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
-      "cacheCreation1h": 10,
-      "cacheRead": 0.5
+      "cacheRead": 0.5,
+      "cacheCreation1h": 10
     },
     "claude-opus-4-6": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
+      "cacheRead": 0.5,
       "cacheCreation1h": 10,
-      "cacheRead": 0.5
+      "fastMultiplier": 6
     },
     "claude-opus-4-6-20260205": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
+      "cacheRead": 0.5,
       "cacheCreation1h": 10,
-      "cacheRead": 0.5
+      "fastMultiplier": 6
     },
     "claude-opus-4-6@default": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
-      "cacheCreation1h": 10,
-      "cacheRead": 0.5
+      "cacheRead": 0.5,
+      "cacheCreation1h": 10
     },
     "claude-opus-4-7": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
+      "cacheRead": 0.5,
       "cacheCreation1h": 10,
-      "cacheRead": 0.5
+      "fastMultiplier": 6
     },
     "claude-opus-4-7-20260416": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
+      "cacheRead": 0.5,
       "cacheCreation1h": 10,
-      "cacheRead": 0.5
+      "fastMultiplier": 6
     },
     "claude-opus-4-7@default": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
-      "cacheCreation1h": 10,
-      "cacheRead": 0.5
+      "cacheRead": 0.5,
+      "cacheCreation1h": 10
     },
     "claude-opus-4-8": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
+      "cacheRead": 0.5,
       "cacheCreation1h": 10,
-      "cacheRead": 0.5
+      "fastMultiplier": 2
     },
     "claude-opus-4-8@default": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
-      "cacheCreation1h": 10,
-      "cacheRead": 0.5
+      "cacheRead": 0.5,
+      "cacheCreation1h": 10
     },
     "claude-opus-4.1": {
       "input": 15,
       "output": 75,
       "cacheCreation": 18.75,
-      "cacheCreation1h": 30,
-      "cacheRead": 1.5
+      "cacheRead": 1.5,
+      "cacheCreation1h": 30
     },
     "claude-opus-4.5": {
       "input": 5,
@@ -351,8 +356,8 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 15,
       "output": 75,
       "cacheCreation": 18.75,
-      "cacheCreation1h": 30,
-      "cacheRead": 1.5
+      "cacheRead": 1.5,
+      "cacheCreation1h": 30
     },
     "claude-sonnet-4": {
       "input": 3,
@@ -364,50 +369,50 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
-      "cacheCreation1h": 6,
-      "cacheRead": 0.3
+      "cacheRead": 0.3,
+      "cacheCreation1h": 6
     },
     "claude-sonnet-4-5": {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
-      "cacheCreation1h": 6,
-      "cacheRead": 0.3
+      "cacheRead": 0.3,
+      "cacheCreation1h": 6
     },
     "claude-sonnet-4-5-20250929": {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
-      "cacheCreation1h": 6,
-      "cacheRead": 0.3
+      "cacheRead": 0.3,
+      "cacheCreation1h": 6
     },
     "claude-sonnet-4-5-20250929-v1:0": {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
-      "cacheCreation1h": 6,
-      "cacheRead": 0.3
+      "cacheRead": 0.3,
+      "cacheCreation1h": 6
     },
     "claude-sonnet-4-5@20250929": {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
-      "cacheCreation1h": 6,
-      "cacheRead": 0.3
+      "cacheRead": 0.3,
+      "cacheCreation1h": 6
     },
     "claude-sonnet-4-6": {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
-      "cacheCreation1h": 6,
-      "cacheRead": 0.3
+      "cacheRead": 0.3,
+      "cacheCreation1h": 6
     },
     "claude-sonnet-4-6@default": {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
-      "cacheCreation1h": 6,
-      "cacheRead": 0.3
+      "cacheRead": 0.3,
+      "cacheCreation1h": 6
     },
     "claude-sonnet-4.5": {
       "input": 3,
@@ -425,22 +430,22 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
-      "cacheCreation1h": 6,
-      "cacheRead": 0.3
+      "cacheRead": 0.3,
+      "cacheCreation1h": 6
     },
     "claude-sonnet-5": {
       "input": 2,
       "output": 10,
       "cacheCreation": 2.5,
-      "cacheCreation1h": 4,
-      "cacheRead": 0.2
+      "cacheRead": 0.2,
+      "cacheCreation1h": 4
     },
     "claude-sonnet-5@default": {
       "input": 2,
       "output": 10,
       "cacheCreation": 2.5,
-      "cacheCreation1h": 4,
-      "cacheRead": 0.2
+      "cacheRead": 0.2,
+      "cacheCreation1h": 4
     },
     "codex-mini": {
       "input": 1.5,
@@ -1448,19 +1453,29 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 1.75,
       "output": 14,
       "cacheCreation": 0,
-      "cacheRead": 0.175
+      "cacheRead": 0.175,
+      "fastMultiplier": 2
     },
     "gpt-5.4": {
       "input": 2.5,
       "output": 15,
       "cacheCreation": 0,
-      "cacheRead": 0.25
+      "cacheRead": 0.25,
+      "longContextThreshold": 272000,
+      "inputLongContext": 5,
+      "outputLongContext": 22.5,
+      "cacheReadLongContext": 0.5,
+      "fastMultiplier": 2
     },
     "gpt-5.4-2026-03-05": {
       "input": 2.5,
       "output": 15,
       "cacheCreation": 0,
-      "cacheRead": 0.25
+      "cacheRead": 0.25,
+      "longContextThreshold": 272000,
+      "inputLongContext": 5,
+      "outputLongContext": 22.5,
+      "cacheReadLongContext": 0.5
     },
     "gpt-5.4-mini": {
       "input": 0.75,
@@ -1490,61 +1505,106 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 30,
       "output": 180,
       "cacheCreation": 0,
-      "cacheRead": 3
+      "cacheRead": 3,
+      "longContextThreshold": 272000,
+      "inputLongContext": 60,
+      "outputLongContext": 270,
+      "cacheReadLongContext": 6
     },
     "gpt-5.4-pro-2026-03-05": {
       "input": 30,
       "output": 180,
       "cacheCreation": 0,
-      "cacheRead": 3
+      "cacheRead": 3,
+      "longContextThreshold": 272000,
+      "inputLongContext": 60,
+      "outputLongContext": 270,
+      "cacheReadLongContext": 6
     },
     "gpt-5.5": {
       "input": 5,
       "output": 30,
       "cacheCreation": 0,
-      "cacheRead": 0.5
+      "cacheRead": 0.5,
+      "longContextThreshold": 272000,
+      "inputLongContext": 10,
+      "outputLongContext": 45,
+      "cacheReadLongContext": 1,
+      "fastMultiplier": 2.5
     },
     "gpt-5.5-2026-04-23": {
       "input": 5,
       "output": 30,
       "cacheCreation": 0,
-      "cacheRead": 0.5
+      "cacheRead": 0.5,
+      "longContextThreshold": 272000,
+      "inputLongContext": 10,
+      "outputLongContext": 45,
+      "cacheReadLongContext": 1
     },
     "gpt-5.5-pro": {
       "input": 30,
       "output": 180,
       "cacheCreation": 0,
-      "cacheRead": 3
+      "cacheRead": 3,
+      "longContextThreshold": 272000,
+      "inputLongContext": 60,
+      "outputLongContext": 270,
+      "cacheReadLongContext": 6
     },
     "gpt-5.5-pro-2026-04-23": {
       "input": 30,
       "output": 180,
       "cacheCreation": 0,
-      "cacheRead": 3
+      "cacheRead": 3,
+      "longContextThreshold": 272000,
+      "inputLongContext": 60,
+      "outputLongContext": 270,
+      "cacheReadLongContext": 6
     },
     "gpt-5.6": {
       "input": 5,
       "output": 30,
       "cacheCreation": 6.25,
-      "cacheRead": 0.5
+      "cacheRead": 0.5,
+      "longContextThreshold": 272000,
+      "inputLongContext": 10,
+      "outputLongContext": 45,
+      "cacheCreationLongContext": 12.5,
+      "cacheReadLongContext": 1
     },
     "gpt-5.6-luna": {
       "input": 1,
       "output": 6,
       "cacheCreation": 1.25,
-      "cacheRead": 0.1
+      "cacheRead": 0.1,
+      "longContextThreshold": 272000,
+      "inputLongContext": 2,
+      "outputLongContext": 9,
+      "cacheCreationLongContext": 2.5,
+      "cacheReadLongContext": 0.2
     },
     "gpt-5.6-sol": {
       "input": 5,
       "output": 30,
       "cacheCreation": 6.25,
-      "cacheRead": 0.5
+      "cacheRead": 0.5,
+      "longContextThreshold": 272000,
+      "inputLongContext": 10,
+      "outputLongContext": 45,
+      "cacheCreationLongContext": 12.5,
+      "cacheReadLongContext": 1
     },
     "gpt-5.6-terra": {
       "input": 2.5,
       "output": 15,
       "cacheCreation": 3.125,
-      "cacheRead": 0.25
+      "cacheRead": 0.25,
+      "longContextThreshold": 272000,
+      "inputLongContext": 5,
+      "outputLongContext": 22.5,
+      "cacheCreationLongContext": 6.25,
+      "cacheReadLongContext": 0.5
     },
     "gpt-audio": {
       "input": 2.5,

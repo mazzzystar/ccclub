@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import type { Env } from "../types.js";
-import { AGENT_SOURCES, OPT_IN_SOURCES, isRankedSource } from "@ccclub/shared";
-import type { UserRecord, UsageData, SyncResponse, SyncRequest, UsageBlock } from "@ccclub/shared";
+import { AGENT_SOURCES } from "@ccclub/shared";
+import type { UserRecord, UsageData, SyncResponse, SyncRequest } from "@ccclub/shared";
+import { mergeUsageBlocks } from "../usage-merge.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -22,7 +23,7 @@ app.post("/sync", async (c) => {
     return c.json({ error: "invalid token" }, 401);
   }
 
-  const { blocks, usageSnapshot, trackedSources } = await c.req.json<SyncRequest>();
+  const { blocks, usageSnapshot, replaceSources, trackedSources } = await c.req.json<SyncRequest>();
   if (!Array.isArray(blocks) || blocks.length === 0) {
     return c.json({ error: "blocks array required" }, 400);
   }
@@ -30,6 +31,20 @@ app.post("/sync", async (c) => {
   // Cap blocks per request to prevent abuse
   if (blocks.length > 50_000) {
     return c.json({ error: "too many blocks (max 50000)" }, 400);
+  }
+
+  if (
+    replaceSources !== undefined &&
+    (!Array.isArray(replaceSources) || replaceSources.some((source) => !AGENT_SOURCES.includes(source)))
+  ) {
+    return c.json({ error: "invalid replaceSources" }, 400);
+  }
+
+  if (
+    trackedSources !== undefined &&
+    (!Array.isArray(trackedSources) || trackedSources.some((source) => !AGENT_SOURCES.includes(source)))
+  ) {
+    return c.json({ error: "invalid trackedSources" }, 400);
   }
 
   // Validate block fields
@@ -71,31 +86,7 @@ app.post("/sync", async (c) => {
     lastSync: "",
   };
 
-  // Merge blocks - deduplicate by source + blockStart. Old blocks did not have source;
-  // treat those as Claude so pre-multi-agent data remains compatible.
-  // Non-coding (opt-in) sources are dropped at storage time: 0.6.0/0.6.1
-  // clients still upload them, and nothing they send may reach rankings.
-  const blockMap = new Map<string, UsageBlock>();
-  for (const b of existing.blocks) blockMap.set(`${b.source ?? "claude"}:${b.blockStart}`, b);
-  for (const b of blocks) {
-    if (!isRankedSource(b.source)) continue;
-    blockMap.set(`${b.source ?? "claude"}:${b.blockStart}`, b);
-  }
-
-  let merged: UsageBlock[] = Array.from(blockMap.values()).sort(
-    (a, b) => new Date(a.blockStart).getTime() - new Date(b.blockStart).getTime(),
-  );
-
-  // Prune opt-in sources the client no longer tracks. Restricted to
-  // OPT_IN_SOURCES so a buggy or malicious payload can never wipe a user's
-  // coding history; old clients omit trackedSources and nothing is pruned.
-  if (Array.isArray(trackedSources)) {
-    const tracked = new Set(trackedSources);
-    const prune = new Set(OPT_IN_SOURCES.filter((source) => !tracked.has(source)));
-    if (prune.size > 0) {
-      merged = merged.filter((b) => !prune.has(b.source ?? "claude"));
-    }
-  }
+  const merged = mergeUsageBlocks(existing.blocks, blocks, { replaceSources, trackedSources });
 
   const usageData: UsageData = {
     blocks: merged,

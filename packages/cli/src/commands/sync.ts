@@ -21,7 +21,7 @@ import { fetchUsageLimits } from "../usage-limits.js";
 // reprices history against the current table. Newly supported sources do NOT
 // need a bump: filterBlocksToSync uploads the full history of any source that
 // has no per-source sync marker yet.
-const SYNC_FORMAT_VERSION = "12";
+const SYNC_FORMAT_VERSION = "13";
 
 function getSyncVersionPath(): string {
   return join(homedir(), CCCLUB_CONFIG_DIR, "sync-version");
@@ -103,7 +103,8 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
       }),
       fetchUsageLimits().catch(() => null),
     ]);
-    const activeSources = sources.filter((source) => source.entries.length > 0).map((source) => AGENT_LABELS[source.source]);
+    const populatedSources = sources.filter((source) => source.entries.length > 0);
+    const activeSources = populatedSources.map((source) => AGENT_LABELS[source.source]);
     if (spinner) spinner.text = `Found ${entries.length} entries${activeSources.length > 0 ? ` from ${activeSources.join(", ")}` : ""}`;
 
     if (entries.length === 0) {
@@ -157,6 +158,10 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
     if (spinner) spinner.text = `Uploading ${blocksToSync.length} blocks...`;
 
     const syncBody: SyncRequest = { blocks: blocksToSync, trackedSources };
+    // A parser correction can make an old block disappear completely. Merging
+    // by block key cannot delete that stale block, so full syncs replace the
+    // complete history of sources for which this scan actually found data.
+    if (firstSync) syncBody.replaceSources = populatedSources.map((source) => source.source);
     if (usageSnapshot) syncBody.usageSnapshot = usageSnapshot;
 
     const res = await fetch(`${config.apiUrl}/api/sync`, {

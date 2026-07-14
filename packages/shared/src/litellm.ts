@@ -28,7 +28,22 @@ interface RawLiteLLMEntry {
   cache_creation_input_token_cost?: unknown;
   cache_creation_input_token_cost_above_1hr?: unknown;
   cache_read_input_token_cost?: unknown;
+  input_cost_per_token_above_272k_tokens?: unknown;
+  output_cost_per_token_above_272k_tokens?: unknown;
+  cache_creation_input_token_cost_above_272k_tokens?: unknown;
+  cache_read_input_token_cost_above_272k_tokens?: unknown;
+  provider_specific_entry?: unknown;
 }
+
+const OPENAI_LONG_CONTEXT_THRESHOLD_TOKENS = 272_000;
+
+// Kept in step with ccusage's audited fallbacks. LiteLLM does not currently
+// publish provider_specific_entry.fast for these bare model IDs.
+const FAST_MULTIPLIER_OVERRIDES: Record<string, number> = {
+  "gpt-5.5": 2.5,
+  "gpt-5.4": 2,
+  "gpt-5.3-codex": 2,
+};
 
 function perMillion(costPerToken: number): number {
   // Round to 8 decimals of $/MTok to strip float noise from the ×1e6 scaling.
@@ -45,7 +60,7 @@ function optionalPrice(value: unknown): number | null {
   return value == null ? 0 : requiredPrice(value);
 }
 
-function toModelPricing(entry: RawLiteLLMEntry): ModelPricing | null {
+function toModelPricing(modelId: string, entry: RawLiteLLMEntry): ModelPricing | null {
   const input = requiredPrice(entry.input_cost_per_token);
   const output = requiredPrice(entry.output_cost_per_token);
   // Anthropic's 5-minute ephemeral cache-write rate; long-lived (1h) cache
@@ -55,12 +70,21 @@ function toModelPricing(entry: RawLiteLLMEntry): ModelPricing | null {
     ? undefined
     : requiredPrice(entry.cache_creation_input_token_cost_above_1hr);
   const cacheRead = optionalPrice(entry.cache_read_input_token_cost);
+  const longContextRaw = [
+    entry.input_cost_per_token_above_272k_tokens,
+    entry.output_cost_per_token_above_272k_tokens,
+    entry.cache_creation_input_token_cost_above_272k_tokens,
+    entry.cache_read_input_token_cost_above_272k_tokens,
+  ];
+  const longContextPrices = longContextRaw.map((value) => value == null ? undefined : requiredPrice(value));
+  const hasInvalidLongContextPrice = longContextPrices.some((value) => value === null);
   if (
     input == null ||
     output == null ||
     cacheCreation == null ||
     feedCacheCreation1h === null ||
-    cacheRead == null
+    cacheRead == null ||
+    hasInvalidLongContextPrice
   ) return null;
   // ccusage and Anthropic price 1h writes at exactly 2× base input. Prefer
   // that invariant for Anthropic because LiteLLM has a few stale legacy rows
@@ -68,9 +92,30 @@ function toModelPricing(entry: RawLiteLLMEntry): ModelPricing | null {
   const cacheCreation1h = entry.litellm_provider === "anthropic" && cacheCreation > 0
     ? input * 2
     : feedCacheCreation1h;
-  return cacheCreation1h === undefined
-    ? { input, output, cacheCreation, cacheRead }
-    : { input, output, cacheCreation, cacheCreation1h, cacheRead };
+  const pricing: ModelPricing = { input, output, cacheCreation, cacheRead };
+  if (cacheCreation1h !== undefined) pricing.cacheCreation1h = cacheCreation1h;
+  if (longContextPrices.some((value) => value !== undefined)) {
+    pricing.longContextThreshold = OPENAI_LONG_CONTEXT_THRESHOLD_TOKENS;
+    const [longInput, longOutput, longCacheCreation, longCacheRead] = longContextPrices;
+    if (typeof longInput === "number") pricing.inputLongContext = longInput;
+    if (typeof longOutput === "number") pricing.outputLongContext = longOutput;
+    if (typeof longCacheCreation === "number") pricing.cacheCreationLongContext = longCacheCreation;
+    if (typeof longCacheRead === "number") pricing.cacheReadLongContext = longCacheRead;
+  }
+
+  const providerSpecific = entry.provider_specific_entry;
+  const feedFastMultiplier = providerSpecific != null && typeof providerSpecific === "object"
+    ? requiredMultiplier((providerSpecific as Record<string, unknown>).fast)
+    : null;
+  const fastMultiplier = feedFastMultiplier ?? FAST_MULTIPLIER_OVERRIDES[modelId];
+  if (fastMultiplier != null) pricing.fastMultiplier = fastMultiplier;
+  return pricing;
+}
+
+function requiredMultiplier(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 && value <= 100
+    ? value
+    : null;
 }
 
 /** FNV-1a over a canonical serialization; stable across key order and runtimes. */
@@ -85,6 +130,12 @@ function hashModels(models: Record<string, ModelPricing>): string {
         models[key].cacheCreation,
         models[key].cacheCreation1h ?? null,
         models[key].cacheRead,
+        models[key].longContextThreshold ?? null,
+        models[key].inputLongContext ?? null,
+        models[key].outputLongContext ?? null,
+        models[key].cacheCreationLongContext ?? null,
+        models[key].cacheReadLongContext ?? null,
+        models[key].fastMultiplier ?? null,
       ]),
   );
   let hash = 0x811c9dc5;
@@ -116,7 +167,7 @@ export function buildPricingTableFromLiteLLM(raw: unknown, updatedAt: string): P
 
     const id = key.slice(key.lastIndexOf("/") + 1).toLowerCase();
     if (!INCLUDED_MODEL_ID.test(id)) continue;
-    const pricing = toModelPricing(entry);
+    const pricing = toModelPricing(id, entry);
     if (pricing == null) continue;
 
     const bucket = key.includes("/") ? prefixed : bare;

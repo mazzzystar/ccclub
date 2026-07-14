@@ -125,6 +125,48 @@ describe("createCostCalculator", () => {
     const calculate = createCostCalculator(table);
     expect(calculate("gpt-5", MTOK, MTOK, 0, 0)).toBeCloseTo(6);
   });
+
+  it("applies whole-request long-context rates and the model fast multiplier", () => {
+    const table = mergePricingTables(PRICING_SNAPSHOT, {
+      version: "test",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      source: "litellm",
+      models: {
+        long: {
+          input: 5,
+          output: 30,
+          cacheCreation: 6.25,
+          cacheRead: 0.5,
+          longContextThreshold: 272_000,
+          inputLongContext: 10,
+          outputLongContext: 45,
+          cacheCreationLongContext: 12.5,
+          cacheReadLongContext: 1,
+          fastMultiplier: 2.5,
+        },
+      },
+    });
+    const calculate = createCostCalculator(table);
+
+    // Total input is 50K uncached + 250K cached, so every bucket switches to
+    // its long-context rate. Cost before fast mode is $0.795.
+    expect(calculate("long", 50_000, 1_000, 0, 250_000)).toBeCloseTo(0.795);
+    expect(calculate("long", 50_000, 1_000, 0, 250_000, 0, 0, "fast")).toBeCloseTo(1.9875);
+    // The threshold is exclusive, matching OpenAI and ccusage.
+    expect(calculate("long", 22_000, 1_000, 0, 250_000)).toBeCloseTo(0.265);
+  });
+
+  it("uses Codex's 2x fast fallback for a neutral model multiplier", () => {
+    const table = mergePricingTables(PRICING_SNAPSHOT, {
+      version: "test",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      source: "litellm",
+      models: {
+        neutral: { input: 1, output: 2, cacheCreation: 0, cacheRead: 0.1, fastMultiplier: 1 },
+      },
+    });
+    expect(createCostCalculator(table)("neutral", MTOK, 0, 0, 0, 0, 0, "fast")).toBeCloseTo(2);
+  });
 });
 
 describe("parsePricingTable", () => {
@@ -151,6 +193,34 @@ describe("parsePricingTable", () => {
       },
     });
     expect(parsed?.models.free.cacheCreation1h).toBe(0);
+  });
+
+  it("preserves validated long-context and fast pricing metadata", () => {
+    const parsed = parsePricingTable({
+      ...validTable,
+      models: {
+        long: {
+          input: 5,
+          output: 30,
+          cacheCreation: 6.25,
+          cacheRead: 0.5,
+          longContextThreshold: 272_000,
+          inputLongContext: 10,
+          outputLongContext: 45,
+          cacheCreationLongContext: 12.5,
+          cacheReadLongContext: 1,
+          fastMultiplier: 2.5,
+        },
+      },
+    });
+    expect(parsed?.models.long).toMatchObject({
+      longContextThreshold: 272_000,
+      inputLongContext: 10,
+      outputLongContext: 45,
+      cacheCreationLongContext: 12.5,
+      cacheReadLongContext: 1,
+      fastMultiplier: 2.5,
+    });
   });
 
   it("rejects malformed envelopes", () => {

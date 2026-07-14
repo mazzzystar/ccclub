@@ -370,7 +370,7 @@ describe("multi-agent collection", () => {
     expect(result.entries).toHaveLength(3);
     expect(result.entries.reduce((sum, entry) => sum + entry.totalTokens, 0)).toBe(1920);
     expect(result.humanTurns).toHaveLength(2);
-    expect(blocks.reduce((sum, block) => sum + block.chatCount, 0)).toBe(2);
+    expect(blocks.reduce((sum, block) => sum + (block.chatCount ?? 0), 0)).toBe(2);
   });
 
   it("keeps the cumulative baseline while skipping Codex replay records", async () => {

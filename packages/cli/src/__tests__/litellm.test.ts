@@ -19,9 +19,11 @@ const FEED = {
   },
   "claude-sonnet-4-6": {
     mode: "chat",
+    litellm_provider: "anthropic",
     input_cost_per_token: 0.000003,
     output_cost_per_token: 0.000015,
     cache_creation_input_token_cost: 0.00000375,
+    cache_creation_input_token_cost_above_1hr: 0.000006,
     cache_read_input_token_cost: 3e-7,
   },
   "gpt-4o-mini-tts": {
@@ -55,7 +57,13 @@ describe("buildPricingTableFromLiteLLM", () => {
   it("converts per-token prices to USD per million tokens", () => {
     const table = buildPricingTableFromLiteLLM(FEED, UPDATED_AT);
     expect(table?.models["gpt-5"]).toEqual({ input: 1.25, output: 10, cacheCreation: 0, cacheRead: 0.125 });
-    expect(table?.models["claude-sonnet-4-6"]).toEqual({ input: 3, output: 15, cacheCreation: 3.75, cacheRead: 0.3 });
+    expect(table?.models["claude-sonnet-4-6"]).toEqual({
+      input: 3,
+      output: 15,
+      cacheCreation: 3.75,
+      cacheCreation1h: 6,
+      cacheRead: 0.3,
+    });
   });
 
   it("includes chat and responses modes only", () => {
@@ -90,7 +98,7 @@ describe("buildPricingTableFromLiteLLM", () => {
     const a = buildPricingTableFromLiteLLM(FEED, UPDATED_AT);
     const b = buildPricingTableFromLiteLLM(reversed, UPDATED_AT);
     expect(a?.version).toBe(b?.version);
-    expect(a?.version).toMatch(/^\d+-[0-9a-f]{8}$/);
+    expect(a?.version).toMatch(/^v2-\d+-[0-9a-f]{8}$/);
   });
 
   it("changes the version hash when a price changes", () => {
@@ -101,6 +109,35 @@ describe("buildPricingTableFromLiteLLM", () => {
     const a = buildPricingTableFromLiteLLM(FEED, UPDATED_AT);
     const b = buildPricingTableFromLiteLLM(changed, UPDATED_AT);
     expect(a?.version).not.toBe(b?.version);
+  });
+
+  it("changes the version hash when a 1h cache-write price changes", () => {
+    const changed = {
+      ...FEED,
+      "claude-sonnet-4-6": {
+        ...FEED["claude-sonnet-4-6"],
+        litellm_provider: "custom",
+        cache_creation_input_token_cost_above_1hr: 0.000007,
+      },
+    };
+    const a = buildPricingTableFromLiteLLM(FEED, UPDATED_AT);
+    const b = buildPricingTableFromLiteLLM(changed, UPDATED_AT);
+    expect(a?.version).not.toBe(b?.version);
+  });
+
+  it("uses Anthropic's 2x-input rule instead of stale legacy 1h fields", () => {
+    const table = buildPricingTableFromLiteLLM({
+      "claude-opus-3-legacy": {
+        mode: "chat",
+        litellm_provider: "anthropic",
+        input_cost_per_token: 0.000015,
+        output_cost_per_token: 0.000075,
+        cache_creation_input_token_cost: 0.00001875,
+        cache_creation_input_token_cost_above_1hr: 0.000006,
+        cache_read_input_token_cost: 0.0000015,
+      },
+    }, UPDATED_AT);
+    expect(table?.models["claude-opus-3-legacy"]?.cacheCreation1h).toBe(30);
   });
 
   it("returns null for inputs that are not the feed at all", () => {

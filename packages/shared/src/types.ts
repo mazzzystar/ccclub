@@ -44,6 +44,10 @@ export interface RawClaudeJSONLEntry {
       output_tokens: number;
       cache_creation_input_tokens?: number;
       cache_read_input_tokens?: number;
+      cache_creation?: {
+        ephemeral_5m_input_tokens?: number;
+        ephemeral_1h_input_tokens?: number;
+      };
     };
   };
   costUSD?: number;
@@ -61,6 +65,8 @@ export interface UsageEntry {
   inputTokens: number;
   outputTokens: number;
   cacheCreationTokens: number;
+  /** Subset of cacheCreationTokens written with a 1-hour TTL. */
+  cacheCreation1hTokens?: number;
   cacheReadTokens: number;
   reasoningTokens?: number;
   totalTokens: number;
@@ -76,6 +82,8 @@ export interface UsageBlock {
   inputTokens: number;
   outputTokens: number;
   cacheCreationTokens: number;
+  /** Subset of cacheCreationTokens written with a 1-hour TTL. */
+  cacheCreation1hTokens?: number;
   cacheReadTokens: number;
   reasoningTokens?: number;
   totalTokens: number;

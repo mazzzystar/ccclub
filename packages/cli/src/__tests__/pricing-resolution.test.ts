@@ -42,7 +42,13 @@ describe("resolveModelPricing", () => {
   it("matches exact model IDs from the table", () => {
     const resolved = resolveModelPricing("claude-sonnet-4-5-20250929", PRICING_SNAPSHOT);
     expect(resolved.match).toBe("exact");
-    expect(resolved.pricing).toEqual({ input: 3, output: 15, cacheCreation: 3.75, cacheRead: 0.3 });
+    expect(resolved.pricing).toEqual({
+      input: 3,
+      output: 15,
+      cacheCreation: 3.75,
+      cacheCreation1h: 6,
+      cacheRead: 0.3,
+    });
   });
 
   it("applies the most specific family stem first", () => {
@@ -59,6 +65,10 @@ describe("resolveModelPricing", () => {
     const resolved = resolveModelPricing("claude-opus-5-experimental-20990101", PRICING_SNAPSHOT);
     expect(resolved.match).toBe("family");
     expect(resolved.pricing).toEqual(PRICING_SNAPSHOT.models["claude-opus-4-7"]);
+
+    const fable = resolveModelPricing("claude-fable-5-preview", PRICING_SNAPSHOT);
+    expect(fable.match).toBe("family");
+    expect(fable.pricing).toEqual(PRICING_SNAPSHOT.models["claude-fable-5"]);
   });
 
   it("falls back to sonnet-tier pricing for completely unknown models", () => {
@@ -94,6 +104,17 @@ describe("createCostCalculator", () => {
     expect(calculate("gpt-5", 0, 0, 0, 0, MTOK)).toBeCloseTo(10);
   });
 
+  it("prices the 1h subset at its tier without counting it twice", () => {
+    const calculate = createCostCalculator(PRICING_SNAPSHOT);
+    // Fable 5: total cache writes are 1 MTok, all at the $20/MTok 1h tier.
+    expect(calculate("claude-fable-5", 0, 0, MTOK, 0, 0, MTOK)).toBeCloseTo(20);
+  });
+
+  it("clamps malformed 1h counts to the total cache-write count", () => {
+    const calculate = createCostCalculator(PRICING_SNAPSHOT);
+    expect(calculate("claude-fable-5", 0, 0, MTOK, 0, 0, 2 * MTOK)).toBeCloseTo(20);
+  });
+
   it("uses prices from the given table over the snapshot", () => {
     const table = mergePricingTables(PRICING_SNAPSHOT, {
       version: "test",
@@ -120,6 +141,16 @@ describe("parsePricingTable", () => {
       models: { "GPT-5": validTable.models["gpt-5"] },
     });
     expect(parsed?.models["gpt-5"]).toEqual(validTable.models["gpt-5"]);
+  });
+
+  it("preserves an optional 1h cache-write price, including zero", () => {
+    const parsed = parsePricingTable({
+      ...validTable,
+      models: {
+        free: { input: 1, output: 2, cacheCreation: 1.25, cacheCreation1h: 0, cacheRead: 0.1 },
+      },
+    });
+    expect(parsed?.models.free.cacheCreation1h).toBe(0);
   });
 
   it("rejects malformed envelopes", () => {

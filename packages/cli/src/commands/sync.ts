@@ -21,7 +21,7 @@ import { fetchUsageLimits } from "../usage-limits.js";
 // reprices history against the current table. Newly supported sources do NOT
 // need a bump: filterBlocksToSync uploads the full history of any source that
 // has no per-source sync marker yet.
-const SYNC_FORMAT_VERSION = "11";
+const SYNC_FORMAT_VERSION = "12";
 
 function getSyncVersionPath(): string {
   return join(homedir(), CCCLUB_CONFIG_DIR, "sync-version");

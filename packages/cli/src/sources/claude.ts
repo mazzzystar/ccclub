@@ -9,6 +9,7 @@ import type { CostCalculator, RawClaudeJSONLEntry, UsageEntry } from "@ccclub/sh
 import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageTurn } from "./types.js";
 import {
   asRecord,
+  asNumber,
   asString,
   existingDirectories,
   globFiles,
@@ -110,11 +111,23 @@ async function scanClaudeFile(file: string, calculateCost: CostCalculator): Prom
     const inputTokens = usage.input_tokens || 0;
     const outputTokens = usage.output_tokens || 0;
     const cacheCreationTokens = usage.cache_creation_input_tokens || 0;
+    const cacheCreation1hTokens = Math.min(
+      Math.max(asNumber(usage.cache_creation?.ephemeral_1h_input_tokens), 0),
+      Math.max(cacheCreationTokens, 0),
+    );
     const cacheReadTokens = usage.cache_read_input_tokens || 0;
     const model = value.message.model || "unknown";
     const costUSD = value.costUSD && value.costUSD > 0
       ? value.costUSD
-      : calculateCost(model, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens);
+      : calculateCost(
+          model,
+          inputTokens,
+          outputTokens,
+          cacheCreationTokens,
+          cacheReadTokens,
+          0,
+          cacheCreation1hTokens,
+        );
 
     rows.push({
       exactKey,
@@ -129,6 +142,7 @@ async function scanClaudeFile(file: string, calculateCost: CostCalculator): Prom
         inputTokens,
         outputTokens,
         cacheCreationTokens,
+        cacheCreation1hTokens,
         cacheReadTokens,
         totalTokens: inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens,
         costUSD,

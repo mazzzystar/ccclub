@@ -5,6 +5,10 @@ import type { UserRecord, UsageData, SyncResponse, SyncRequest, UsageBlock } fro
 
 const app = new Hono<{ Bindings: Env }>();
 
+function isNonNegativeFinite(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
 // POST /api/sync - Upload usage blocks
 app.post("/sync", async (c) => {
   // Auth via Bearer token
@@ -36,12 +40,22 @@ app.post("/sync", async (c) => {
     if (b.lastActivityAt !== undefined && typeof b.lastActivityAt !== "string") {
       return c.json({ error: "invalid block: invalid lastActivityAt" }, 400);
     }
-    if (typeof b.totalTokens !== "number" || !isFinite(b.totalTokens) ||
-        typeof b.costUSD !== "number" || !isFinite(b.costUSD) ||
-        typeof b.inputTokens !== "number" || !isFinite(b.inputTokens) ||
-        typeof b.outputTokens !== "number" || !isFinite(b.outputTokens) ||
-        typeof b.entryCount !== "number" || !isFinite(b.entryCount)) {
+    if (!isNonNegativeFinite(b.totalTokens) ||
+        !isNonNegativeFinite(b.costUSD) ||
+        !isNonNegativeFinite(b.inputTokens) ||
+        !isNonNegativeFinite(b.outputTokens) ||
+        !isNonNegativeFinite(b.cacheCreationTokens) ||
+        !isNonNegativeFinite(b.cacheReadTokens) ||
+        !isNonNegativeFinite(b.entryCount) ||
+        (b.reasoningTokens !== undefined && !isNonNegativeFinite(b.reasoningTokens)) ||
+        (b.chatCount !== undefined && !isNonNegativeFinite(b.chatCount))) {
       return c.json({ error: "invalid block: missing or invalid numeric fields" }, 400);
+    }
+    if (
+      b.cacheCreation1hTokens !== undefined &&
+      (!isNonNegativeFinite(b.cacheCreation1hTokens) || b.cacheCreation1hTokens > b.cacheCreationTokens)
+    ) {
+      return c.json({ error: "invalid block: invalid 1h cache creation tokens" }, 400);
     }
     if (!Array.isArray(b.models)) {
       return c.json({ error: "invalid block: models must be an array" }, 400);

@@ -5,6 +5,7 @@ import {
   CCCLUB_CONFIG_DIR,
   PRICING_SNAPSHOT,
   createCostCalculator,
+  isCurrentPricingTable,
   mergePricingTables,
   parsePricingTable,
 } from "@ccclub/shared";
@@ -30,7 +31,7 @@ async function readCache(cachePath: string): Promise<StoredPricingCache | null> 
   try {
     const raw = JSON.parse(await readFile(cachePath, "utf-8")) as Record<string, unknown>;
     const table = parsePricingTable(raw.table);
-    if (table == null || typeof raw.fetchedAt !== "string") return null;
+    if (table == null || !isCurrentPricingTable(table) || typeof raw.fetchedAt !== "string") return null;
     return { fetchedAt: raw.fetchedAt, table };
   } catch {
     return null; // Missing or corrupt cache: the bundled snapshot still applies.

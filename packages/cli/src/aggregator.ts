@@ -40,6 +40,7 @@ function aggregateSourceToBlocks(source: AgentSource, entries: UsageEntry[], hum
     let inputTokens = 0;
     let outputTokens = 0;
     let cacheCreationTokens = 0;
+    let cacheCreation1hTokens = 0;
     let cacheReadTokens = 0;
     let reasoningTokens = 0;
     let totalTokens = 0;
@@ -50,6 +51,7 @@ function aggregateSourceToBlocks(source: AgentSource, entries: UsageEntry[], hum
       inputTokens += entry.inputTokens;
       outputTokens += entry.outputTokens;
       cacheCreationTokens += entry.cacheCreationTokens;
+      cacheCreation1hTokens += entry.cacheCreation1hTokens || 0;
       cacheReadTokens += entry.cacheReadTokens;
       reasoningTokens += entry.reasoningTokens || 0;
       totalTokens += entry.totalTokens;
@@ -69,6 +71,7 @@ function aggregateSourceToBlocks(source: AgentSource, entries: UsageEntry[], hum
       inputTokens,
       outputTokens,
       cacheCreationTokens,
+      cacheCreation1hTokens,
       cacheReadTokens,
       reasoningTokens,
       totalTokens,

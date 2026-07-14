@@ -1,3 +1,4 @@
+import { PRICING_TABLE_SCHEMA_VERSION } from "./pricing.js";
 import type { ModelPricing, PricingTable } from "./pricing.js";
 
 /**
@@ -21,9 +22,11 @@ const MAX_PRICE_PER_TOKEN = 0.01;
 
 interface RawLiteLLMEntry {
   mode?: unknown;
+  litellm_provider?: unknown;
   input_cost_per_token?: unknown;
   output_cost_per_token?: unknown;
   cache_creation_input_token_cost?: unknown;
+  cache_creation_input_token_cost_above_1hr?: unknown;
   cache_read_input_token_cost?: unknown;
 }
 
@@ -46,11 +49,28 @@ function toModelPricing(entry: RawLiteLLMEntry): ModelPricing | null {
   const input = requiredPrice(entry.input_cost_per_token);
   const output = requiredPrice(entry.output_cost_per_token);
   // Anthropic's 5-minute ephemeral cache-write rate; long-lived (1h) cache
-  // writes cost more but agent CLIs overwhelmingly use the default 5m TTL.
+  // writes use a separate LiteLLM field when the provider supports them.
   const cacheCreation = optionalPrice(entry.cache_creation_input_token_cost);
+  const feedCacheCreation1h = entry.cache_creation_input_token_cost_above_1hr == null
+    ? undefined
+    : requiredPrice(entry.cache_creation_input_token_cost_above_1hr);
   const cacheRead = optionalPrice(entry.cache_read_input_token_cost);
-  if (input == null || output == null || cacheCreation == null || cacheRead == null) return null;
-  return { input, output, cacheCreation, cacheRead };
+  if (
+    input == null ||
+    output == null ||
+    cacheCreation == null ||
+    feedCacheCreation1h === null ||
+    cacheRead == null
+  ) return null;
+  // ccusage and Anthropic price 1h writes at exactly 2× base input. Prefer
+  // that invariant for Anthropic because LiteLLM has a few stale legacy rows
+  // whose explicit above_1hr value belongs to a different model tier.
+  const cacheCreation1h = entry.litellm_provider === "anthropic" && cacheCreation > 0
+    ? input * 2
+    : feedCacheCreation1h;
+  return cacheCreation1h === undefined
+    ? { input, output, cacheCreation, cacheRead }
+    : { input, output, cacheCreation, cacheCreation1h, cacheRead };
 }
 
 /** FNV-1a over a canonical serialization; stable across key order and runtimes. */
@@ -58,14 +78,21 @@ function hashModels(models: Record<string, ModelPricing>): string {
   const canonical = JSON.stringify(
     Object.keys(models)
       .sort()
-      .map((key) => [key, models[key].input, models[key].output, models[key].cacheCreation, models[key].cacheRead]),
+      .map((key) => [
+        key,
+        models[key].input,
+        models[key].output,
+        models[key].cacheCreation,
+        models[key].cacheCreation1h ?? null,
+        models[key].cacheRead,
+      ]),
   );
   let hash = 0x811c9dc5;
   for (let i = 0; i < canonical.length; i++) {
     hash ^= canonical.charCodeAt(i);
     hash = Math.imul(hash, 0x01000193) >>> 0;
   }
-  return `${Object.keys(models).length}-${hash.toString(16).padStart(8, "0")}`;
+  return `v${PRICING_TABLE_SCHEMA_VERSION}-${Object.keys(models).length}-${hash.toString(16).padStart(8, "0")}`;
 }
 
 /**

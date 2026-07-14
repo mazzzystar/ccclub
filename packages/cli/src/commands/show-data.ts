@@ -38,7 +38,7 @@ export async function showDataCommand(): Promise<void> {
 
   for (const block of recent) {
     console.log(chalk.cyan(`  ${AGENT_LABELS[block.source ?? "claude"]} · ${block.blockStart.slice(0, 16)} → ${block.blockEnd.slice(11, 16)}`));
-    console.log(chalk.dim(`    input: ${block.inputTokens.toLocaleString()}  output: ${block.outputTokens.toLocaleString()}  cache_create: ${block.cacheCreationTokens.toLocaleString()}  cache_read: ${block.cacheReadTokens.toLocaleString()}`));
+    console.log(chalk.dim(`    input: ${block.inputTokens.toLocaleString()}  output: ${block.outputTokens.toLocaleString()}  cache_create: ${block.cacheCreationTokens.toLocaleString()}  cache_create_1h: ${(block.cacheCreation1hTokens || 0).toLocaleString()}  cache_read: ${block.cacheReadTokens.toLocaleString()}`));
     if (block.reasoningTokens) {
       console.log(chalk.dim(`    reasoning: ${block.reasoningTokens.toLocaleString()}`));
     }

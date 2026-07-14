@@ -10,7 +10,15 @@ export interface ModelPricing {
    */
   cacheCreation: number;
   cacheRead: number;
+  /**
+   * 1-hour ephemeral cache-write price. Anthropic charges 2× input for this
+   * tier versus 1.25× for 5m writes. Absent means the standard rate applies.
+   */
+  cacheCreation1h?: number;
 }
+
+/** Bump when the compact table gains pricing fields older clients did not emit. */
+export const PRICING_TABLE_SCHEMA_VERSION = 2;
 
 /**
  * A versioned set of model prices. The same shape is used for the bundled
@@ -42,6 +50,8 @@ export type CostCalculator = (
   cacheCreationTokens: number,
   cacheReadTokens: number,
   reasoningTokens?: number,
+  /** Subset of cacheCreationTokens written with a 1-hour TTL. */
+  cacheCreation1hTokens?: number,
 ) => number;
 
 const ZERO_PRICING: ModelPricing = { input: 0, output: 0, cacheCreation: 0, cacheRead: 0 };
@@ -60,6 +70,7 @@ const PRICING_OVERRIDES: Record<string, ModelPricing> = {
  * looked up in the active table first, then the bundled snapshot.
  */
 const FAMILY_REPRESENTATIVES: Record<string, string> = {
+  fable: "claude-fable-5",
   opus: "claude-opus-4-7",
   sonnet: "claude-sonnet-4-6",
   haiku: "claude-haiku-4-5",
@@ -141,20 +152,35 @@ export function resolveModelPricing(model: string, table: PricingTable): Resolve
  */
 export function createCostCalculator(table: PricingTable): CostCalculator {
   const resolved = new Map<string, ModelPricing>();
-  return (model, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens, reasoningTokens = 0) => {
+  return (model, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens, reasoningTokens = 0, cacheCreation1hTokens = 0) => {
     let pricing = resolved.get(model);
     if (pricing == null) {
       pricing = resolveModelPricing(model, table).pricing;
       resolved.set(model, pricing);
     }
+    // cacheCreationTokens is the total write count. Price all writes at the
+    // standard (5m) rate, then apply only the 1h premium to its 1h subset.
+    // Clamping makes a malformed local log unable to bill more 1h tokens than
+    // it reported as total cache writes.
+    const oneHourTokens = Math.min(
+      Math.max(cacheCreation1hTokens, 0),
+      Math.max(cacheCreationTokens, 0),
+    );
+    const oneHourPrice = pricing.cacheCreation1h ?? pricing.cacheCreation;
     return (
       (inputTokens * pricing.input +
         (outputTokens + reasoningTokens) * pricing.output +
         cacheCreationTokens * pricing.cacheCreation +
+        oneHourTokens * (oneHourPrice - pricing.cacheCreation) +
         cacheReadTokens * pricing.cacheRead) /
       1_000_000
     );
   };
+}
+
+/** Whether a table contains every field understood by this build. */
+export function isCurrentPricingTable(table: PricingTable): boolean {
+  return table.version.startsWith(`v${PRICING_TABLE_SCHEMA_VERSION}-`);
 }
 
 /** Overlay a fetched table on top of a base so base-only models survive. */
@@ -193,7 +219,10 @@ export function parsePricingTable(value: unknown): PricingTable | null {
     const cacheCreation = asValidPrice(entry.cacheCreation);
     const cacheRead = asValidPrice(entry.cacheRead);
     if (input == null || output == null || cacheCreation == null || cacheRead == null) continue;
-    validModels[model.toLowerCase()] = { input, output, cacheCreation, cacheRead };
+    const pricing: ModelPricing = { input, output, cacheCreation, cacheRead };
+    const cacheCreation1h = asValidPrice(entry.cacheCreation1h);
+    if (cacheCreation1h != null) pricing.cacheCreation1h = cacheCreation1h;
+    validModels[model.toLowerCase()] = pricing;
   }
   if (Object.keys(validModels).length === 0) return null;
 

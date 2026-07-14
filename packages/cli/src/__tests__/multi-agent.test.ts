@@ -65,6 +65,44 @@ describe("multi-agent collection", () => {
     expect(result.entries[0].outputTokens).toBe(10);
   });
 
+  it("tracks and prices Claude 1h cache writes as a subset of total writes", async () => {
+    const claudeHome = await makeTempDir();
+    const projectsDir = join(claudeHome, "projects");
+    await mkdir(projectsDir, { recursive: true });
+    await writeFile(join(projectsDir, "session.jsonl"), JSON.stringify({
+      type: "assistant",
+      timestamp: "2026-07-14T00:00:01.000Z",
+      sessionId: "session-fable",
+      requestId: "req-fable",
+      message: {
+        id: "msg-fable",
+        model: "claude-fable-5",
+        usage: {
+          input_tokens: 0,
+          output_tokens: 0,
+          cache_creation_input_tokens: 1_000_000,
+          cache_read_input_tokens: 0,
+          cache_creation: {
+            ephemeral_5m_input_tokens: 400_000,
+            ephemeral_1h_input_tokens: 600_000,
+          },
+        },
+      },
+    }));
+    vi.stubEnv("CLAUDE_CONFIG_DIR", claudeHome);
+
+    const result = await collectUsageEntries({ sources: ["claude"] });
+    const blocks = aggregateToBlocks(result.entries);
+
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0].cacheCreationTokens).toBe(1_000_000);
+    expect(result.entries[0].cacheCreation1hTokens).toBe(600_000);
+    expect(result.entries[0].costUSD).toBeCloseTo(17);
+    expect(blocks[0].cacheCreationTokens).toBe(1_000_000);
+    expect(blocks[0].cacheCreation1hTokens).toBe(600_000);
+    expect(blocks[0].costUSD).toBeCloseTo(17);
+  });
+
   it("keeps Claude parent usage when sidechain replays a message with a new request ID", async () => {
     const claudeHome = await makeTempDir();
     const projectsDir = join(claudeHome, "projects");

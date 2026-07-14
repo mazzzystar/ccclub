@@ -1,11 +1,11 @@
 // AUTO-GENERATED FILE — DO NOT EDIT BY HAND.
 // Regenerate with: pnpm --filter @ccclub/shared update-snapshot
-// Source: LiteLLM model_prices_and_context_window.json (2026-07-13T05:21:40.283Z)
+// Source: LiteLLM model_prices_and_context_window.json (2026-07-14T07:10:01.888Z)
 import type { PricingTable } from "./pricing.js";
 
 export const PRICING_SNAPSHOT: PricingTable = {
-  "version": "298-55763504",
-  "updatedAt": "2026-07-13T05:21:40.283Z",
+  "version": "v2-298-f70ce03a",
+  "updatedAt": "2026-07-14T07:10:01.888Z",
   "source": "snapshot",
   "models": {
     "claude-3-5-haiku": {
@@ -48,6 +48,7 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
+      "cacheCreation1h": 6,
       "cacheRead": 0.3
     },
     "claude-3-7-sonnet-latest": {
@@ -60,6 +61,7 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
+      "cacheCreation1h": 6,
       "cacheRead": 0.3
     },
     "claude-3-haiku": {
@@ -72,6 +74,7 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 0.25,
       "output": 1.25,
       "cacheCreation": 0.3,
+      "cacheCreation1h": 0.5,
       "cacheRead": 0.03
     },
     "claude-3-haiku@20240307": {
@@ -90,6 +93,7 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 15,
       "output": 75,
       "cacheCreation": 18.75,
+      "cacheCreation1h": 30,
       "cacheRead": 1.5
     },
     "claude-3-opus@20240229": {
@@ -138,6 +142,7 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 15,
       "output": 75,
       "cacheCreation": 18.75,
+      "cacheCreation1h": 30,
       "cacheRead": 1.5
     },
     "claude-4-sonnet": {
@@ -150,6 +155,7 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
+      "cacheCreation1h": 6,
       "cacheRead": 0.3
     },
     "claude-4.5-haiku": {
@@ -168,30 +174,35 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 10,
       "output": 50,
       "cacheCreation": 12.5,
+      "cacheCreation1h": 20,
       "cacheRead": 1
     },
     "claude-fable-5@default": {
       "input": 10,
       "output": 50,
       "cacheCreation": 12.5,
+      "cacheCreation1h": 20,
       "cacheRead": 1
     },
     "claude-haiku-4-5": {
       "input": 1,
       "output": 5,
       "cacheCreation": 1.25,
+      "cacheCreation1h": 2,
       "cacheRead": 0.1
     },
     "claude-haiku-4-5-20251001": {
       "input": 1,
       "output": 5,
       "cacheCreation": 1.25,
+      "cacheCreation1h": 2,
       "cacheRead": 0.1
     },
     "claude-haiku-4-5@20251001": {
       "input": 1,
       "output": 5,
       "cacheCreation": 1.25,
+      "cacheCreation1h": 2,
       "cacheRead": 0.1
     },
     "claude-haiku-4.5": {
@@ -210,96 +221,112 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 15,
       "output": 75,
       "cacheCreation": 18.75,
+      "cacheCreation1h": 30,
       "cacheRead": 1.5
     },
     "claude-opus-4-1-20250805": {
       "input": 15,
       "output": 75,
       "cacheCreation": 18.75,
+      "cacheCreation1h": 30,
       "cacheRead": 1.5
     },
     "claude-opus-4-1@20250805": {
       "input": 15,
       "output": 75,
       "cacheCreation": 18.75,
+      "cacheCreation1h": 30,
       "cacheRead": 1.5
     },
     "claude-opus-4-20250514": {
       "input": 15,
       "output": 75,
       "cacheCreation": 18.75,
+      "cacheCreation1h": 30,
       "cacheRead": 1.5
     },
     "claude-opus-4-5": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
+      "cacheCreation1h": 10,
       "cacheRead": 0.5
     },
     "claude-opus-4-5-20251101": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
+      "cacheCreation1h": 10,
       "cacheRead": 0.5
     },
     "claude-opus-4-5@20251101": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
+      "cacheCreation1h": 10,
       "cacheRead": 0.5
     },
     "claude-opus-4-6": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
+      "cacheCreation1h": 10,
       "cacheRead": 0.5
     },
     "claude-opus-4-6-20260205": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
+      "cacheCreation1h": 10,
       "cacheRead": 0.5
     },
     "claude-opus-4-6@default": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
+      "cacheCreation1h": 10,
       "cacheRead": 0.5
     },
     "claude-opus-4-7": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
+      "cacheCreation1h": 10,
       "cacheRead": 0.5
     },
     "claude-opus-4-7-20260416": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
+      "cacheCreation1h": 10,
       "cacheRead": 0.5
     },
     "claude-opus-4-7@default": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
+      "cacheCreation1h": 10,
       "cacheRead": 0.5
     },
     "claude-opus-4-8": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
+      "cacheCreation1h": 10,
       "cacheRead": 0.5
     },
     "claude-opus-4-8@default": {
       "input": 5,
       "output": 25,
       "cacheCreation": 6.25,
+      "cacheCreation1h": 10,
       "cacheRead": 0.5
     },
     "claude-opus-4.1": {
       "input": 15,
       "output": 75,
       "cacheCreation": 18.75,
+      "cacheCreation1h": 30,
       "cacheRead": 1.5
     },
     "claude-opus-4.5": {
@@ -324,6 +351,7 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 15,
       "output": 75,
       "cacheCreation": 18.75,
+      "cacheCreation1h": 30,
       "cacheRead": 1.5
     },
     "claude-sonnet-4": {
@@ -336,42 +364,49 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
+      "cacheCreation1h": 6,
       "cacheRead": 0.3
     },
     "claude-sonnet-4-5": {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
+      "cacheCreation1h": 6,
       "cacheRead": 0.3
     },
     "claude-sonnet-4-5-20250929": {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
+      "cacheCreation1h": 6,
       "cacheRead": 0.3
     },
     "claude-sonnet-4-5-20250929-v1:0": {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
+      "cacheCreation1h": 6,
       "cacheRead": 0.3
     },
     "claude-sonnet-4-5@20250929": {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
+      "cacheCreation1h": 6,
       "cacheRead": 0.3
     },
     "claude-sonnet-4-6": {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
+      "cacheCreation1h": 6,
       "cacheRead": 0.3
     },
     "claude-sonnet-4-6@default": {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
+      "cacheCreation1h": 6,
       "cacheRead": 0.3
     },
     "claude-sonnet-4.5": {
@@ -390,18 +425,21 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "input": 3,
       "output": 15,
       "cacheCreation": 3.75,
+      "cacheCreation1h": 6,
       "cacheRead": 0.3
     },
     "claude-sonnet-5": {
       "input": 2,
       "output": 10,
       "cacheCreation": 2.5,
+      "cacheCreation1h": 4,
       "cacheRead": 0.2
     },
     "claude-sonnet-5@default": {
       "input": 2,
       "output": 10,
       "cacheCreation": 2.5,
+      "cacheCreation1h": 4,
       "cacheRead": 0.2
     },
     "codex-mini": {

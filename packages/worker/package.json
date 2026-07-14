@@ -11,7 +11,7 @@
   "dependencies": {
     "@ccclub/shared": "workspace:*",
     "@resvg/resvg-wasm": "^2.6.2",
-    "hono": "^4.6.0"
+    "hono": "^4.12.30"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241230.0",

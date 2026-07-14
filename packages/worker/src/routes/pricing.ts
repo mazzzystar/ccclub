@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { PRICING_SNAPSHOT, parsePricingTable } from "@ccclub/shared";
+import { PRICING_SNAPSHOT, isCurrentPricingTable, parsePricingTable } from "@ccclub/shared";
 import type { PricingTable } from "@ccclub/shared";
 import type { Env } from "../types.js";
 
@@ -10,9 +10,10 @@ const app = new Hono<{ Bindings: Env }>();
 
 async function loadActivePricingTable(env: Env): Promise<PricingTable> {
   const stored = await env.KV.get(PRICING_KV_KEY, "json");
+  const parsed = stored != null ? parsePricingTable(stored) : null;
   // The bundled snapshot serves until the first cron run, and again if the
-  // KV copy is ever unreadable.
-  return (stored != null && parsePricingTable(stored)) || PRICING_SNAPSHOT;
+  // KV copy is ever unreadable or belongs to an older table schema.
+  return parsed != null && isCurrentPricingTable(parsed) ? parsed : PRICING_SNAPSHOT;
 }
 
 // GET /api/pricing — compact model price table for CLI cost calculation.

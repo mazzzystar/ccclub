@@ -29,7 +29,7 @@ const LLMS_TXT = `# ccclub
   - period: daily | yesterday | weekly | monthly | all-time
   - tz: local UTC offset in minutes (e.g. 480 for UTC+8, -300 for UTC-5)
   - Returns JSON: { group: { name, code, memberCount }, period, start, end,
-    rankings: [{ rank, userId, displayName, totalTokens, inputTokens,
+    rankings: [{ rank, userId, displayName, totalTokens, nonCacheTokens, inputTokens,
     outputTokens, costUSD, models, agents, agentBreakdown, chatCount, ... }] }
   - Use groupCode "global" for the public opt-in leaderboard.
 - GET https://ccclub.dev/api/pricing

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "../types.js";
-import { isRankedSource } from "@ccclub/shared";
+import { getNonCacheTokens, isRankedSource } from "@ccclub/shared";
 import type {
   AgentSource,
   GroupRecord,
@@ -13,7 +13,7 @@ import type {
 const app = new Hono<{ Bindings: Env }>();
 
 const VALID_PERIODS: RankingPeriod[] = ["daily", "yesterday", "weekly", "monthly", "all-time"];
-const RANK_CACHE_VERSION = "v4";
+const RANK_CACHE_VERSION = "v5";
 
 type AgentTotals = { costUSD: number; totalTokens: number; nonCacheTokens: number; chatCount: number; entryCount: number };
 
@@ -35,7 +35,7 @@ function addAgentTotals(totals: Map<AgentSource, AgentTotals>, block: UsageData[
   const current = totals.get(source) ?? { costUSD: 0, totalTokens: 0, nonCacheTokens: 0, chatCount: 0, entryCount: 0 };
   current.costUSD += block.costUSD;
   current.totalTokens += block.totalTokens;
-  current.nonCacheTokens += block.inputTokens + block.outputTokens + (block.reasoningTokens || 0);
+  current.nonCacheTokens += getNonCacheTokens(block);
   current.chatCount += block.chatCount || 0;
   current.entryCount += block.entryCount;
   totals.set(source, current);
@@ -175,6 +175,7 @@ export async function computeGlobalRankings(env: Env, period: RankingPeriod, tz:
     if (!usage) continue;
 
     let totalTokens = 0;
+    let nonCacheTokens = 0;
     let inputTokens = 0;
     let outputTokens = 0;
     let reasoningTokens = 0;
@@ -201,6 +202,7 @@ export async function computeGlobalRankings(env: Env, period: RankingPeriod, tz:
       if (blockTime >= startMs && blockTime < endMs) {
         const source = block.source ?? "claude";
         totalTokens += block.totalTokens;
+        nonCacheTokens += getNonCacheTokens(block);
         inputTokens += block.inputTokens;
         outputTokens += block.outputTokens;
         reasoningTokens += block.reasoningTokens || 0;
@@ -223,6 +225,7 @@ export async function computeGlobalRankings(env: Env, period: RankingPeriod, tz:
         displayName: info.displayName,
         avatar: info.avatar,
         totalTokens,
+        nonCacheTokens,
         inputTokens,
         outputTokens,
         reasoningTokens,
@@ -311,6 +314,7 @@ app.get("/rank/:code", async (c) => {
     const usage = usageResults[idx];
 
     let totalTokens = 0;
+    let nonCacheTokens = 0;
     let inputTokens = 0;
     let outputTokens = 0;
     let reasoningTokens = 0;
@@ -338,6 +342,7 @@ app.get("/rank/:code", async (c) => {
         if (blockTime >= startMs && blockTime < endMs) {
           const source = block.source ?? "claude";
           totalTokens += block.totalTokens;
+          nonCacheTokens += getNonCacheTokens(block);
           inputTokens += block.inputTokens;
           outputTokens += block.outputTokens;
           reasoningTokens += block.reasoningTokens || 0;
@@ -360,6 +365,7 @@ app.get("/rank/:code", async (c) => {
       displayName: member.displayName,
       avatar: member.avatar || "",
       totalTokens,
+      nonCacheTokens,
       inputTokens,
       outputTokens,
       reasoningTokens,
@@ -520,7 +526,7 @@ app.get("/activity/:code", async (c) => {
           parsed.push({
             t: blockTime,
             cost: Math.round(block.costUSD * 10000) / 10000,
-            tokens: block.inputTokens + block.outputTokens + (block.reasoningTokens || 0),
+            tokens: getNonCacheTokens(block),
             totalTokens: block.totalTokens,
             chats: block.chatCount || 0,
           });

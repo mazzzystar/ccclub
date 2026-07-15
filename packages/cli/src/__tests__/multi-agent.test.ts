@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
-import { createCostCalculator, DEFAULT_SOURCES, PRICING_SNAPSHOT } from "@ccclub/shared";
+import { createCostCalculator, DEFAULT_SOURCES, getNonCacheTokens, PRICING_SNAPSHOT } from "@ccclub/shared";
 import type { UsageEntry } from "@ccclub/shared";
 import { parseSources } from "../sources/index.js";
 
@@ -543,7 +543,10 @@ describe("multi-agent collection", () => {
     expect(result.entries).toHaveLength(1);
     expect(result.entries[0].totalTokens).toBe(115);
     expect(result.entries[0].reasoningTokens).toBe(5);
-    expect(result.entries[0].costUSD).toBeCloseTo(0.00071);
+    // Codex output_tokens already includes reasoning_output_tokens. The
+    // reasoning breakdown must remain visible without being billed twice.
+    expect(result.entries[0].costUSD).toBeCloseTo(0.00071, 8);
+    expect(getNonCacheTokens(result.entries[0])).toBe(90);
   });
 
   it("loads OpenCode JSON message usage", async () => {
@@ -580,6 +583,9 @@ describe("multi-agent collection", () => {
       totalTokens: 185,
       costUSD: 0.02,
     });
+    // OpenCode reports reasoning separately from output, so it remains an
+    // additional non-cache bucket for that source.
+    expect(getNonCacheTokens(result.entries[0])).toBe(160);
   });
 
   it("never collects non-coding sources, even when requested explicitly", () => {

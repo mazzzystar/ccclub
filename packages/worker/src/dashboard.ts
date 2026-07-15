@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { html, raw } from "hono/html";
 import type { Env } from "./types.js";
-import { isRankedSource } from "@ccclub/shared";
+import { getNonCacheTokens, isRankedSource } from "@ccclub/shared";
 import type { AgentSource, GroupRecord, RankingEntry, UsageData } from "@ccclub/shared";
 import { computeGlobalRankings } from "./routes/rankings.js";
 import { cachedPngResponse, getColor, hashCode, htmlEsc, latinOnly, ogCacheUrl, renderToPng, sanitizeCode, svgEsc, truncate } from "./og-utils.js";
@@ -136,7 +136,7 @@ app.get("/g/:code/og.png", async (c) => {
           if (Number.isFinite(activityTime) && activityTime > lastActiveMs) lastActiveMs = activityTime;
           const source = block.source ?? "claude";
           cost += block.costUSD;
-          tokens += block.inputTokens + block.outputTokens + (block.reasoningTokens || 0);
+          tokens += getNonCacheTokens(block);
           turns += block.chatCount || 0;
           agents.add(source);
           agentSet.add(source);
@@ -792,6 +792,16 @@ function dashboardHTML(
         return { source: source, costUSD: 0, totalTokens: 0, nonCacheTokens: 0, chatCount: 0, entryCount: 0, percent: 0 };
       });
     }
+    function nonCacheTokensForRow(row) {
+      if (typeof row.nonCacheTokens === "number") return row.nonCacheTokens;
+      if (row.agentBreakdown && row.agentBreakdown.length > 0) {
+        return row.agentBreakdown.reduce(function(sum, agent) {
+          return sum + (agent.nonCacheTokens || 0);
+        }, 0);
+      }
+      // Compatibility with responses cached by workers older than v0.6.10.
+      return row.inputTokens + row.outputTokens + (row.reasoningTokens || 0);
+    }
     function agentTooltip(row) {
       if (!row.agentBreakdown || row.agentBreakdown.length === 0) {
         return orderedAgents(row.agents).map(function(source) {
@@ -964,7 +974,7 @@ function dashboardHTML(
             if (hasAgents && r.agents && r.agents.length > 0) {
               agentLine = agentMixHTML(r);
             }
-            var displayedTokens = showCache ? r.totalTokens : (r.inputTokens + r.outputTokens + (r.reasoningTokens || 0));
+            var displayedTokens = showCache ? r.totalTokens : nonCacheTokensForRow(r);
             h += '<tr class="' + rowClass + '">' +
               '<td class="' + rankClass + '">' + r.rank + '</td>' +
               '<td><div class="name-cell">' + avatarHTML(r.userId, r.displayName, r.avatar, isActive) +

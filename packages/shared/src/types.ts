@@ -93,6 +93,27 @@ export interface UsageBlock {
   chatCount?: number;
 }
 
+/**
+ * Reasoning is a separate token bucket for most sources. Codex is the
+ * exception: its output_tokens already includes reasoning_output_tokens, so
+ * adding the reasoning breakdown again would double-count both cost and
+ * non-cache token totals.
+ */
+export function getAdditionalReasoningTokens(
+  source: AgentSource | undefined,
+  reasoningTokens: number | undefined,
+): number {
+  return source === "codex" ? 0 : reasoningTokens || 0;
+}
+
+/** Non-cache tokens using each source's output/reasoning semantics. */
+export function getNonCacheTokens(
+  usage: Pick<UsageBlock, "source" | "inputTokens" | "outputTokens" | "reasoningTokens">,
+): number {
+  return usage.inputTokens + usage.outputTokens +
+    getAdditionalReasoningTokens(usage.source, usage.reasoningTokens);
+}
+
 // KV: token:{deviceToken} → UserRecord
 export interface UserRecord {
   userId: string;
@@ -145,6 +166,8 @@ export interface RankingEntry {
   plan?: string;
   url?: string;
   totalTokens: number;
+  /** Exact non-cache total; optional while older servers/caches age out. */
+  nonCacheTokens?: number;
   inputTokens: number;
   outputTokens: number;
   reasoningTokens?: number;

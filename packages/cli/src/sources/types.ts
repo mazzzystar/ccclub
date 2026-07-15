@@ -1,3 +1,4 @@
+import { getAdditionalReasoningTokens } from "@ccclub/shared";
 import type { AgentSource, CostCalculator, UsageEntry } from "@ccclub/shared";
 import type { ScanCacheFactory } from "../scan-cache.js";
 
@@ -34,7 +35,7 @@ export function priceUsageFact(
     usage.outputTokens,
     usage.cacheCreationTokens,
     usage.cacheReadTokens,
-    usage.reasoningTokens || 0,
+    getAdditionalReasoningTokens(usage.source, usage.reasoningTokens),
     usage.cacheCreation1hTokens || 0,
     pricingTier,
   );

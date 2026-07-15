@@ -20,6 +20,17 @@ import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
 const ACTIVE_THRESHOLD_MS = 15 * 60 * 1000;
 const AGENT_ORDER: AgentSource[] = ["claude", "codex", "opencode", "amp", "pi"];
 
+export function getRankingNonCacheTokens(
+  entry: Pick<RankingEntry, "nonCacheTokens" | "agentBreakdown" | "inputTokens" | "outputTokens" | "reasoningTokens">,
+): number {
+  if (entry.nonCacheTokens != null) return entry.nonCacheTokens;
+  if (entry.agentBreakdown != null && entry.agentBreakdown.length > 0) {
+    return entry.agentBreakdown.reduce((sum, agent) => sum + agent.nonCacheTokens, 0);
+  }
+  // Compatibility with responses cached by workers older than v0.6.10.
+  return entry.inputTokens + entry.outputTokens + (entry.reasoningTokens || 0);
+}
+
 // Gentle invite nudge for solo groups: a leaderboard of one has no reason to
 // stick around, and 77% of created groups never invite anyone. At most once
 // a week, and only when the user is already looking at their empty board.
@@ -295,7 +306,7 @@ function printGroup(data: RankResponse, code: string, period: RankingPeriod, con
 
   const plainRows = activeRankings.map((entry) => {
     const isActive = isEntryActive(entry, now);
-    const tokens = showCache ? entry.totalTokens : entry.inputTokens + entry.outputTokens + (entry.reasoningTokens || 0);
+    const tokens = showCache ? entry.totalTokens : getRankingNonCacheTokens(entry);
     const roi = formatRoi(entry, hasPlan);
     return {
       entry,

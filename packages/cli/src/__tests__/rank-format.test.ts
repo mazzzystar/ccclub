@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatLocalDateRange } from "../commands/rank.js";
+import { formatLocalDateRange, getRankingNonCacheTokens } from "../commands/rank.js";
 
 // Build boundaries from LOCAL midnights so expectations hold in any test-runner
 // timezone — mirroring how the server derives windows from the viewer's tz.
@@ -22,5 +22,31 @@ describe("formatLocalDateRange", () => {
 
   it("omits the meaningless all-time bounds", () => {
     expect(formatLocalDateRange("2020-01-01T00:00:00Z", "2099-12-31T00:00:00Z", "all-time")).toBe("");
+  });
+});
+
+describe("getRankingNonCacheTokens", () => {
+  const legacy = {
+    inputTokens: 100,
+    outputTokens: 50,
+    reasoningTokens: 20,
+  };
+
+  it("uses the exact server total when available", () => {
+    expect(getRankingNonCacheTokens({ ...legacy, nonCacheTokens: 150 })).toBe(150);
+  });
+
+  it("sums source-aware breakdowns from transitional responses", () => {
+    expect(getRankingNonCacheTokens({
+      ...legacy,
+      agentBreakdown: [
+        { source: "codex", costUSD: 1, totalTokens: 100, nonCacheTokens: 80, chatCount: 1, entryCount: 1, percent: 50 },
+        { source: "claude", costUSD: 1, totalTokens: 100, nonCacheTokens: 70, chatCount: 1, entryCount: 1, percent: 50 },
+      ],
+    })).toBe(150);
+  });
+
+  it("keeps the legacy fallback for old responses without breakdowns", () => {
+    expect(getRankingNonCacheTokens(legacy)).toBe(170);
   });
 });

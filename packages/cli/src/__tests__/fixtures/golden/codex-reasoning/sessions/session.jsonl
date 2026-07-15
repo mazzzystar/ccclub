@@ -1,0 +1,3 @@
+{"timestamp":"2026-07-16T00:00:00.000Z","type":"turn_context","payload":{"model":"gpt-5.5"}}
+{"timestamp":"2026-07-16T00:00:01.000Z","type":"event_msg","payload":{"type":"task_started","turn_id":"reasoning-turn","started_at":"2026-07-16T00:00:01.000Z"}}
+{"timestamp":"2026-07-16T00:00:02.000Z","type":"event_msg","payload":{"type":"token_count","info":{"model":"gpt-5.5","last_token_usage":{"input_tokens":100,"cached_input_tokens":20,"output_tokens":1000000,"reasoning_output_tokens":400000,"total_tokens":1000100},"total_token_usage":{"input_tokens":100,"cached_input_tokens":20,"output_tokens":1000000,"reasoning_output_tokens":400000,"total_tokens":1000100}}}}

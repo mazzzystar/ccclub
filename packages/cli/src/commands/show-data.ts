@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { AGENT_LABELS } from "@ccclub/shared";
+import { AGENT_LABELS, getNonCacheTokens } from "@ccclub/shared";
 import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
 import { loadPricing } from "../pricing.js";
@@ -60,8 +60,9 @@ export async function showDataCommand(): Promise<void> {
   const totalInput = blocks.reduce((s, b) => s + b.inputTokens, 0);
   const totalOutput = blocks.reduce((s, b) => s + b.outputTokens, 0);
   const totalReasoning = blocks.reduce((s, b) => s + (b.reasoningTokens || 0), 0);
+  const totalNonCache = blocks.reduce((s, b) => s + getNonCacheTokens(b), 0);
   const totalCache = blocks.reduce((s, b) => s + b.cacheCreationTokens + b.cacheReadTokens, 0);
   const totalCost = blocks.reduce((s, b) => s + b.costUSD, 0);
-  console.log(chalk.bold(`\n  All-time total: ${(totalInput + totalOutput + totalReasoning).toLocaleString()} non-cache tokens · $${totalCost.toFixed(2)}`));
+  console.log(chalk.bold(`\n  All-time total: ${totalNonCache.toLocaleString()} non-cache tokens · $${totalCost.toFixed(2)}`));
   console.log(chalk.dim(`    input: ${totalInput.toLocaleString()}  output: ${totalOutput.toLocaleString()}  reasoning: ${totalReasoning.toLocaleString()}  cache: ${totalCache.toLocaleString()}`));
 }

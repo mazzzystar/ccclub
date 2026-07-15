@@ -1,0 +1,10 @@
+{
+  "entries": 1,
+  "humanTurns": 1,
+  "inputTokens": 80,
+  "outputTokens": 1000000,
+  "reasoningTokens": 400000,
+  "cacheReadTokens": 20,
+  "totalTokens": 1000100,
+  "costUSD": 30.00041
+}

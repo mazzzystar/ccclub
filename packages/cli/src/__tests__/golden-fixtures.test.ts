@@ -12,6 +12,7 @@ interface GoldenExpected {
   humanTurns: number;
   inputTokens: number;
   outputTokens: number;
+  reasoningTokens?: number;
   cacheCreationTokens?: number;
   cacheCreation1hTokens?: number;
   cacheReadTokens: number;
@@ -73,5 +74,25 @@ describe("golden accounting fixtures", () => {
       totalTokens: golden.totalTokens,
     });
     expect(totals.costUSD).toBeCloseTo(golden.costUSD, 10);
+  });
+
+  it("matches ccusage when Codex output already contains reasoning", async () => {
+    const fixture = join(GOLDEN_DIR, "codex-reasoning");
+    const golden = await expected("codex-reasoning");
+    vi.stubEnv("CODEX_HOME", fixture);
+
+    const result = await collectUsageEntries({ sources: ["codex"] });
+    const entry = result.entries[0];
+
+    expect(result.entries).toHaveLength(golden.entries);
+    expect(result.humanTurns).toHaveLength(golden.humanTurns);
+    expect(entry).toMatchObject({
+      inputTokens: golden.inputTokens,
+      outputTokens: golden.outputTokens,
+      reasoningTokens: golden.reasoningTokens,
+      cacheReadTokens: golden.cacheReadTokens,
+      totalTokens: golden.totalTokens,
+    });
+    expect(entry.costUSD).toBeCloseTo(golden.costUSD, 10);
   });
 });

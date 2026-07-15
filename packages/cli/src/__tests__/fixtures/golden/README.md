@@ -20,6 +20,11 @@ not a target for ccclub to imitate.
 three implementations. ccclub's $0.00728 cost also matches ccusage; Vibe Usage
 prices the uploaded bucket on its server rather than in the local parser.
 
+`codex-reasoning` freezes Codex's output-token semantics: its 400,000
+reasoning tokens are an informational subset of the 1,000,000 output tokens,
+not an additional billable bucket. The expected $30.00041 matches ccusage;
+adding reasoning a second time would incorrectly produce $42.00041.
+
 The expected costs were also checked with direct per-token price arithmetic.
 
 The fixtures are development/CI inputs only. ccclub users do not install or

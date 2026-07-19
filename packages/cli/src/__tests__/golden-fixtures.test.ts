@@ -76,6 +76,31 @@ describe("golden accounting fixtures", () => {
     expect(totals.costUSD).toBeCloseTo(golden.costUSD, 10);
   });
 
+  it("matches the Codex Last-N parent suffix replay reference", async () => {
+    const fixture = join(GOLDEN_DIR, "codex-last-n-replay");
+    const golden = await expected("codex-last-n-replay");
+    vi.stubEnv("CODEX_HOME", fixture);
+
+    const result = await collectUsageEntries({ sources: ["codex"] });
+    const totals = result.entries.reduce((sum, entry) => ({
+      inputTokens: sum.inputTokens + entry.inputTokens,
+      outputTokens: sum.outputTokens + entry.outputTokens,
+      cacheReadTokens: sum.cacheReadTokens + entry.cacheReadTokens,
+      totalTokens: sum.totalTokens + entry.totalTokens,
+      costUSD: sum.costUSD + entry.costUSD,
+    }), { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, totalTokens: 0, costUSD: 0 });
+
+    expect(result.entries).toHaveLength(golden.entries);
+    expect(result.humanTurns).toHaveLength(golden.humanTurns);
+    expect(totals).toMatchObject({
+      inputTokens: golden.inputTokens,
+      outputTokens: golden.outputTokens,
+      cacheReadTokens: golden.cacheReadTokens,
+      totalTokens: golden.totalTokens,
+    });
+    expect(totals.costUSD).toBeCloseTo(golden.costUSD, 10);
+  });
+
   it("matches ccusage when Codex output already contains reasoning", async () => {
     const fixture = join(GOLDEN_DIR, "codex-reasoning");
     const golden = await expected("codex-reasoning");

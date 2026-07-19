@@ -7,6 +7,7 @@ import { aggregateToBlocks } from "../aggregator.js";
 import { createCostCalculator, DEFAULT_SOURCES, getNonCacheTokens, PRICING_SNAPSHOT } from "@ccclub/shared";
 import type { UsageEntry } from "@ccclub/shared";
 import { parseSources } from "../sources/index.js";
+import { createScanCacheFactory } from "../scan-cache.js";
 
 const calculateCost = createCostCalculator(PRICING_SNAPSHOT);
 
@@ -373,6 +374,230 @@ describe("multi-agent collection", () => {
     expect(blocks.reduce((sum, block) => sum + (block.chatCount ?? 0), 0)).toBe(2);
   });
 
+  it("matches Last-N-turn subagent replay by parent fingerprint with only new metadata markers", async () => {
+    const codexHome = await makeTempDir();
+    const sessionsDir = join(codexHome, "sessions");
+    const cacheDir = await makeTempDir();
+    await mkdir(sessionsDir, { recursive: true });
+
+    const parentStart = "2026-07-19T00:00:00.000Z";
+    const spawnMs = Date.parse("2026-07-19T01:00:00.000Z");
+    const tokenCount = (timestamp: string, ordinal: number) => ({
+      timestamp,
+      type: "event_msg",
+      payload: {
+        type: "token_count",
+        info: {
+          model: "gpt-5.6-sol",
+          last_token_usage: {
+            input_tokens: 1000 + ordinal,
+            cached_input_tokens: 900 + ordinal,
+            output_tokens: 20 + ordinal,
+            reasoning_output_tokens: 5 + ordinal,
+            total_tokens: 1020 + ordinal * 2,
+          },
+          total_token_usage: {
+            input_tokens: (ordinal + 1) * 1000,
+            cached_input_tokens: (ordinal + 1) * 900,
+            output_tokens: (ordinal + 1) * 20,
+            reasoning_output_tokens: (ordinal + 1) * 5,
+            total_tokens: (ordinal + 1) * 1020,
+          },
+        },
+      },
+    });
+    const parentTokens = Array.from({ length: 120 }, (_, index) => tokenCount(
+      new Date(Date.parse(parentStart) + (index + 1) * 1000).toISOString(),
+      index,
+    ));
+    const parentRecords = [
+      {
+        timestamp: parentStart,
+        type: "session_meta",
+        payload: { id: "parent-session", timestamp: parentStart },
+      },
+      {
+        timestamp: parentStart,
+        type: "event_msg",
+        payload: { type: "task_started", turn_id: "parent-turn", started_at: parentStart },
+      },
+      ...parentTokens,
+    ];
+    const parentPath = join(sessionsDir, "parent.jsonl");
+    await writeFile(parentPath, parentRecords.map((record) => JSON.stringify(record)).join("\n"));
+
+    // New Codex variants may expose only thread_source + parent_thread_id.
+    // Replayed records can span many seconds, so the old same-second heuristic
+    // cannot recognize this Last-N suffix.
+    const replayedSuffix = parentTokens.slice(-100).map((record, index) => ({
+      ...record,
+      timestamp: new Date(spawnMs + index * 1000).toISOString(),
+    }));
+    const childOwnStart = new Date(spawnMs + 120_000).toISOString();
+    const childRecords = [
+      {
+        timestamp: new Date(spawnMs).toISOString(),
+        type: "session_meta",
+        payload: {
+          id: "child-session",
+          timestamp: new Date(spawnMs).toISOString(),
+          thread_source: "subagent",
+          parent_thread_id: "parent-session",
+        },
+      },
+      ...replayedSuffix,
+      {
+        timestamp: childOwnStart,
+        type: "event_msg",
+        payload: { type: "turn_started", turn_id: "child-turn", started_at: childOwnStart },
+      },
+      tokenCount(new Date(spawnMs + 121_000).toISOString(), 120),
+    ];
+    await writeFile(
+      join(sessionsDir, "child.jsonl"),
+      childRecords.map((record) => JSON.stringify(record)).join("\n"),
+    );
+    vi.stubEnv("CODEX_HOME", codexHome);
+
+    const openScanCache = createScanCacheFactory(cacheDir);
+    const first = await collectUsageEntries({ sources: ["codex"], openScanCache });
+    const hot = await collectUsageEntries({ sources: ["codex"], openScanCache });
+
+    expect(first.entries).toHaveLength(121);
+    expect(first.humanTurns).toHaveLength(2);
+    expect(hot.entries).toEqual(first.entries);
+    expect(hot.humanTurns).toEqual(first.humanTurns);
+
+    // The parent may continue after the child spawned. Only that changed file
+    // is rescanned; the cached child still has to match the parent-at-spawn
+    // suffix rather than the parent's new final suffix.
+    const laterParentRecord = tokenCount(new Date(spawnMs + 300_000).toISOString(), 121);
+    await writeFile(
+      parentPath,
+      [...parentRecords, laterParentRecord].map((record) => JSON.stringify(record)).join("\n"),
+    );
+    const afterParentGrowth = await collectUsageEntries({ sources: ["codex"], openScanCache });
+
+    expect(afterParentGrowth.entries).toHaveLength(122);
+    expect(afterParentGrowth.humanTurns).toHaveLength(2);
+  });
+
+  it("suppresses duplicate Codex token_count emissions with unchanged cumulative totals", async () => {
+    const codexHome = await makeTempDir();
+    const sessionsDir = join(codexHome, "sessions");
+    await mkdir(sessionsDir, { recursive: true });
+    const tokenCount = (timestamp: string, input: number, output: number, cumulative: number) => ({
+      timestamp,
+      type: "event_msg",
+      payload: {
+        type: "token_count",
+        info: {
+          model: "gpt-5.6-sol",
+          last_token_usage: { input_tokens: input, output_tokens: output, total_tokens: input + output },
+          total_token_usage: { input_tokens: cumulative - output, output_tokens: output, total_tokens: cumulative },
+        },
+      },
+    });
+    const duplicate = tokenCount("2026-07-19T02:00:02.000Z", 100, 10, 110);
+    await writeFile(join(sessionsDir, "session.jsonl"), [
+      JSON.stringify(tokenCount("2026-07-19T02:00:01.000Z", 100, 10, 110)),
+      JSON.stringify(duplicate),
+      JSON.stringify(tokenCount("2026-07-19T02:00:03.000Z", 200, 20, 330)),
+    ].join("\n"));
+    vi.stubEnv("CODEX_HOME", codexHome);
+
+    const result = await collectUsageEntries({ sources: ["codex"] });
+
+    expect(result.entries).toHaveLength(2);
+    expect(result.entries.reduce((sum, entry) => sum + entry.totalTokens, 0)).toBe(330);
+  });
+
+  it("does not mistake an interior parent token for a Last-N replay suffix", async () => {
+    const codexHome = await makeTempDir();
+    const sessionsDir = join(codexHome, "sessions");
+    await mkdir(sessionsDir, { recursive: true });
+    const tokenCount = (timestamp: string, input: number, output: number, cumulative: number) => ({
+      timestamp,
+      type: "event_msg",
+      payload: {
+        type: "token_count",
+        info: {
+          model: "gpt-5.6-sol",
+          last_token_usage: { input_tokens: input, output_tokens: output, total_tokens: input + output },
+          total_token_usage: { input_tokens: cumulative - output, output_tokens: output, total_tokens: cumulative },
+        },
+      },
+    });
+    const first = tokenCount("2026-07-19T04:00:01.000Z", 10, 1, 11);
+    const second = tokenCount("2026-07-19T04:00:02.000Z", 20, 2, 33);
+    await writeFile(join(sessionsDir, "parent.jsonl"), [
+      JSON.stringify({
+        timestamp: "2026-07-19T04:00:00.000Z",
+        type: "session_meta",
+        payload: { id: "interior-parent", timestamp: "2026-07-19T04:00:00.000Z" },
+      }),
+      JSON.stringify(first),
+      JSON.stringify(second),
+    ].join("\n"));
+    await writeFile(join(sessionsDir, "fork.jsonl"), [
+      JSON.stringify({
+        timestamp: "2026-07-19T04:30:00.000Z",
+        type: "session_meta",
+        payload: {
+          id: "interior-fork",
+          timestamp: "2026-07-19T04:30:00.000Z",
+          forked_from_id: "interior-parent",
+        },
+      }),
+      // Same payload as the parent's first (interior) token, but the current
+      // parent snapshot ends with `second`, so this is not valid replay proof.
+      JSON.stringify({ ...first, timestamp: "2026-07-19T04:30:01.000Z" }),
+      JSON.stringify(tokenCount("2026-07-19T04:30:02.000Z", 5, 3, 41)),
+    ].join("\n"));
+    vi.stubEnv("CODEX_HOME", codexHome);
+
+    const result = await collectUsageEntries({ sources: ["codex"] });
+
+    expect(result.entries).toHaveLength(4);
+    expect(result.entries.reduce((sum, entry) => sum + entry.totalTokens, 0)).toBe(52);
+  });
+
+  it("keeps only the most complete live/archive copy of one logical Codex session", async () => {
+    const codexHome = await makeTempDir();
+    const sessionsDir = join(codexHome, "sessions");
+    const archivedDir = join(codexHome, "archived_sessions");
+    await mkdir(sessionsDir, { recursive: true });
+    await mkdir(archivedDir, { recursive: true });
+    const meta = JSON.stringify({
+      timestamp: "2026-07-19T03:00:00.000Z",
+      type: "session_meta",
+      payload: { id: "same-logical-session", timestamp: "2026-07-19T03:00:00.000Z" },
+    });
+    const usageLine = (timestamp: string, input: number) => JSON.stringify({
+      timestamp,
+      type: "event_msg",
+      payload: { type: "token_count", info: {
+        model: "gpt-5.6-sol",
+        last_token_usage: { input_tokens: input, output_tokens: 10, total_tokens: input + 10 },
+      } },
+    });
+    await writeFile(join(sessionsDir, "live-name.jsonl"), [
+      meta,
+      usageLine("2026-07-19T03:00:01.000Z", 100),
+    ].join("\n"));
+    await writeFile(join(archivedDir, "different-archive-name.jsonl"), [
+      meta,
+      usageLine("2026-07-19T03:00:01.000Z", 100),
+      usageLine("2026-07-19T03:00:02.000Z", 50),
+    ].join("\n"));
+    vi.stubEnv("CODEX_HOME", codexHome);
+
+    const result = await collectUsageEntries({ sources: ["codex"] });
+
+    expect(result.entries).toHaveLength(2);
+    expect(result.entries.reduce((sum, entry) => sum + entry.totalTokens, 0)).toBe(170);
+  });
+
   it("keeps the cumulative baseline while skipping Codex replay records", async () => {
     const codexHome = await makeTempDir();
     const sessionsDir = join(codexHome, "sessions");
@@ -447,6 +672,44 @@ describe("multi-agent collection", () => {
 
     expect(result.entries).toHaveLength(2);
     expect(result.entries.reduce((sum, entry) => sum + entry.totalTokens, 0)).toBe(180);
+  });
+
+  it("counts a marker-only Codex subagent without replay evidence in full", async () => {
+    const codexHome = await makeTempDir();
+    const sessionsDir = join(codexHome, "sessions");
+    await mkdir(sessionsDir, { recursive: true });
+    const spawn = "2026-07-19T05:00:00.000Z";
+    const tokenCount = (input: number, output: number) => JSON.stringify({
+      timestamp: spawn,
+      type: "event_msg",
+      payload: {
+        type: "token_count",
+        info: {
+          model: "gpt-5.6-sol",
+          last_token_usage: { input_tokens: input, output_tokens: output, total_tokens: input + output },
+        },
+      },
+    });
+    await writeFile(join(sessionsDir, "subagent.jsonl"), [
+      JSON.stringify({
+        timestamp: spawn,
+        type: "session_meta",
+        payload: {
+          id: "marker-only-child",
+          timestamp: spawn,
+          thread_source: "subagent",
+          parent_thread_id: "missing-parent",
+        },
+      }),
+      tokenCount(1_000, 100),
+      tokenCount(2_000, 200),
+    ].join("\n"));
+    vi.stubEnv("CODEX_HOME", codexHome);
+
+    const result = await collectUsageEntries({ sources: ["codex"] });
+
+    expect(result.entries).toHaveLength(2);
+    expect(result.entries.reduce((sum, entry) => sum + entry.totalTokens, 0)).toBe(3_300);
   });
 
   it("loads Codex archives and lets a live file win the same relative path", async () => {
@@ -541,7 +804,9 @@ describe("multi-agent collection", () => {
     const result = await collectUsageEntries({ sources: ["codex"] });
 
     expect(result.entries).toHaveLength(1);
-    expect(result.entries[0].totalTokens).toBe(115);
+    // Codex/OpenAI total is input + output; reasoning is already a subset of
+    // output and must not be added again when total_tokens is absent.
+    expect(result.entries[0].totalTokens).toBe(110);
     expect(result.entries[0].reasoningTokens).toBe(5);
     // Codex output_tokens already includes reasoning_output_tokens. The
     // reasoning breakdown must remain visible without being billed twice.

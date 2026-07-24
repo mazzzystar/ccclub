@@ -23,7 +23,13 @@ app.post("/sync", async (c) => {
     return c.json({ error: "invalid token" }, 401);
   }
 
-  const { blocks, usageSnapshot, replaceSources, trackedSources } = await c.req.json<SyncRequest>();
+  const {
+    blocks,
+    usageSnapshot,
+    replaceSources,
+    trackedSources,
+    syncFormatVersion,
+  } = await c.req.json<SyncRequest>();
   if (
     replaceSources !== undefined &&
     (!Array.isArray(replaceSources) || replaceSources.some((source) => !AGENT_SOURCES.includes(source)))
@@ -36,6 +42,13 @@ app.post("/sync", async (c) => {
     (!Array.isArray(trackedSources) || trackedSources.some((source) => !AGENT_SOURCES.includes(source)))
   ) {
     return c.json({ error: "invalid trackedSources" }, 400);
+  }
+
+  if (
+    syncFormatVersion !== undefined &&
+    (!Number.isSafeInteger(syncFormatVersion) || syncFormatVersion <= 0)
+  ) {
+    return c.json({ error: "invalid syncFormatVersion" }, 400);
   }
 
   if (
@@ -88,6 +101,14 @@ app.post("/sync", async (c) => {
     blocks: [],
     lastSync: "",
   };
+  if (
+    existing.syncFormatVersion != null &&
+    (syncFormatVersion == null || syncFormatVersion < existing.syncFormatVersion)
+  ) {
+    return c.json({
+      error: `client accounting format is outdated; update ccclub (requires ${existing.syncFormatVersion})`,
+    }, 409);
+  }
 
   const merged = mergeUsageBlocks(existing.blocks, blocks, { replaceSources, trackedSources });
 
@@ -95,6 +116,14 @@ app.post("/sync", async (c) => {
     blocks: merged,
     lastSync: new Date().toISOString(),
   };
+  if (syncFormatVersion != null) {
+    usageData.syncFormatVersion = Math.max(
+      existing.syncFormatVersion ?? 0,
+      syncFormatVersion,
+    );
+  } else if (existing.syncFormatVersion != null) {
+    usageData.syncFormatVersion = existing.syncFormatVersion;
+  }
 
   if (
     usageSnapshot &&

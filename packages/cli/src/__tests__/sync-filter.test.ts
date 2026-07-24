@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { filterBlocksToSync, needsPricingResync } from "../commands/sync.js";
+import {
+  filterBlocksToSync,
+  needsPricingResync,
+  needsSyncFormatUpgrade,
+} from "../commands/sync.js";
 import type { UsageBlock } from "@ccclub/shared";
 
 const block = (source: UsageBlock["source"], blockStart: string): UsageBlock => ({
@@ -80,5 +84,18 @@ describe("needsPricingResync", () => {
     expect(needsPricingResync(true, null, "pricing-v2")).toBe(true);
     expect(needsPricingResync(true, "pricing-v1", "pricing-v2")).toBe(true);
     expect(needsPricingResync(true, "pricing-v2", "pricing-v2")).toBe(false);
+  });
+});
+
+describe("needsSyncFormatUpgrade", () => {
+  it("upgrades older formats without treating a future marker as a downgrade trigger", () => {
+    expect(needsSyncFormatUpgrade("17", 18)).toBe(true);
+    expect(needsSyncFormatUpgrade("18", 18)).toBe(false);
+    expect(needsSyncFormatUpgrade("19", 18)).toBe(false);
+  });
+
+  it("rebuilds missing or corrupt format markers", () => {
+    expect(needsSyncFormatUpgrade("", 18)).toBe(true);
+    expect(needsSyncFormatUpgrade("not-a-version", 18)).toBe(true);
   });
 });

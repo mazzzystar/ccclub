@@ -17,12 +17,14 @@ import type { AgentSource, SyncRequest, SyncResponse, UsageBlock } from "@ccclub
 import { formatFetchError } from "../fetch-error.js";
 import { fetchUsageLimits } from "../usage-limits.js";
 import { acquireSyncLock } from "../sync-lock.js";
+import { installHook, isHookInstalled } from "../hook.js";
+import { installHeartbeat, isHeartbeatInstalled } from "../heartbeat.js";
 
 // Bump this when the block format or accounting semantics change. It forces a
 // one-time source replacement so corrected parsing can also delete obsolete
 // historical blocks. Newly supported sources do NOT need a bump:
 // filterBlocksToSync already uploads their full history.
-const SYNC_FORMAT_VERSION = "17";
+const SYNC_FORMAT_VERSION = 18;
 
 function getSyncVersionPath(): string {
   return join(homedir(), CCCLUB_CONFIG_DIR, "sync-version");
@@ -44,9 +46,16 @@ export function needsFullSync(): boolean {
   const path = getSyncVersionPath();
   if (!existsSync(path)) return true;
   try {
-    const stored = readFileSync(path, "utf-8").trim();
-    return stored !== SYNC_FORMAT_VERSION;
+    return needsSyncFormatUpgrade(readFileSync(path, "utf-8").trim(), SYNC_FORMAT_VERSION);
   } catch { return true; }
+}
+
+export function needsSyncFormatUpgrade(stored: string, current: number): boolean {
+  const parsed = Number(stored);
+  if (!Number.isSafeInteger(parsed) || parsed < 0) return true;
+  // A newer client may already have upgraded this machine. Never let an older
+  // binary interpret that forward version as a reason to replace history.
+  return parsed < current;
 }
 
 // Throttle interval for silent (hook-triggered) syncs: 5 minutes
@@ -79,6 +88,13 @@ export async function syncCommand(options: { silent?: boolean; full?: boolean })
 export async function doSync(firstSync = false, silent = false): Promise<void> {
   const config = silent ? await loadConfig() : await requireConfig();
   if (!config) return; // Not initialized — nothing to sync
+
+  // Running a newer CLI once must also pin background entrypoints to that
+  // exact package version instead of resolving a globally installed binary.
+  await Promise.all([
+    isHookInstalled() ? Promise.resolve(true) : installHook(),
+    isHeartbeatInstalled() ? Promise.resolve(true) : installHeartbeat(),
+  ]);
 
   const lock = await acquireSyncLock();
   if (lock == null) {
@@ -179,7 +195,7 @@ async function performSync(config: CliConfig, firstSync = false, silent = false)
       // Merge instead of overwrite: a CCCLUB_SOURCES-filtered run must not
       // erase the sync markers of sources it did not collect.
       await writeFile(getLastSyncBySourcePath(), JSON.stringify(nextLastSyncBySource, null, 2));
-      await writeFile(getSyncVersionPath(), SYNC_FORMAT_VERSION);
+      await writeFile(getSyncVersionPath(), String(SYNC_FORMAT_VERSION));
       await writeFile(pricingVersionPath, version);
       // Even with no new blocks, upload usage snapshot so others see fresh data
       if (usageSnapshot) {
@@ -196,7 +212,11 @@ async function performSync(config: CliConfig, firstSync = false, silent = false)
 
     if (spinner) spinner.text = `Uploading ${blocksToSync.length} blocks...`;
 
-    const syncBody: SyncRequest = { blocks: blocksToSync, trackedSources };
+    const syncBody: SyncRequest = {
+      blocks: blocksToSync,
+      trackedSources,
+      syncFormatVersion: SYNC_FORMAT_VERSION,
+    };
     // A parser correction can make an old block disappear completely. Merging
     // by block key cannot delete that stale block, so full syncs replace every
     // source for which local log files were successfully scanned, even when
@@ -227,7 +247,7 @@ async function performSync(config: CliConfig, firstSync = false, silent = false)
     const latest = blocksToSync.at(-1);
     if (latest != null) await writeFile(lastSyncPath, latest.blockStart);
     await writeFile(getLastSyncBySourcePath(), JSON.stringify(nextLastSyncBySource, null, 2));
-    await writeFile(getSyncVersionPath(), SYNC_FORMAT_VERSION);
+    await writeFile(getSyncVersionPath(), String(SYNC_FORMAT_VERSION));
     await writeFile(pricingVersionPath, version);
     await writeFile(getLastSyncTimePath(), String(Date.now()));
 

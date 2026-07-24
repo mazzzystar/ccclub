@@ -58,13 +58,18 @@ describe("POST /sync", () => {
         Authorization: "Bearer test-token",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ blocks: [], replaceSources: ["codex"] }),
+      body: JSON.stringify({
+        blocks: [],
+        replaceSources: ["codex"],
+        syncFormatVersion: 18,
+      }),
     }, env);
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ synced: 0 });
     const stored = JSON.parse(values.get("usage:user-1") ?? "{}") as UsageData;
     expect(stored.blocks).toEqual([block("claude", 200)]);
+    expect(stored.syncFormatVersion).toBe(18);
   });
 
   it("still rejects an empty incremental upload", async () => {
@@ -87,5 +92,83 @@ describe("POST /sync", () => {
     }, env);
 
     expect(response.status).toBe(400);
+  });
+
+  it.each([
+    ["unversioned", undefined],
+    ["older", 17],
+  ])("rejects an %s client after a newer accounting format was stored", async (_label, version) => {
+    const user: UserRecord = {
+      userId: "user-1",
+      displayName: "Test",
+      avatar: "",
+      visibility: "private",
+      createdAt: "2026-07-24T00:00:00.000Z",
+    };
+    const usage: UsageData = {
+      blocks: [block("codex", 100)],
+      lastSync: "2026-07-24T00:00:00.000Z",
+      syncFormatVersion: 18,
+    };
+    const { env, values } = testEnv({
+      "token:test-token": user,
+      "usage:user-1": usage,
+    });
+    const body = {
+      blocks: [block("codex", 999)],
+      ...(version == null ? {} : { syncFormatVersion: version }),
+    };
+
+    const response = await syncRoutes.request("/sync", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer test-token",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    }, env);
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "client accounting format is outdated; update ccclub (requires 18)",
+    });
+    expect(JSON.parse(values.get("usage:user-1") ?? "{}")).toEqual(usage);
+  });
+
+  it("accepts a newer format and advances the stored monotonic guard", async () => {
+    const user: UserRecord = {
+      userId: "user-1",
+      displayName: "Test",
+      avatar: "",
+      visibility: "private",
+      createdAt: "2026-07-24T00:00:00.000Z",
+    };
+    const usage: UsageData = {
+      blocks: [block("codex", 100)],
+      lastSync: "2026-07-24T00:00:00.000Z",
+      syncFormatVersion: 18,
+    };
+    const { env, values } = testEnv({
+      "token:test-token": user,
+      "usage:user-1": usage,
+      "user_groups:user-1": [],
+    });
+
+    const response = await syncRoutes.request("/sync", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer test-token",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        blocks: [block("codex", 200)],
+        syncFormatVersion: 19,
+      }),
+    }, env);
+
+    expect(response.status).toBe(200);
+    const stored = JSON.parse(values.get("usage:user-1") ?? "{}") as UsageData;
+    expect(stored.syncFormatVersion).toBe(19);
+    expect(stored.blocks).toEqual([block("codex", 200)]);
   });
 });

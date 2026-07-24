@@ -10,9 +10,9 @@ import { leaveCommand } from "./commands/leave.js";
 import { hookCommand } from "./commands/hook.js";
 import { statuslineCommand } from "./commands/statusline.js";
 import { startUpdateCheck } from "./update-check.js";
+import { getCurrentVersion } from "./version.js";
 
-declare const __VERSION__: string;
-const VERSION = __VERSION__;
+const VERSION = getCurrentVersion();
 startUpdateCheck(VERSION);
 
 const program = new Command();

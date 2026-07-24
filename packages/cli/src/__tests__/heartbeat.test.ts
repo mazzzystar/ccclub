@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 import { getPlist } from "../heartbeat.js";
 
 describe("getPlist", () => {
-  const plist = getPlist();
+  const plist = getPlist("0.6.13");
 
   it("prepends the running Node bin dir to PATH so launchd resolves npx/node under nvm/asdf/volta (#18)", () => {
     const nodeBinDir = dirname(process.execPath);
@@ -20,10 +20,11 @@ describe("getPlist", () => {
     expect(pathValue).toContain("/usr/bin");
   });
 
-  it("invokes the heartbeat via /usr/bin/env npx ccclub sync --silent", () => {
+  it("pins the heartbeat to the exact installed ccclub version", () => {
     expect(plist).toContain("/usr/bin/env");
     expect(plist).toContain("npx");
-    expect(plist).toContain("ccclub");
+    expect(plist).toContain("--yes");
+    expect(plist).toContain("ccclub@0.6.13");
     expect(plist).toContain("sync");
     expect(plist).toContain("--silent");
   });

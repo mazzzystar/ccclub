@@ -3,6 +3,7 @@ import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 import { existsSync, readFileSync } from "node:fs";
 import { execFile } from "node:child_process";
+import { getCurrentVersion } from "./version.js";
 
 const PLIST_NAME = "dev.ccclub.sync";
 const LAUNCH_AGENTS_DIR = join(homedir(), "Library", "LaunchAgents");
@@ -12,7 +13,7 @@ const PLIST_PATH = join(LAUNCH_AGENTS_DIR, `${PLIST_NAME}.plist`);
  * Build the LaunchAgent plist for the 5-minute heartbeat sync.
  * @internal exported only so the generated PATH can be unit-tested.
  */
-export function getPlist(): string {
+export function getPlist(version = getCurrentVersion()): string {
   const logPath = join(homedir(), ".ccclub", "sync.log");
   // Prepend the running Node's bin dir so launchd can resolve `npx`/`node`
   // even when Node is installed via a version manager (nvm/asdf/volta),
@@ -28,7 +29,8 @@ export function getPlist(): string {
   <array>
     <string>/usr/bin/env</string>
     <string>npx</string>
-    <string>ccclub</string>
+    <string>--yes</string>
+    <string>ccclub@${version}</string>
     <string>sync</string>
     <string>--silent</string>
   </array>

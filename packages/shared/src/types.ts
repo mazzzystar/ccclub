@@ -155,6 +155,8 @@ export interface UsageData {
   blocks: UsageBlock[];
   lastSync: string;
   usageSnapshot?: UsageSnapshot;
+  /** Highest accounting format accepted for this user's stored history. */
+  syncFormatVersion?: number;
 }
 
 // Ranking entry
@@ -221,6 +223,11 @@ export interface JoinResponse {
 export interface SyncRequest {
   blocks: UsageBlock[];
   usageSnapshot?: UsageSnapshot;
+  /**
+   * Monotonic accounting format. Once the server has accepted a version, it
+   * rejects older or unversioned clients so they cannot restore stale totals.
+   */
+  syncFormatVersion?: number;
   /**
    * Sources whose stored history is atomically replaced by this request.
    * Full-sync clients use this to remove obsolete blocks that disappear after

@@ -4,10 +4,10 @@ These tiny, synthetic JSONL transcripts freeze accounting cases that have
 caused real-world drift. They contain no real prompts, code, usernames, paths,
 or session IDs.
 
-The fixtures were run directly against these pinned upstream revisions:
+The fixtures were reviewed against these pinned upstream revisions:
 
-- ccusage 20.0.17, commit `7acee6c5853c26fe66fbe1453bd94c9376afec06`
-- Vibe Usage 0.9.15, commit `a13b7870cecad6ca97de4cbf9f6023a1346faf4d`
+- ccusage 20.0.18, commit `31e084a2816fa8ab429894d61bac52dc65178655`
+- Vibe Usage 0.10.3, commit `2723b6dfe1f59a1bd70d8507f69667ed4abf0864`
 
 `claude-fable-1h` matches ccusage exactly: 1,000 input, 200 output,
 5,000 one-hour cache-write, 100,000 cache-read, 106,200 total tokens, and
@@ -21,11 +21,13 @@ three implementations. ccclub's $0.00728 cost also matches ccusage; Vibe Usage
 prices the uploaded bucket on its server rather than in the local parser.
 
 `codex-last-n-replay` freezes the newer Codex fork layout: the child retains
-only the final two parent token records, re-stamps them, then starts its own
-turn. ccclub and Vibe Usage both count 1,050 input, 105 output, and 1,155 total
-tokens. ccusage 20.0.17 still uses the older same-second heuristic, so this
-fixture documents its known inflated result (1,750 input, 175 output, 1,925
-total) as an upstream gap rather than treating it as authoritative.
+only the final two parent token records, re-stamps them, adds the non-billable
+`cache_write_input_tokens: 0` field, then starts its own turn. The raw-log
+ground truth is 1,050 input, 105 output, and 1,155 total tokens. Vibe Usage
+0.10.3 hashes the complete payload, so the added zero field defeats its replay
+match. ccusage 20.0.18 still uses the older same-second heuristic, so both
+upstream implementations currently inflate this fixture. Those are documented
+upstream gaps rather than targets for ccclub to imitate.
 
 `codex-reasoning` freezes Codex's output-token semantics: its 400,000
 reasoning tokens are an informational subset of the 1,000,000 output tokens,

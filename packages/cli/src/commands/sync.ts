@@ -18,12 +18,11 @@ import { formatFetchError } from "../fetch-error.js";
 import { fetchUsageLimits } from "../usage-limits.js";
 import { acquireSyncLock } from "../sync-lock.js";
 
-// Bump this only when the BLOCK FORMAT changes (new fields, different
-// aggregation) — it forces a one-time full re-sync for every user, which also
-// reprices history against the current table. Newly supported sources do NOT
-// need a bump: filterBlocksToSync uploads the full history of any source that
-// has no per-source sync marker yet.
-const SYNC_FORMAT_VERSION = "16";
+// Bump this when the block format or accounting semantics change. It forces a
+// one-time source replacement so corrected parsing can also delete obsolete
+// historical blocks. Newly supported sources do NOT need a bump:
+// filterBlocksToSync already uploads their full history.
+const SYNC_FORMAT_VERSION = "17";
 
 function getSyncVersionPath(): string {
   return join(homedir(), CCCLUB_CONFIG_DIR, "sync-version");
@@ -138,10 +137,13 @@ async function performSync(config: CliConfig, firstSync = false, silent = false)
       fetchUsageLimits().catch(() => null),
     ]);
     const populatedSources = sources.filter((source) => source.entries.length > 0);
+    const replaceSources = firstSync
+      ? sources.filter((source) => source.files > 0).map((source) => source.source)
+      : [];
     const activeSources = populatedSources.map((source) => AGENT_LABELS[source.source]);
     if (spinner) spinner.text = `Found ${entries.length} entries${activeSources.length > 0 ? ` from ${activeSources.join(", ")}` : ""}`;
 
-    if (entries.length === 0) {
+    if (entries.length === 0 && replaceSources.length === 0) {
       if (spinner) spinner.warn("No usage data found for supported coding agents");
       if (!silent && warnings.length > 0) {
         for (const warning of warnings) log(chalk.dim(`  ${warning}`));
@@ -168,12 +170,15 @@ async function performSync(config: CliConfig, firstSync = false, silent = false)
     }
 
     const blocksToSync = filterBlocksToSync(allBlocks, { lastSync, lastSyncBySource, hasSourceState, firstSync });
+    const nextLastSyncBySource = { ...lastSyncBySource };
+    for (const source of replaceSources) delete nextLastSyncBySource[source];
+    Object.assign(nextLastSyncBySource, getLatestBlockStartBySource(allBlocks));
 
-    if (blocksToSync.length === 0) {
+    if (blocksToSync.length === 0 && replaceSources.length === 0) {
       if (spinner) spinner.succeed("Already up to date");
       // Merge instead of overwrite: a CCCLUB_SOURCES-filtered run must not
       // erase the sync markers of sources it did not collect.
-      await writeFile(getLastSyncBySourcePath(), JSON.stringify({ ...lastSyncBySource, ...getLatestBlockStartBySource(allBlocks) }, null, 2));
+      await writeFile(getLastSyncBySourcePath(), JSON.stringify(nextLastSyncBySource, null, 2));
       await writeFile(getSyncVersionPath(), SYNC_FORMAT_VERSION);
       await writeFile(pricingVersionPath, version);
       // Even with no new blocks, upload usage snapshot so others see fresh data
@@ -193,9 +198,10 @@ async function performSync(config: CliConfig, firstSync = false, silent = false)
 
     const syncBody: SyncRequest = { blocks: blocksToSync, trackedSources };
     // A parser correction can make an old block disappear completely. Merging
-    // by block key cannot delete that stale block, so full syncs replace the
-    // complete history of sources for which this scan actually found data.
-    if (firstSync) syncBody.replaceSources = populatedSources.map((source) => source.source);
+    // by block key cannot delete that stale block, so full syncs replace every
+    // source for which local log files were successfully scanned, even when
+    // the corrected source now has zero billable entries.
+    if (replaceSources.length > 0) syncBody.replaceSources = replaceSources;
     if (usageSnapshot) syncBody.usageSnapshot = usageSnapshot;
 
     const res = await fetch(`${config.apiUrl}/api/sync`, {
@@ -218,9 +224,9 @@ async function performSync(config: CliConfig, firstSync = false, silent = false)
     const data = (await res.json()) as SyncResponse;
 
     // Save last sync timestamp and format version
-    const latest = blocksToSync[blocksToSync.length - 1];
-    await writeFile(lastSyncPath, latest.blockStart);
-    await writeFile(getLastSyncBySourcePath(), JSON.stringify({ ...lastSyncBySource, ...getLatestBlockStartBySource(allBlocks) }, null, 2));
+    const latest = blocksToSync.at(-1);
+    if (latest != null) await writeFile(lastSyncPath, latest.blockStart);
+    await writeFile(getLastSyncBySourcePath(), JSON.stringify(nextLastSyncBySource, null, 2));
     await writeFile(getSyncVersionPath(), SYNC_FORMAT_VERSION);
     await writeFile(pricingVersionPath, version);
     await writeFile(getLastSyncTimePath(), String(Date.now()));

@@ -429,10 +429,27 @@ describe("multi-agent collection", () => {
     // New Codex variants may expose only thread_source + parent_thread_id.
     // Replayed records can span many seconds, so the old same-second heuristic
     // cannot recognize this Last-N suffix.
-    const replayedSuffix = parentTokens.slice(-100).map((record, index) => ({
-      ...record,
-      timestamp: new Date(spawnMs + index * 1000).toISOString(),
-    }));
+    const replayedSuffix = parentTokens.slice(-100).map((record, index) => {
+      const payload = record.payload;
+      return {
+        ...record,
+        timestamp: new Date(spawnMs + index * 1000).toISOString(),
+        payload: {
+          ...payload,
+          info: {
+            ...payload.info,
+            last_token_usage: {
+              ...payload.info.last_token_usage,
+              cache_write_input_tokens: 0,
+            },
+            total_token_usage: {
+              ...payload.info.total_token_usage,
+              cache_write_input_tokens: 0,
+            },
+          },
+        },
+      };
+    });
     const childOwnStart = new Date(spawnMs + 120_000).toISOString();
     const childRecords = [
       {

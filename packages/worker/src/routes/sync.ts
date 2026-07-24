@@ -24,15 +24,6 @@ app.post("/sync", async (c) => {
   }
 
   const { blocks, usageSnapshot, replaceSources, trackedSources } = await c.req.json<SyncRequest>();
-  if (!Array.isArray(blocks) || blocks.length === 0) {
-    return c.json({ error: "blocks array required" }, 400);
-  }
-
-  // Cap blocks per request to prevent abuse
-  if (blocks.length > 50_000) {
-    return c.json({ error: "too many blocks (max 50000)" }, 400);
-  }
-
   if (
     replaceSources !== undefined &&
     (!Array.isArray(replaceSources) || replaceSources.some((source) => !AGENT_SOURCES.includes(source)))
@@ -45,6 +36,18 @@ app.post("/sync", async (c) => {
     (!Array.isArray(trackedSources) || trackedSources.some((source) => !AGENT_SOURCES.includes(source)))
   ) {
     return c.json({ error: "invalid trackedSources" }, 400);
+  }
+
+  if (
+    !Array.isArray(blocks) ||
+    (blocks.length === 0 && (!Array.isArray(replaceSources) || replaceSources.length === 0))
+  ) {
+    return c.json({ error: "blocks array required" }, 400);
+  }
+
+  // Cap blocks per request to prevent abuse
+  if (blocks.length > 50_000) {
+    return c.json({ error: "too many blocks (max 50000)" }, 400);
   }
 
   // Validate block fields

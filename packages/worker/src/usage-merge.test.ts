@@ -33,6 +33,17 @@ describe("mergeUsageBlocks", () => {
     ]);
   });
 
+  it("can replace a source with an empty corrected history", () => {
+    const existing = [
+      block("codex", "2026-07-08T00:00:00.000Z", 100),
+      block("claude", "2026-07-08T00:00:00.000Z", 300),
+    ];
+
+    expect(mergeUsageBlocks(existing, [], { replaceSources: ["codex"] })).toEqual([
+      block("claude", "2026-07-08T00:00:00.000Z", 300),
+    ]);
+  });
+
   it("keeps merge-only behavior for incremental and older clients", () => {
     const existing = [
       block("codex", "2026-07-08T00:00:00.000Z", 100),

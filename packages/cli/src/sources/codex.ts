@@ -95,7 +95,7 @@ interface ReplayBoundary {
 
 // Part of the per-file scan-cache key. Bump whenever parsing, replay indexing,
 // or dedup semantics change so an older cached shape is never reused.
-const CODEX_SCAN_VERSION = 4;
+const CODEX_SCAN_VERSION = 5;
 const OWN_TASK_START_WINDOW_MS = 5_000;
 const UNRESOLVED_TOKEN_TIME = Number.MAX_SAFE_INTEGER;
 const codexFastServiceTierRegex = /(?:^|\n)\s*service_tier\s*=\s*["']?(?:fast|priority)["']?/iu;
@@ -235,11 +235,30 @@ function extractParentThreadId(meta: Record<string, unknown>): string | null {
   return asString(spawn?.parent_thread_id) ?? null;
 }
 
+function usageFingerprintTuple(usage: RawCodexUsage | null): number[] | null {
+  if (usage == null) return null;
+  return [
+    usage.inputTokens,
+    usage.cachedInputTokens,
+    usage.outputTokens,
+    usage.reasoningTokens,
+    usage.totalTokens,
+  ];
+}
+
 function tokenFingerprint(payload: Record<string, unknown>): string {
-  // Copied rollout items may receive a fresh outer timestamp, while the
-  // token_count payload remains unchanged. Hash only that payload.
+  const info = asRecord(payload.info);
+  // Copied rollout items can receive fresh timestamps and non-billable schema
+  // additions such as cache_write_input_tokens: 0. Canonicalize only the
+  // fields that define the billable event so those copies still match without
+  // hiding a genuinely different token emission.
+  const billableEvent = {
+    model: extractModelFromPayload(payload) ?? null,
+    last: usageFingerprintTuple(normalizeRawUsage(info?.last_token_usage)),
+    total: usageFingerprintTuple(normalizeRawUsage(info?.total_token_usage)),
+  };
   return createHash("sha256")
-    .update(JSON.stringify(payload))
+    .update(JSON.stringify(billableEvent))
     .digest("base64url")
     .slice(0, 16);
 }

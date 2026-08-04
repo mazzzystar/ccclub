@@ -36,13 +36,19 @@ interface CacheSetup {
   rankAgeMs?: number;
   fiveHour?: number;
   sevenDay?: number;
+  modelWeekly?: unknown;
 }
 
 async function setUpCaches(dir: string, setup: CacheSetup = {}): Promise<{ usageCachePath: string; rankCachePath: string; now: number }> {
   const usageCachePath = join(dir, "usage-cache.json");
   const rankCachePath = join(dir, "rank-cache.json");
   await writeFile(usageCachePath, JSON.stringify({
-    snapshot: { fiveHour: setup.fiveHour ?? 15, sevenDay: setup.sevenDay ?? 43, snapshotAt: "x" },
+    snapshot: {
+      fiveHour: setup.fiveHour ?? 15,
+      sevenDay: setup.sevenDay ?? 43,
+      snapshotAt: "x",
+      ...(setup.modelWeekly !== undefined ? { modelWeekly: setup.modelWeekly } : {}),
+    },
     fetchedAt: NOW - (setup.usageAgeMs ?? 60_000),
   }));
   await writeFile(rankCachePath, JSON.stringify({
@@ -118,6 +124,68 @@ describe("renderStatusline", () => {
       { now: NOW, usageCachePath: join(dir, "u"), rankCachePath: join(dir, "r") },
     ));
     expect(line).toBe(" Fable 5 (200K)");
+  });
+
+  it("renders the session effort level after the model name", async () => {
+    const options = await setUpCaches(await makeTempDir());
+    const line = renderStatusline(
+      JSON.stringify({ model: { display_name: "Fable 5 (1M context)" }, effort: { level: "xhigh" } }),
+      options,
+    );
+    expect(stripAnsi(line)).toBe(" Fable 5 (1M) xhigh | 5h: 15% / 7d: 43% | #11/67 $19.0");
+    expect(line).toContain("\x1b[38;2;212;168;92mxhigh"); // warning color
+  });
+
+  it("colors each effort level by intensity and dims unknown levels", async () => {
+    const dir = await makeTempDir();
+    const render = (level: unknown) => renderStatusline(
+      JSON.stringify({ model: { display_name: "Fable 5" }, effort: { level } }),
+      { now: NOW, usageCachePath: join(dir, "u"), rankCachePath: join(dir, "r") },
+    );
+    expect(render("low")).toContain("\x1b[38;5;102mlow"); // dim
+    expect(render("medium")).toContain("\x1b[38;2;122;183;198mmedium"); // cyan
+    expect(render("high")).toContain("\x1b[38;2;99;180;134mhigh"); // green
+    expect(render("max")).toContain("\x1b[38;2;210;106;106mmax"); // danger
+    expect(stripAnsi(render("ULTRA"))).toBe(" Fable 5 ultra");
+    expect(render("ULTRA")).toContain("\x1b[38;5;102multra"); // unknown → dim
+    expect(stripAnsi(render(42))).toBe(" Fable 5"); // non-string → omitted
+  });
+
+  it("renders a model-scoped weekly limit after 5h/7d", async () => {
+    const options = await setUpCaches(await makeTempDir(), {
+      modelWeekly: { label: "Fable", percent: 8 },
+    });
+    const line = stripAnsi(renderStatusline(STDIN_JSON, options));
+    expect(line).toBe(" Fable 5 | 5h: 15% / 7d: 43% / Fable: 8% | #11/67 $19.0");
+  });
+
+  it("colors the model-scoped percentage by threshold", async () => {
+    const options = await setUpCaches(await makeTempDir(), {
+      modelWeekly: { label: "Fable", percent: 85 },
+    });
+    expect(renderStatusline(STDIN_JSON, options)).toContain("\x1b[38;2;210;106;106m85%"); // danger ≥ 80
+  });
+
+  it("drops a malformed model-scoped entry but keeps the snapshot", async () => {
+    for (const modelWeekly of [
+      { label: "Fable" }, // no percent
+      { percent: 8 }, // no label
+      { label: "\x1b\x07", percent: 8 }, // control chars only → empty label
+      "nonsense",
+    ]) {
+      const options = await setUpCaches(await makeTempDir(), { modelWeekly });
+      const line = stripAnsi(renderStatusline(STDIN_JSON, options));
+      expect(line).toBe(" Fable 5 | 5h: 15% / 7d: 43% | #11/67 $19.0");
+    }
+  });
+
+  it("strips escape sequences from a cache-supplied label", async () => {
+    const options = await setUpCaches(await makeTempDir(), {
+      modelWeekly: { label: "\x1b[31mFable", percent: 8 },
+    });
+    const line = renderStatusline(STDIN_JSON, options);
+    expect(line).not.toContain("\x1b[31m"); // the ESC byte itself is gone
+    expect(stripAnsi(line)).toContain("[31mFable: 8%"); // printable remainder renders literally
   });
 });
 

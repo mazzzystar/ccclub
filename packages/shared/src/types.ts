@@ -148,6 +148,11 @@ export interface UsageSnapshot {
   fiveHour: number;   // % of 5-hour quota used (0–100)
   sevenDay: number;   // % of 7-day quota used (0–100)
   snapshotAt: string; // ISO timestamp
+  /**
+   * Model-scoped weekly limit (e.g. Fable) from the usage API's limits[]
+   * array. Client-side only: the worker's snapshot sanitizers drop it.
+   */
+  modelWeekly?: { label: string; percent: number };
 }
 
 // KV: usage:{userId} → UsageData

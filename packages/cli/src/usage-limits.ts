@@ -39,6 +39,28 @@ function parseUtilization(value: unknown): number {
   return 0;
 }
 
+/**
+ * Model-scoped weekly limit (e.g. the Fable weekly cap shown by /usage) from
+ * the API's generic limits[] array. The label comes from the API so a future
+ * scoped model shows up without a code change.
+ */
+function parseModelWeekly(value: unknown): UsageSnapshot["modelWeekly"] {
+  if (!Array.isArray(value)) return undefined;
+  for (const entry of value) {
+    const e = entry as {
+      kind?: unknown;
+      percent?: unknown;
+      scope?: { model?: { display_name?: unknown } };
+    };
+    if (e?.kind !== "weekly_scoped") continue;
+    const label = e.scope?.model?.display_name;
+    if (typeof label !== "string" || !label.trim()) continue;
+    if (typeof e.percent !== "number" || !isFinite(e.percent)) continue;
+    return { label: label.trim(), percent: Math.round(e.percent * 100) / 100 };
+  }
+  return undefined;
+}
+
 export async function fetchUsageLimits(): Promise<UsageSnapshot | null> {
   const cached = readCache();
   if (cached) {
@@ -85,10 +107,12 @@ export async function fetchUsageLimits(): Promise<UsageSnapshot | null> {
       if (!(data as { error?: unknown }).error) {
         const fiveHourRaw = (data.five_hour as Record<string, unknown>)?.utilization;
         const sevenDayRaw = (data.seven_day as Record<string, unknown>)?.utilization;
-        const result = {
+        const modelWeekly = parseModelWeekly(data.limits);
+        const result: UsageSnapshot = {
           fiveHour: parseUtilization(fiveHourRaw),
           sevenDay: parseUtilization(sevenDayRaw),
           snapshotAt: new Date().toISOString(),
+          ...(modelWeekly ? { modelWeekly } : {}),
         };
         debug("returning snapshot:", result.fiveHour, result.sevenDay);
         writeCache(result);

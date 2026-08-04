@@ -29,6 +29,16 @@ const BRONZE = "\x1b[38;2;197;138;97m"; // theme.bronze
 const CYAN = "\x1b[38;2;122;183;198m"; // theme.linkText
 const RESET = "\x1b[0m";
 
+// /effort levels, colored by intensity. Unknown (future) levels render DIM
+// rather than disappearing.
+const EFFORT_COLORS: Record<string, string> = {
+  low: DIM,
+  medium: CYAN,
+  high: GREEN,
+  xhigh: WARN,
+  max: DANGER,
+};
+
 export function getUsageCachePath(): string {
   return join(homedir(), CCCLUB_CONFIG_DIR, "usage-cache.json");
 }
@@ -72,7 +82,16 @@ function readUsageCache(path: string, now: number): UsageSnapshot | null {
   ) {
     return null;
   }
-  return snapshot;
+  // A malformed model-scoped entry drops just that segment, not the snapshot.
+  // The label lands in terminal output, so keep it printable and short.
+  const mw = snapshot.modelWeekly;
+  const label = typeof mw?.label === "string"
+    ? mw.label.replace(/[^\x20-\x7E]/g, "").trim().slice(0, 20)
+    : "";
+  if (mw == null || asFiniteNumber(mw.percent) == null || !label) {
+    return { ...snapshot, modelWeekly: undefined };
+  }
+  return { ...snapshot, modelWeekly: { label, percent: mw.percent } };
 }
 
 function isSameLocalDay(a: number, b: number): boolean {
@@ -131,7 +150,7 @@ function rankColor(rank: number): string {
  * Build the statusline from Claude Code's stdin JSON plus local caches.
  * Segments degrade independently: anything unavailable is silently omitted.
  *
- * Example: ` Fable 5 | 5h: 15% / 7d: 43% | #11/67 $19.0`
+ * Example: ` Fable 5 xhigh | 5h: 15% / 7d: 43% / Fable: 8% | #11/67 $19.0`
  */
 export function renderStatusline(
   input: string,
@@ -150,20 +169,34 @@ export function renderStatusline(
   const segments: string[] = [];
 
   const modelName = (data.model as { display_name?: unknown } | undefined)?.display_name;
+  const modelParts: string[] = [];
   if (typeof modelName === "string" && modelName.trim()) {
     // "Fable 5 (200K context)" → "Fable 5 ($1)"-style shortening, as cc-costline does.
     const model = modelName.replace(/\s*\((\d+[KMB])\s+context\)/i, " ($1)").trim();
-    segments.push(`${MODEL}${model}${RESET}`);
+    modelParts.push(`${MODEL}${model}${RESET}`);
   }
+  // Session-scoped reasoning effort; absent when the model has no effort knob.
+  const effortLevel = (data.effort as { level?: unknown } | undefined)?.level;
+  if (typeof effortLevel === "string" && effortLevel.trim()) {
+    const level = effortLevel.trim().toLowerCase().slice(0, 12);
+    modelParts.push(`${EFFORT_COLORS[level] ?? DIM}${level}${RESET}`);
+  }
+  if (modelParts.length > 0) segments.push(modelParts.join(" "));
 
   const usage = readUsageCache(options.usageCachePath ?? getUsageCachePath(), now);
   if (usage) {
     const five = Math.round(usage.fiveHour);
     const seven = Math.round(usage.sevenDay);
-    segments.push(
+    let seg =
       `${DIM}5h:${RESET} ${percentColor(five)}${five}%${RESET} ${DIM}/${RESET} ` +
-      `${DIM}7d:${RESET} ${percentColor(seven)}${seven}%${RESET}`,
-    );
+      `${DIM}7d:${RESET} ${percentColor(seven)}${seven}%${RESET}`;
+    if (usage.modelWeekly) {
+      const pct = Math.round(usage.modelWeekly.percent);
+      seg +=
+        ` ${DIM}/${RESET} ${DIM}${usage.modelWeekly.label}:${RESET} ` +
+        `${percentColor(pct)}${pct}%${RESET}`;
+    }
+    segments.push(seg);
   }
 
   const rank = readRankCache(options.rankCachePath ?? getRankCachePath(), now);

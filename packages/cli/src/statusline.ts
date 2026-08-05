@@ -47,6 +47,17 @@ export function getRankCachePath(): string {
   return join(homedir(), CCCLUB_CONFIG_DIR, "rank-cache.json");
 }
 
+/** A model-scoped weekly limit, e.g. the Fable cap that `/usage` reports. */
+export interface ModelWeekly {
+  label: string;
+  percent: number;
+}
+
+/** Written only by `ccclub sync`; see writeModelWeekly in usage-limits.ts. */
+export function getModelWeeklyPath(): string {
+  return join(homedir(), CCCLUB_CONFIG_DIR, "model-weekly.json");
+}
+
 interface RankCacheEntry {
   rank: number;
   total: number;
@@ -82,16 +93,20 @@ function readUsageCache(path: string, now: number): UsageSnapshot | null {
   ) {
     return null;
   }
-  // A malformed model-scoped entry drops just that segment, not the snapshot.
-  // The label lands in terminal output, so keep it printable and short.
-  const mw = snapshot.modelWeekly;
-  const label = typeof mw?.label === "string"
-    ? mw.label.replace(/[^\x20-\x7E]/g, "").trim().slice(0, 20)
+  return snapshot;
+}
+
+function readModelWeekly(path: string, now: number): ModelWeekly | null {
+  const raw = readJsonFile(path);
+  const percent = asFiniteNumber(raw?.percent);
+  const fetchedAt = asFiniteNumber(raw?.fetchedAt);
+  if (percent == null || fetchedAt == null || now - fetchedAt > USAGE_MAX_AGE_MS) return null;
+  // The label comes from the API and lands in terminal output, so keep it
+  // printable and short. A malformed entry drops just this segment.
+  const label = typeof raw?.label === "string"
+    ? raw.label.replace(/[^\x20-\x7E]/g, "").trim().slice(0, 20)
     : "";
-  if (mw == null || asFiniteNumber(mw.percent) == null || !label) {
-    return { ...snapshot, modelWeekly: undefined };
-  }
-  return { ...snapshot, modelWeekly: { label, percent: mw.percent } };
+  return label ? { label, percent } : null;
 }
 
 function isSameLocalDay(a: number, b: number): boolean {
@@ -154,7 +169,12 @@ function rankColor(rank: number): string {
  */
 export function renderStatusline(
   input: string,
-  options: { now?: number; usageCachePath?: string; rankCachePath?: string } = {},
+  options: {
+    now?: number;
+    usageCachePath?: string;
+    rankCachePath?: string;
+    modelWeeklyPath?: string;
+  } = {},
 ): string {
   let data: Record<string, unknown>;
   try {
@@ -190,10 +210,11 @@ export function renderStatusline(
     let seg =
       `${DIM}5h:${RESET} ${percentColor(five)}${five}%${RESET} ${DIM}/${RESET} ` +
       `${DIM}7d:${RESET} ${percentColor(seven)}${seven}%${RESET}`;
-    if (usage.modelWeekly) {
-      const pct = Math.round(usage.modelWeekly.percent);
+    const modelWeekly = readModelWeekly(options.modelWeeklyPath ?? getModelWeeklyPath(), now);
+    if (modelWeekly) {
+      const pct = Math.round(modelWeekly.percent);
       seg +=
-        ` ${DIM}/${RESET} ${DIM}${usage.modelWeekly.label}:${RESET} ` +
+        ` ${DIM}/${RESET} ${DIM}${modelWeekly.label}:${RESET} ` +
         `${percentColor(pct)}${pct}%${RESET}`;
     }
     segments.push(seg);

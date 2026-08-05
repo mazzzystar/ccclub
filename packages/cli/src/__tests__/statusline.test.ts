@@ -36,18 +36,25 @@ interface CacheSetup {
   rankAgeMs?: number;
   fiveHour?: number;
   sevenDay?: number;
-  modelWeekly?: unknown;
+  /** Contents of model-weekly.json; omit to leave the file absent. */
+  modelWeekly?: Record<string, unknown>;
+  modelWeeklyAgeMs?: number;
 }
 
-async function setUpCaches(dir: string, setup: CacheSetup = {}): Promise<{ usageCachePath: string; rankCachePath: string; now: number }> {
+async function setUpCaches(dir: string, setup: CacheSetup = {}): Promise<{
+  usageCachePath: string;
+  rankCachePath: string;
+  modelWeeklyPath: string;
+  now: number;
+}> {
   const usageCachePath = join(dir, "usage-cache.json");
   const rankCachePath = join(dir, "rank-cache.json");
+  const modelWeeklyPath = join(dir, "model-weekly.json");
   await writeFile(usageCachePath, JSON.stringify({
     snapshot: {
       fiveHour: setup.fiveHour ?? 15,
       sevenDay: setup.sevenDay ?? 43,
       snapshotAt: "x",
-      ...(setup.modelWeekly !== undefined ? { modelWeekly: setup.modelWeekly } : {}),
     },
     fetchedAt: NOW - (setup.usageAgeMs ?? 60_000),
   }));
@@ -57,7 +64,13 @@ async function setUpCaches(dir: string, setup: CacheSetup = {}): Promise<{ usage
     costUSD: 19.02,
     fetchedAt: NOW - (setup.rankAgeMs ?? 60_000),
   }));
-  return { usageCachePath, rankCachePath, now: NOW };
+  if (setup.modelWeekly !== undefined) {
+    await writeFile(modelWeeklyPath, JSON.stringify({
+      fetchedAt: NOW - (setup.modelWeeklyAgeMs ?? 60_000),
+      ...setup.modelWeekly,
+    }));
+  }
+  return { usageCachePath, rankCachePath, modelWeeklyPath, now: NOW };
 }
 
 describe("renderStatusline", () => {
@@ -73,6 +86,7 @@ describe("renderStatusline", () => {
       now: NOW,
       usageCachePath: join(dir, "missing-usage.json"),
       rankCachePath: join(dir, "missing-rank.json"),
+      modelWeeklyPath: join(dir, "missing-model-weekly.json"),
     }));
     expect(line).toBe(" Fable 5");
   });
@@ -99,7 +113,12 @@ describe("renderStatusline", () => {
       fetchedAt: morning - 11 * 60 * 60 * 1000,
     }));
 
-    const line = stripAnsi(renderStatusline(STDIN_JSON, { now: morning, usageCachePath, rankCachePath }));
+    const line = stripAnsi(renderStatusline(STDIN_JSON, {
+      now: morning,
+      usageCachePath,
+      rankCachePath,
+      modelWeeklyPath: join(dir, "model-weekly.json"),
+    }));
     expect(line).toBe(" Fable 5 | 5h: 15% / 7d: 43%");
   });
 
@@ -121,7 +140,7 @@ describe("renderStatusline", () => {
     const dir = await makeTempDir();
     const line = stripAnsi(renderStatusline(
       JSON.stringify({ model: { display_name: "Fable 5 (200K context)" } }),
-      { now: NOW, usageCachePath: join(dir, "u"), rankCachePath: join(dir, "r") },
+      { now: NOW, usageCachePath: join(dir, "u"), rankCachePath: join(dir, "r"), modelWeeklyPath: join(dir, "m") },
     ));
     expect(line).toBe(" Fable 5 (200K)");
   });
@@ -140,7 +159,7 @@ describe("renderStatusline", () => {
     const dir = await makeTempDir();
     const render = (level: unknown) => renderStatusline(
       JSON.stringify({ model: { display_name: "Fable 5" }, effort: { level } }),
-      { now: NOW, usageCachePath: join(dir, "u"), rankCachePath: join(dir, "r") },
+      { now: NOW, usageCachePath: join(dir, "u"), rankCachePath: join(dir, "r"), modelWeeklyPath: join(dir, "m") },
     );
     expect(render("low")).toContain("\x1b[38;5;102mlow"); // dim
     expect(render("medium")).toContain("\x1b[38;2;122;183;198mmedium"); // cyan
@@ -171,12 +190,40 @@ describe("renderStatusline", () => {
       { label: "Fable" }, // no percent
       { percent: 8 }, // no label
       { label: "\x1b\x07", percent: 8 }, // control chars only → empty label
-      "nonsense",
     ]) {
       const options = await setUpCaches(await makeTempDir(), { modelWeekly });
       const line = stripAnsi(renderStatusline(STDIN_JSON, options));
       expect(line).toBe(" Fable 5 | 5h: 15% / 7d: 43% | #11/67 $19.0");
     }
+  });
+
+  it("keeps the model-scoped segment when an older ccclub rewrites the usage cache", async () => {
+    // Builds predating this segment rewrite usage-cache.json wholesale. The
+    // segment survives because its data is not in that file.
+    const dir = await makeTempDir();
+    const options = await setUpCaches(dir, { modelWeekly: { label: "Fable", percent: 21 } });
+    await writeFile(options.usageCachePath, JSON.stringify({
+      snapshot: { fiveHour: 17, sevenDay: 11, snapshotAt: "x" }, // no modelWeekly
+      fetchedAt: NOW - 1_000,
+    }));
+
+    const line = stripAnsi(renderStatusline(STDIN_JSON, options));
+    expect(line).toBe(" Fable 5 | 5h: 17% / 7d: 11% / Fable: 21% | #11/67 $19.0");
+  });
+
+  it("drops the model-scoped segment once it ages out", async () => {
+    const options = await setUpCaches(await makeTempDir(), {
+      modelWeekly: { label: "Fable", percent: 21 },
+      modelWeeklyAgeMs: 4 * 60 * 60 * 1000, // past the 3h freshness bound
+    });
+    const line = stripAnsi(renderStatusline(STDIN_JSON, options));
+    expect(line).toBe(" Fable 5 | 5h: 15% / 7d: 43% | #11/67 $19.0");
+  });
+
+  it("omits the model-scoped segment when the file is absent", async () => {
+    const options = await setUpCaches(await makeTempDir());
+    expect(stripAnsi(renderStatusline(STDIN_JSON, options)))
+      .toBe(" Fable 5 | 5h: 15% / 7d: 43% | #11/67 $19.0");
   });
 
   it("strips escape sequences from a cache-supplied label", async () => {
@@ -201,6 +248,7 @@ describe("rank hyperlink", () => {
       now: NOW,
       usageCachePath: join(dir, "no-usage"),
       rankCachePath,
+      modelWeeklyPath: join(dir, "no-model-weekly"),
     });
   }
 

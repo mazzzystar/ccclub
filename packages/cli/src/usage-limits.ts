@@ -2,9 +2,11 @@ import { execSync, exec } from "node:child_process";
 import { promisify } from "node:util";
 import { userInfo, homedir } from "node:os";
 import { join } from "node:path";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, rmSync } from "node:fs";
 import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
 import type { UsageSnapshot } from "@ccclub/shared";
+import { getModelWeeklyPath } from "./statusline.js";
+import type { ModelWeekly } from "./statusline.js";
 
 export type { UsageSnapshot };
 
@@ -44,7 +46,7 @@ function parseUtilization(value: unknown): number {
  * the API's generic limits[] array. The label comes from the API so a future
  * scoped model shows up without a code change.
  */
-function parseModelWeekly(value: unknown): UsageSnapshot["modelWeekly"] {
+function parseModelWeekly(value: unknown): ModelWeekly | undefined {
   if (!Array.isArray(value)) return undefined;
   for (const entry of value) {
     const e = entry as {
@@ -59,6 +61,22 @@ function parseModelWeekly(value: unknown): UsageSnapshot["modelWeekly"] {
     return { label: label.trim(), percent: Math.round(e.percent * 100) / 100 };
   }
   return undefined;
+}
+
+/**
+ * The model-scoped limit lives in its own file rather than inside the snapshot
+ * above, because every ccclub version that ever shipped rewrites
+ * usage-cache.json wholesale. A sync running an older pinned build drops any
+ * field it doesn't know about, blanking the statusline segment until the next
+ * newer-build sync — and the same would happen to the next field added there.
+ * Old builds never touch this path, so what they write here cannot regress.
+ */
+function writeModelWeekly(modelWeekly: ModelWeekly | undefined): void {
+  const path = getModelWeeklyPath();
+  try {
+    if (modelWeekly) writeFileSync(path, JSON.stringify({ ...modelWeekly, fetchedAt: Date.now() }));
+    else rmSync(path, { force: true }); // the limit no longer applies
+  } catch { /* unwritable — the statusline just omits the segment */ }
 }
 
 export async function fetchUsageLimits(): Promise<UsageSnapshot | null> {
@@ -107,15 +125,16 @@ export async function fetchUsageLimits(): Promise<UsageSnapshot | null> {
       if (!(data as { error?: unknown }).error) {
         const fiveHourRaw = (data.five_hour as Record<string, unknown>)?.utilization;
         const sevenDayRaw = (data.seven_day as Record<string, unknown>)?.utilization;
-        const modelWeekly = parseModelWeekly(data.limits);
         const result: UsageSnapshot = {
           fiveHour: parseUtilization(fiveHourRaw),
           sevenDay: parseUtilization(sevenDayRaw),
           snapshotAt: new Date().toISOString(),
-          ...(modelWeekly ? { modelWeekly } : {}),
         };
         debug("returning snapshot:", result.fiveHour, result.sevenDay);
         writeCache(result);
+        // Only a well-formed limits[] is evidence either way; a response
+        // missing it entirely says nothing, so leave the last one standing.
+        if (Array.isArray(data.limits)) writeModelWeekly(parseModelWeekly(data.limits));
         return result;
       }
       debug("API error response:", (data as { error?: unknown }).error);

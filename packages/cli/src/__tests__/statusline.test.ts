@@ -197,6 +197,29 @@ describe("renderStatusline", () => {
     }
   });
 
+  it("ignores a model-weekly file that is not an object", async () => {
+    const options = await setUpCaches(await makeTempDir(), { modelWeekly: { label: "Fable", percent: 8 } });
+    await writeFile(options.modelWeeklyPath, "nonsense");
+    expect(stripAnsi(renderStatusline(STDIN_JSON, options)))
+      .toBe(" Fable 5 | 5h: 15% / 7d: 43% | #11/67 $19.0");
+  });
+
+  it("clamps an out-of-range percentage instead of rendering it raw", async () => {
+    for (const [percent, shown] of [[-4, 0], [1e21, 100]] as const) {
+      const options = await setUpCaches(await makeTempDir(), { modelWeekly: { label: "Fable", percent } });
+      expect(stripAnsi(renderStatusline(STDIN_JSON, options)))
+        .toBe(` Fable 5 | 5h: 15% / 7d: 43% / Fable: ${shown}% | #11/67 $19.0`);
+    }
+  });
+
+  it("truncates a long label without leaving a gap before the colon", async () => {
+    const options = await setUpCaches(await makeTempDir(), {
+      modelWeekly: { label: "Fable Sonnet 4 5    Extra", percent: 21 },
+    });
+    expect(stripAnsi(renderStatusline(STDIN_JSON, options)))
+      .toBe(" Fable 5 | 5h: 15% / 7d: 43% / Fable Sonnet 4 5: 21% | #11/67 $19.0");
+  });
+
   it("keeps the model-scoped segment when an older ccclub rewrites the usage cache", async () => {
     // Builds predating this segment rewrite usage-cache.json wholesale. The
     // segment survives because its data is not in that file.

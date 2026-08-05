@@ -102,11 +102,13 @@ function readModelWeekly(path: string, now: number): ModelWeekly | null {
   const fetchedAt = asFiniteNumber(raw?.fetchedAt);
   if (percent == null || fetchedAt == null || now - fetchedAt > USAGE_MAX_AGE_MS) return null;
   // The label comes from the API and lands in terminal output, so keep it
-  // printable and short. A malformed entry drops just this segment.
+  // printable and short — truncating before the trim, so a cut mid-word can't
+  // leave trailing space before the colon. A malformed entry drops just this
+  // segment. An out-of-range percent is clamped rather than rendered raw.
   const label = typeof raw?.label === "string"
-    ? raw.label.replace(/[^\x20-\x7E]/g, "").trim().slice(0, 20)
+    ? raw.label.replace(/[^\x20-\x7E]/g, "").slice(0, 20).trim()
     : "";
-  return label ? { label, percent } : null;
+  return label ? { label, percent: Math.max(0, Math.min(100, percent)) } : null;
 }
 
 function isSameLocalDay(a: number, b: number): boolean {

@@ -2,7 +2,7 @@ import { execSync, exec } from "node:child_process";
 import { promisify } from "node:util";
 import { userInfo, homedir } from "node:os";
 import { join } from "node:path";
-import { readFileSync, writeFileSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, renameSync, rmSync } from "node:fs";
 import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
 import type { UsageSnapshot } from "@ccclub/shared";
 import { getModelWeeklyPath } from "./statusline.js";
@@ -42,12 +42,34 @@ function parseUtilization(value: unknown): number {
 }
 
 /**
+ * What a usage response says about the model-scoped weekly limit. "none" and
+ * "unknown" are deliberately distinct: an array with no scoped entry means the
+ * limit genuinely does not apply, whereas an entry we cannot read means the
+ * payload drifted and says nothing — overwriting on that would throw away a
+ * good value over a cosmetic schema change.
+ */
+type ScopedLimit =
+  | { state: "found"; limit: ModelWeekly }
+  | { state: "none" }
+  | { state: "unknown" };
+
+/** The API is loose about numeric types (see parseUtilization), so accept both. */
+function parsePercent(value: unknown): number | null {
+  const n = typeof value === "number" ? value
+    : typeof value === "string" ? parseFloat(value.replace("%", ""))
+    : NaN;
+  return isFinite(n) ? Math.round(n * 100) / 100 : null;
+}
+
+/**
  * Model-scoped weekly limit (e.g. the Fable weekly cap shown by /usage) from
  * the API's generic limits[] array. The label comes from the API so a future
  * scoped model shows up without a code change.
+ * @internal exported for tests.
  */
-function parseModelWeekly(value: unknown): ModelWeekly | undefined {
-  if (!Array.isArray(value)) return undefined;
+export function parseModelWeekly(value: unknown): ScopedLimit {
+  if (!Array.isArray(value)) return { state: "unknown" };
+  let sawScopedEntry = false;
   for (const entry of value) {
     const e = entry as {
       kind?: unknown;
@@ -55,12 +77,14 @@ function parseModelWeekly(value: unknown): ModelWeekly | undefined {
       scope?: { model?: { display_name?: unknown } };
     };
     if (e?.kind !== "weekly_scoped") continue;
+    sawScopedEntry = true;
     const label = e.scope?.model?.display_name;
-    if (typeof label !== "string" || !label.trim()) continue;
-    if (typeof e.percent !== "number" || !isFinite(e.percent)) continue;
-    return { label: label.trim(), percent: Math.round(e.percent * 100) / 100 };
+    const percent = parsePercent(e.percent);
+    if (typeof label === "string" && label.trim() && percent != null) {
+      return { state: "found", limit: { label: label.trim(), percent } };
+    }
   }
-  return undefined;
+  return sawScopedEntry ? { state: "unknown" } : { state: "none" };
 }
 
 /**
@@ -70,18 +94,47 @@ function parseModelWeekly(value: unknown): ModelWeekly | undefined {
  * field it doesn't know about, blanking the statusline segment until the next
  * newer-build sync — and the same would happen to the next field added there.
  * Old builds never touch this path, so what they write here cannot regress.
+ *
+ * "no limit" is recorded rather than deleted, so a later run can tell a
+ * checked-and-absent limit from one that was never fetched.
+ * @internal exported for tests.
  */
-function writeModelWeekly(modelWeekly: ModelWeekly | undefined): void {
-  const path = getModelWeeklyPath();
+export function writeModelWeekly(result: ScopedLimit, path = getModelWeeklyPath()): void {
+  if (result.state === "unknown") return; // no evidence — keep the last value
+  const body = JSON.stringify({
+    ...(result.state === "found" ? result.limit : {}),
+    fetchedAt: Date.now(),
+  });
+  // The statusline reads this on every turn while two writers (Stop hook and
+  // LaunchAgent) may be running, so swap it in atomically: a plain write
+  // truncates first, and a read landing in that window sees an empty file.
+  const tmp = `${path}.tmp`;
   try {
-    if (modelWeekly) writeFileSync(path, JSON.stringify({ ...modelWeekly, fetchedAt: Date.now() }));
-    else rmSync(path, { force: true }); // the limit no longer applies
-  } catch { /* unwritable — the statusline just omits the segment */ }
+    writeFileSync(tmp, body);
+    renameSync(tmp, path);
+  } catch {
+    // Unwritable — the statusline just keeps the previous value until it ages out.
+    try { rmSync(tmp, { force: true }); } catch { /* nothing to clean up */ }
+  }
+}
+
+/** Age of the recorded model-scoped limit; Infinity when never fetched. */
+function modelWeeklyAgeMs(now: number): number {
+  try {
+    const raw = JSON.parse(readFileSync(getModelWeeklyPath(), "utf-8")) as { fetchedAt?: unknown };
+    return typeof raw?.fetchedAt === "number" && isFinite(raw.fetchedAt) ? now - raw.fetchedAt : Infinity;
+  } catch {
+    return Infinity;
+  }
 }
 
 export async function fetchUsageLimits(): Promise<UsageSnapshot | null> {
   const cached = readCache();
-  if (cached) {
+  // Both files have to be fresh to skip the request. usage-cache.json alone is
+  // not a safe gate: older builds keep restamping it (hook and LaunchAgent),
+  // so on a mixed-version machine this would return early forever and the
+  // model-scoped limit — which only this build writes — would never refresh.
+  if (cached && modelWeeklyAgeMs(Date.now()) < CACHE_TTL_MS) {
     debug("returning cached snapshot:", cached.fiveHour, cached.sevenDay);
     return cached;
   }
@@ -132,9 +185,7 @@ export async function fetchUsageLimits(): Promise<UsageSnapshot | null> {
         };
         debug("returning snapshot:", result.fiveHour, result.sevenDay);
         writeCache(result);
-        // Only a well-formed limits[] is evidence either way; a response
-        // missing it entirely says nothing, so leave the last one standing.
-        if (Array.isArray(data.limits)) writeModelWeekly(parseModelWeekly(data.limits));
+        writeModelWeekly(parseModelWeekly(data.limits));
         return result;
       }
       debug("API error response:", (data as { error?: unknown }).error);

@@ -9,9 +9,16 @@ const PLIST_NAME = "dev.ccclub.sync";
 const LAUNCH_AGENTS_DIR = join(homedir(), "Library", "LaunchAgents");
 const PLIST_PATH = join(LAUNCH_AGENTS_DIR, `${PLIST_NAME}.plist`);
 
+/** Minimal XML text escaping — a homedir or node path can contain & or <. */
+function xmlEscape(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 /**
  * Build the LaunchAgent plist for the 5-minute heartbeat sync.
- * @internal exported only so the generated PATH can be unit-tested.
+ * Mirrored in scripts/postinstall.cjs (which cannot import this ESM module);
+ * heartbeat.test.ts asserts the two templates stay identical.
+ * @internal exported only so the generated plist can be unit-tested.
  */
 export function getPlist(version = getCurrentVersion()): string {
   const logPath = join(homedir(), ".ccclub", "sync.log");
@@ -30,22 +37,22 @@ export function getPlist(version = getCurrentVersion()): string {
     <string>/usr/bin/env</string>
     <string>npx</string>
     <string>--yes</string>
-    <string>ccclub@${version}</string>
+    <string>ccclub@${xmlEscape(version)}</string>
     <string>sync</string>
     <string>--silent</string>
   </array>
   <key>StartInterval</key>
   <integer>300</integer>
   <key>StandardOutPath</key>
-  <string>${logPath}</string>
+  <string>${xmlEscape(logPath)}</string>
   <key>StandardErrorPath</key>
-  <string>${logPath}</string>
+  <string>${xmlEscape(logPath)}</string>
   <key>RunAtLoad</key>
   <true/>
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
-    <string>${pathEnv}</string>
+    <string>${xmlEscape(pathEnv)}</string>
   </dict>
 </dict>
 </plist>`;
@@ -72,33 +79,40 @@ export async function installHeartbeat(): Promise<boolean> {
     return false;
   }
 
-  if (isCurrentPlist()) {
-    return true; // already installed
-  }
-
-  // Ensure LaunchAgents directory exists
-  if (!existsSync(LAUNCH_AGENTS_DIR)) {
-    await mkdir(LAUNCH_AGENTS_DIR, { recursive: true });
-  }
-
-  if (existsSync(PLIST_PATH)) {
-    try {
-      await launchctl(["unload", PLIST_PATH]);
-    } catch {
-      // Non-fatal: it may not be loaded yet.
-    }
-  }
-
-  await writeFile(PLIST_PATH, getPlist());
-
-  // Load the plist so the heartbeat starts immediately
+  // Callers rely on the boolean contract: this must never throw. A rejection
+  // here (unwritable LaunchAgents dir, plist path occupied by a directory)
+  // used to propagate into doSync and silently abort the entire sync.
   try {
-    await launchctl(["load", PLIST_PATH]);
-  } catch {
-    // Non-fatal: plist will be loaded on next login
-  }
+    if (isCurrentPlist()) {
+      return true; // already installed
+    }
 
-  return true;
+    // Ensure LaunchAgents directory exists
+    if (!existsSync(LAUNCH_AGENTS_DIR)) {
+      await mkdir(LAUNCH_AGENTS_DIR, { recursive: true });
+    }
+
+    if (existsSync(PLIST_PATH)) {
+      try {
+        await launchctl(["unload", PLIST_PATH]);
+      } catch {
+        // Non-fatal: it may not be loaded yet.
+      }
+    }
+
+    await writeFile(PLIST_PATH, getPlist());
+
+    // Load the plist so the heartbeat starts immediately
+    try {
+      await launchctl(["load", PLIST_PATH]);
+    } catch {
+      // Non-fatal: plist will be loaded on next login
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function isHeartbeatInstalled(): boolean {

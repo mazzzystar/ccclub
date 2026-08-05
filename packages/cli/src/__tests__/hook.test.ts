@@ -72,4 +72,24 @@ describe("updateManagedHooks", () => {
     expect(updateManagedHooks(settings, "0.6.13")).toBe(false);
     expect(settings).toEqual(before);
   });
+
+  it("tolerates null and non-object entries inside a group's hooks array", () => {
+    // These used to throw on `hook.command`, and the callers' outer catches
+    // turned that into a permanently silent no-op of hook install.
+    const settings: ClaudeSettings = {
+      hooks: {
+        SessionEnd: [{
+          matcher: "",
+          hooks: [null, "junk", { type: "command", command: "ccclub sync --silent" }],
+        }],
+        Stop: [],
+      },
+    };
+
+    expect(() => updateManagedHooks(settings, "0.6.13")).not.toThrow();
+    const json = JSON.stringify(settings.hooks?.SessionEnd);
+    expect(json).toContain(CURRENT_COMMAND); // re-pinned
+    expect(json).toContain('"junk"'); // unknown entries preserved
+    expect(json).not.toContain('"ccclub sync --silent"'); // legacy removed
+  });
 });

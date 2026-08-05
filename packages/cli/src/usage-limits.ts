@@ -1,16 +1,13 @@
-import { execSync, exec } from "node:child_process";
-import { promisify } from "node:util";
+import { execFileSync } from "node:child_process";
 import { userInfo, homedir } from "node:os";
 import { join } from "node:path";
-import { readFileSync, writeFileSync, renameSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, renameSync, rmSync, lstatSync } from "node:fs";
 import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
 import type { UsageSnapshot } from "@ccclub/shared";
-import { getModelWeeklyPath } from "./statusline.js";
+import { getModelWeeklyPath, USAGE_MAX_AGE_MS } from "./statusline.js";
 import type { ModelWeekly } from "./statusline.js";
 
 export type { UsageSnapshot };
-
-const execAsync = promisify(exec);
 
 const debug = (...args: unknown[]) => {
   if (process.env.CCCLUB_DEBUG) console.error("[usage-debug]", ...args);
@@ -19,17 +16,40 @@ const debug = (...args: unknown[]) => {
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const CACHE_PATH = join(homedir(), CCCLUB_CONFIG_DIR, "usage-cache.json");
 
-function readCache(allowStale = false): UsageSnapshot | null {
+interface StoredUsageCache {
+  snapshot: UsageSnapshot;
+  fetchedAt: number;
+}
+
+function readStoredCache(): StoredUsageCache | null {
   try {
-    const raw = readFileSync(CACHE_PATH, "utf-8");
-    const { snapshot, fetchedAt } = JSON.parse(raw) as { snapshot: UsageSnapshot; fetchedAt: number };
-    if (allowStale || Date.now() - fetchedAt < CACHE_TTL_MS) return snapshot;
-  } catch { /* no cache or parse error */ }
+    const raw = JSON.parse(readFileSync(CACHE_PATH, "utf-8")) as StoredUsageCache;
+    if (raw?.snapshot == null || typeof raw.fetchedAt !== "number" || !isFinite(raw.fetchedAt)) return null;
+    return raw;
+  } catch {
+    return null; // no cache or parse error
+  }
+}
+
+function readCache(allowStale = false): UsageSnapshot | null {
+  const stored = readStoredCache();
+  if (stored == null) return null;
+  const age = Date.now() - stored.fetchedAt;
+  // A future-dated timestamp would otherwise count as fresh forever.
+  if (allowStale || (age >= 0 && age < CACHE_TTL_MS)) return stored.snapshot;
   return null;
 }
 
-function writeCache(snapshot: UsageSnapshot): void {
-  try { writeFileSync(CACHE_PATH, JSON.stringify({ snapshot, fetchedAt: Date.now() })); } catch { /* ignore */ }
+function writeCache(snapshot: UsageSnapshot, fetchedAt = Date.now()): void {
+  // Rename-swap: the statusline reads this file on every turn, and a plain
+  // write truncates first, so a read could land on an empty file.
+  const tmp = `${CACHE_PATH}.${process.pid}.tmp`;
+  try {
+    writeFileSync(tmp, JSON.stringify({ snapshot, fetchedAt }));
+    renameSync(tmp, CACHE_PATH);
+  } catch {
+    try { rmSync(tmp, { force: true }); } catch { /* nothing to clean up */ }
+  }
 }
 
 function parseUtilization(value: unknown): number {
@@ -108,7 +128,7 @@ export function writeModelWeekly(result: ScopedLimit, path = getModelWeeklyPath(
   // The statusline reads this on every turn while two writers (Stop hook and
   // LaunchAgent) may be running, so swap it in atomically: a plain write
   // truncates first, and a read landing in that window sees an empty file.
-  const tmp = `${path}.tmp`;
+  const tmp = `${path}.${process.pid}.tmp`;
   try {
     writeFileSync(tmp, body);
     renameSync(tmp, path);
@@ -128,6 +148,53 @@ function modelWeeklyAgeMs(now: number): number {
   }
 }
 
+/**
+ * Whether the keychain token is expired. Claude Code stores expiresAt in epoch
+ * milliseconds, but be tolerant of seconds in case that ever changes — the
+ * previous version of this check compared seconds to milliseconds and so never
+ * fired at all.
+ * @internal exported for tests.
+ */
+export function isTokenExpired(expiresAt: unknown, now = Date.now()): boolean {
+  if (typeof expiresAt !== "number" || !isFinite(expiresAt) || expiresAt <= 0) return false;
+  const expiresMs = expiresAt > 1e11 ? expiresAt : expiresAt * 1000;
+  return now > expiresMs;
+}
+
+/**
+ * Read cc-costline's cache as a last-ditch usage source. /tmp is shared and
+ * the file is another tool's, so trust it minimally: it must be a small
+ * regular file (an lstat gate — a planted FIFO would block readFileSync
+ * forever), and its numbers are only as fresh as its mtime, which the caller
+ * must persist as the true fetch time. Restamping with "now" would launder
+ * arbitrarily old percentages into data the statusline treats as live.
+ * @internal exported for tests.
+ */
+export function readCostlineFallback(
+  path: string,
+  now = Date.now(),
+): { snapshot: UsageSnapshot; fetchedAt: number } | null {
+  try {
+    const stat = lstatSync(path);
+    if (!stat.isFile() || stat.size > 4096) return null;
+    const age = now - stat.mtimeMs;
+    if (age < 0 || age > USAGE_MAX_AGE_MS) return null;
+    const tmp = JSON.parse(readFileSync(path, "utf-8")) as { fiveHour?: unknown; sevenDay?: unknown };
+    if (typeof tmp.fiveHour !== "number" || typeof tmp.sevenDay !== "number") return null;
+    if (!isFinite(tmp.fiveHour) || !isFinite(tmp.sevenDay)) return null;
+    return {
+      snapshot: {
+        fiveHour: tmp.fiveHour,
+        sevenDay: tmp.sevenDay,
+        snapshotAt: new Date(stat.mtimeMs).toISOString(),
+      },
+      fetchedAt: stat.mtimeMs,
+    };
+  } catch {
+    return null; // no cc-costline cache
+  }
+}
+
 export async function fetchUsageLimits(): Promise<UsageSnapshot | null> {
   const cached = readCache();
   // Both files have to be fresh to skip the request. usage-cache.json alone is
@@ -143,13 +210,15 @@ export async function fetchUsageLimits(): Promise<UsageSnapshot | null> {
     const username = process.env.USER || process.env.USERNAME || userInfo().username;
     debug("username:", username);
 
-    // Keychain lookup is fast (~50ms), sync is fine here
-    const raw = execSync(
-      `security find-generic-password -s "Claude Code-credentials" -a "${username}" -w`,
-      { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"], timeout: 5000 }
+    // Keychain lookup is fast (~50ms), sync is fine here. execFile, not exec:
+    // the username must reach `security` as an argument, never as shell text.
+    const raw = execFileSync(
+      "security",
+      ["find-generic-password", "-s", "Claude Code-credentials", "-a", username, "-w"],
+      { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"], timeout: 5000 },
     ).trim();
 
-    debug("keychain raw length:", raw.length, "first 40:", raw.slice(0, 40));
+    debug("keychain raw length:", raw.length);
 
     const credentials = JSON.parse(raw);
     const accessToken = credentials?.claudeAiOauth?.accessToken;
@@ -162,20 +231,23 @@ export async function fetchUsageLimits(): Promise<UsageSnapshot | null> {
       return null;
     }
 
-    if (expiresAt && Date.now() / 1000 > expiresAt) {
-      debug("returning null: token expired at", expiresAt);
-      return null;
-    }
+    if (isTokenExpired(expiresAt)) {
+      debug("skipping request: token expired at", expiresAt);
+    } else {
+      // Native fetch, not curl: a Bearer token on a subprocess command line is
+      // visible to every local process via `ps`.
+      const res = await fetch("https://api.anthropic.com/api/oauth/usage", {
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "anthropic-beta": "oauth-2025-04-20",
+          "User-Agent": "claude-code/2.1.5",
+        },
+        signal: AbortSignal.timeout(8000),
+      });
+      const data = (await res.json()) as Record<string, unknown>;
+      debug("usage API status:", res.status);
 
-    // Use async exec so Node event loop stays free; omit -f so 429 body is readable
-    const curlCmd = `curl -s --max-time 8 "https://api.anthropic.com/api/oauth/usage" -H "Authorization: Bearer ${accessToken}" -H "anthropic-beta: oauth-2025-04-20" -H "User-Agent: claude-code/2.1.5"`;
-    debug("running curl...");
-    const { stdout } = await execAsync(curlCmd, { timeout: 9000 });
-    debug("curl stdout length:", stdout.length, "first 100:", stdout.slice(0, 100));
-
-    if (stdout) {
-      const data = JSON.parse(stdout) as Record<string, unknown>;
-      if (!(data as { error?: unknown }).error) {
+      if (!data.error) {
         const fiveHourRaw = (data.five_hour as Record<string, unknown>)?.utilization;
         const sevenDayRaw = (data.seven_day as Record<string, unknown>)?.utilization;
         const result: UsageSnapshot = {
@@ -188,26 +260,23 @@ export async function fetchUsageLimits(): Promise<UsageSnapshot | null> {
         writeModelWeekly(parseModelWeekly(data.limits));
         return result;
       }
-      debug("API error response:", (data as { error?: unknown }).error);
+      debug("API error response:", data.error);
+      // API error (e.g. 429) — fall through to cached fallbacks below
     }
-    // API error (e.g. 429) — fall through to cached fallbacks below
   } catch (err) {
     debug("caught error:", err instanceof Error ? err.message : String(err));
   }
 
-  // Fallback 1: cc-costline's /tmp/sl-claude-usage (often fresher)
-  try {
-    const tmp = JSON.parse(readFileSync("/tmp/sl-claude-usage", "utf-8")) as { fiveHour: number; sevenDay: number };
-    if (typeof tmp.fiveHour === "number" && typeof tmp.sevenDay === "number") {
-      const result = { fiveHour: tmp.fiveHour, sevenDay: tmp.sevenDay, snapshotAt: new Date().toISOString() };
-      debug("returning cc-costline cache fallback:", result.fiveHour, result.sevenDay);
-      writeCache(result);
-      return result;
-    }
-  } catch { /* no cc-costline cache */ }
-
-  // Fallback 2: our own stale cache
-  const stale = readCache(true);
-  if (stale) debug("returning stale cache as fallback:", stale.fiveHour, stale.sevenDay);
-  return stale;
+  // Fallbacks: our own stale cache vs cc-costline's /tmp file — whichever was
+  // actually fetched more recently wins, and the honest timestamp is kept so
+  // the statusline's freshness bound still means something.
+  const ownStale = readStoredCache();
+  const costline = readCostlineFallback("/tmp/sl-claude-usage");
+  if (costline && (ownStale == null || costline.fetchedAt > ownStale.fetchedAt)) {
+    debug("returning cc-costline fallback:", costline.snapshot.fiveHour, costline.snapshot.sevenDay);
+    writeCache(costline.snapshot, costline.fetchedAt);
+    return costline.snapshot;
+  }
+  if (ownStale) debug("returning stale cache as fallback:", ownStale.snapshot.fiveHour, ownStale.snapshot.sevenDay);
+  return ownStale?.snapshot ?? null;
 }

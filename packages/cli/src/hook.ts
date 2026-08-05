@@ -43,6 +43,9 @@ function eventHasCurrentHook(settings: ClaudeSettings, event: string, currentCom
         : {}
     ) as { matcher?: string; hooks?: Array<{ command?: string }> };
     for (const hook of g.hooks ?? []) {
+      // A null or non-object entry would throw here, and the outer catches
+      // would turn that into a permanently silent no-op of hook install.
+      if (hook == null || typeof hook !== "object") continue;
       if (!isManagedHookCommand(hook.command)) continue;
       if (g.matcher === undefined || hook.command !== currentCommand) return false;
       currentCount++;
@@ -69,7 +72,7 @@ function installEventHook(settings: ClaudeSettings, event: string, currentComman
       [key: string]: unknown;
     };
     if (!Array.isArray(group.hooks)) return [group];
-    const hooks = group.hooks.filter((hook) => !isManagedHookCommand(hook.command));
+    const hooks = group.hooks.filter((hook) => !isManagedHookCommand(hook?.command));
     return hooks.length > 0 ? [{ ...group, hooks }] : [];
   });
 

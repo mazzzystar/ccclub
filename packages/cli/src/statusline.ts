@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
+import { writeFile, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
@@ -12,7 +12,7 @@ import type { UsageSnapshot } from "@ccclub/shared";
 
 // Show usage limits only while reasonably fresh; an idle machine's last
 // snapshot says nothing about the current 5-hour window.
-const USAGE_MAX_AGE_MS = 3 * 60 * 60 * 1000;
+export const USAGE_MAX_AGE_MS = 3 * 60 * 60 * 1000;
 // Rank shows *today's* cost, so besides an age cap it must be from today.
 const RANK_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
@@ -80,14 +80,32 @@ function asFiniteNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+/**
+ * Everything rendered here lands raw in the terminal between our own ANSI
+ * codes, and both stdin (Claude Code's payload, influenced by the open repo's
+ * settings) and the cache files are outside this process's control — so any
+ * string from either goes through this: printable ASCII only (drops ESC, BEL,
+ * and friends), bounded length, truncated before the trim so a cut mid-word
+ * can't leave trailing space.
+ */
+function printable(value: unknown, maxLength: number): string {
+  if (typeof value !== "string") return "";
+  return value.replace(/[^\x20-\x7E]/g, "").slice(0, maxLength).trim();
+}
+
+/** Age in ms, or null when the timestamp is missing, future-dated, or too old. */
+function validAge(fetchedAt: number | null, now: number, maxAgeMs: number): number | null {
+  if (fetchedAt == null) return null;
+  const age = now - fetchedAt;
+  return age >= 0 && age <= maxAgeMs ? age : null;
+}
+
 function readUsageCache(path: string, now: number): UsageSnapshot | null {
   const raw = readJsonFile(path);
   const snapshot = raw?.snapshot as UsageSnapshot | undefined;
-  const fetchedAt = asFiniteNumber(raw?.fetchedAt);
   if (
     snapshot == null ||
-    fetchedAt == null ||
-    now - fetchedAt > USAGE_MAX_AGE_MS ||
+    validAge(asFiniteNumber(raw?.fetchedAt), now, USAGE_MAX_AGE_MS) == null ||
     asFiniteNumber(snapshot.fiveHour) == null ||
     asFiniteNumber(snapshot.sevenDay) == null
   ) {
@@ -99,15 +117,10 @@ function readUsageCache(path: string, now: number): UsageSnapshot | null {
 function readModelWeekly(path: string, now: number): ModelWeekly | null {
   const raw = readJsonFile(path);
   const percent = asFiniteNumber(raw?.percent);
-  const fetchedAt = asFiniteNumber(raw?.fetchedAt);
-  if (percent == null || fetchedAt == null || now - fetchedAt > USAGE_MAX_AGE_MS) return null;
-  // The label comes from the API and lands in terminal output, so keep it
-  // printable and short — truncating before the trim, so a cut mid-word can't
-  // leave trailing space before the colon. A malformed entry drops just this
-  // segment. An out-of-range percent is clamped rather than rendered raw.
-  const label = typeof raw?.label === "string"
-    ? raw.label.replace(/[^\x20-\x7E]/g, "").slice(0, 20).trim()
-    : "";
+  if (percent == null || validAge(asFiniteNumber(raw?.fetchedAt), now, USAGE_MAX_AGE_MS) == null) return null;
+  // A malformed entry drops just this segment; an out-of-range percent is
+  // clamped rather than rendered raw.
+  const label = printable(raw?.label, 20);
   return label ? { label, percent: Math.max(0, Math.min(100, percent)) } : null;
 }
 
@@ -121,6 +134,13 @@ function isSameLocalDay(a: number, b: number): boolean {
   );
 }
 
+// The url is embedded verbatim in an OSC 8 sequence, so beyond the scheme it
+// must contain nothing a terminal could read as a control byte: printable
+// ASCII without spaces, bounded length. A prefix check alone would let an
+// embedded ESC or BEL terminate the sequence early and feed the remainder to
+// the terminal raw.
+const SAFE_URL = /^https?:\/\/[\x21-\x7E]{1,240}$/;
+
 function readRankCache(path: string, now: number): RankCacheEntry | null {
   const raw = readJsonFile(path);
   const rank = asFiniteNumber(raw?.rank);
@@ -128,8 +148,8 @@ function readRankCache(path: string, now: number): RankCacheEntry | null {
   const costUSD = asFiniteNumber(raw?.costUSD);
   const fetchedAt = asFiniteNumber(raw?.fetchedAt);
   if (rank == null || total == null || costUSD == null || fetchedAt == null) return null;
-  if (now - fetchedAt > RANK_MAX_AGE_MS || !isSameLocalDay(fetchedAt, now)) return null;
-  const url = typeof raw?.url === "string" && /^https?:\/\//.test(raw.url) ? raw.url : undefined;
+  if (validAge(fetchedAt, now, RANK_MAX_AGE_MS) == null || !isSameLocalDay(fetchedAt, now)) return null;
+  const url = typeof raw?.url === "string" && SAFE_URL.test(raw.url) ? raw.url : undefined;
   return { rank, total, costUSD, fetchedAt, url };
 }
 
@@ -190,17 +210,16 @@ export function renderStatusline(
   const now = options.now ?? Date.now();
   const segments: string[] = [];
 
-  const modelName = (data.model as { display_name?: unknown } | undefined)?.display_name;
+  const modelName = printable((data.model as { display_name?: unknown } | undefined)?.display_name, 40);
   const modelParts: string[] = [];
-  if (typeof modelName === "string" && modelName.trim()) {
+  if (modelName) {
     // "Fable 5 (200K context)" → "Fable 5 ($1)"-style shortening, as cc-costline does.
     const model = modelName.replace(/\s*\((\d+[KMB])\s+context\)/i, " ($1)").trim();
     modelParts.push(`${MODEL}${model}${RESET}`);
   }
   // Session-scoped reasoning effort; absent when the model has no effort knob.
-  const effortLevel = (data.effort as { level?: unknown } | undefined)?.level;
-  if (typeof effortLevel === "string" && effortLevel.trim()) {
-    const level = effortLevel.trim().toLowerCase().slice(0, 12);
+  const level = printable((data.effort as { level?: unknown } | undefined)?.level, 12).toLowerCase();
+  if (level) {
     modelParts.push(`${EFFORT_COLORS[level] ?? DIM}${level}${RESET}`);
   }
   if (modelParts.length > 0) segments.push(modelParts.join(" "));
@@ -235,14 +254,23 @@ export function renderStatusline(
   return " " + segments.join(` ${DIM}|${RESET} `);
 }
 
-/** Persist a rank snapshot for the statusline to read. Never throws. */
+/**
+ * Persist a rank snapshot for the statusline to read. Never throws.
+ * Swapped in with a rename: the statusline reads this file on every turn, and
+ * a plain write truncates first, so a read could land on an empty file.
+ */
 export async function writeRankCache(
   entry: { rank: number; total: number; costUSD: number; url?: string },
   cachePath = getRankCachePath(),
 ): Promise<void> {
+  const tmp = `${cachePath}.${process.pid}.tmp`;
   try {
-    await writeFile(cachePath, JSON.stringify({ ...entry, fetchedAt: Date.now() } satisfies RankCacheEntry));
-  } catch { /* unwritable cache — statusline just omits the segment */ }
+    await writeFile(tmp, JSON.stringify({ ...entry, fetchedAt: Date.now() } satisfies RankCacheEntry));
+    await rename(tmp, cachePath);
+  } catch {
+    // Unwritable cache — the statusline just omits the segment.
+    try { await rm(tmp, { force: true }); } catch { /* nothing to clean up */ }
+  }
 }
 
 /**

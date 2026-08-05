@@ -1,9 +1,10 @@
 import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach } from "vitest";
 import { formatCost, renderStatusline, writeRankCache } from "../statusline.js";
-import { getStatuslineState, installStatusline, uninstallStatusline, STATUSLINE_COMMAND } from "../statusline-install.js";
+import { getStatuslineState, installStatusline, uninstallStatusline, maybeAutoEnableStatusline, STATUSLINE_COMMAND } from "../statusline-install.js";
 
 const NOW = new Date("2026-07-13T12:00:00").getTime(); // local noon: same-day checks stay same-day
 
@@ -259,21 +260,21 @@ describe("renderStatusline", () => {
   });
 });
 
+async function renderWithRankUrl(dir: string, url: unknown): Promise<string> {
+  const rankCachePath = join(dir, "rank-cache.json");
+  await writeFile(rankCachePath, JSON.stringify({
+    rank: 11, total: 67, costUSD: 19.02, fetchedAt: NOW - 60_000, url,
+  }));
+  return renderStatusline(STDIN_JSON, {
+    now: NOW,
+    usageCachePath: join(dir, "no-usage"),
+    rankCachePath,
+    modelWeeklyPath: join(dir, "no-model-weekly"),
+  });
+}
+
 describe("rank hyperlink", () => {
   const DASHBOARD = "https://ccclub.dev/g/YHAW6P";
-
-  async function renderWithRankUrl(dir: string, url: unknown): Promise<string> {
-    const rankCachePath = join(dir, "rank-cache.json");
-    await writeFile(rankCachePath, JSON.stringify({
-      rank: 11, total: 67, costUSD: 19.02, fetchedAt: NOW - 60_000, url,
-    }));
-    return renderStatusline(STDIN_JSON, {
-      now: NOW,
-      usageCachePath: join(dir, "no-usage"),
-      rankCachePath,
-      modelWeeklyPath: join(dir, "no-model-weekly"),
-    });
-  }
 
   it("wraps the rank segment in an OSC 8 hyperlink to the group dashboard", async () => {
     const line = await renderWithRankUrl(await makeTempDir(), DASHBOARD);
@@ -375,5 +376,116 @@ describe("statusline install", () => {
     expect(await installStatusline(settingsPath)).toBe(false);
     expect(await uninstallStatusline(settingsPath)).toBe(false);
     expect(await readFile(settingsPath, "utf-8")).toBe("{broken json");
+  });
+});
+
+describe("stdin sanitization", () => {
+  // Both fields land raw in the terminal between our ANSI codes, and the
+  // model name can be influenced by an opened repo's .claude/settings.json.
+  it("strips control characters from the model display name", async () => {
+    const options = await setUpCaches(await makeTempDir());
+    const line = renderStatusline(
+      JSON.stringify({ model: { display_name: "Fable\x1b]0;pwned\x07 5" } }),
+      options,
+    );
+    expect(line).not.toContain("\x1b]0;");
+    expect(line).not.toContain("\x07");
+    expect(stripAnsi(line)).toContain("Fable]0;pwned 5");
+  });
+
+  it("caps the model display name length", async () => {
+    const options = await setUpCaches(await makeTempDir());
+    const line = stripAnsi(renderStatusline(
+      JSON.stringify({ model: { display_name: "M".repeat(500) } }),
+      options,
+    ));
+    expect(line.length).toBeLessThan(120);
+  });
+
+  it("strips control characters from the effort level", async () => {
+    const options = await setUpCaches(await makeTempDir());
+    const line = renderStatusline(
+      JSON.stringify({ model: { display_name: "Fable 5" }, effort: { level: "\x1b[31mMAX" } }),
+      options,
+    );
+    expect(line).not.toContain("\x1b[31m");
+    expect(stripAnsi(line)).toContain("[31mmax");
+  });
+});
+
+describe("cache hardening", () => {
+  it("rejects a rank url that could break out of the OSC 8 sequence", async () => {
+    for (const url of [
+      "https://x\x1b\\\x1b]0;pwned\x07", // ST terminates the sequence early
+      "https://x\x07\x1b[31mred", // BEL terminator on most terminals
+      "https://" + "a".repeat(300), // unbounded length
+      "javascript:alert(1)",
+    ]) {
+      const line = await renderWithRankUrl(await makeTempDir(), url);
+      expect(stripAnsi(line)).toContain("#11/67"); // rank still renders…
+      expect(line).not.toContain("\x1b]8;;"); // …but not as a hyperlink
+    }
+  });
+
+  it("treats future-dated cache timestamps as stale", async () => {
+    const options = await setUpCaches(await makeTempDir(), {
+      usageAgeMs: -30 * 60_000, // fetchedAt half an hour in the future
+      modelWeekly: { label: "Fable", percent: 8 },
+      modelWeeklyAgeMs: -30 * 60_000,
+    });
+    // Rank fetched "later today" survives the same-day rule but not the age rule.
+    await writeFile(options.rankCachePath, JSON.stringify({
+      rank: 11, total: 67, costUSD: 19.02, fetchedAt: NOW + 30 * 60_000,
+    }));
+    expect(stripAnsi(renderStatusline(STDIN_JSON, options))).toBe(" Fable 5");
+  });
+});
+
+describe("maybeAutoEnableStatusline", () => {
+  async function makeDeps(dir: string) {
+    return {
+      settingsPath: join(dir, "settings.json"),
+      optOutPath: join(dir, "opt-out"),
+      autoEnabledPath: join(dir, "auto-enabled"),
+      checkGlobal: async () => true,
+    };
+  }
+
+  it("enables once, then never again — even if the user removes the key by hand", async () => {
+    const dir = await makeTempDir();
+    const deps = await makeDeps(dir);
+
+    expect(await maybeAutoEnableStatusline(deps)).toBe(true);
+    expect(await getStatuslineState(deps.settingsPath)).toBe("ours");
+
+    // The user edits settings.json and deletes the statusLine key.
+    await writeFile(deps.settingsPath, "{}\n");
+    expect(await maybeAutoEnableStatusline(deps)).toBe(false);
+    expect(await getStatuslineState(deps.settingsPath)).toBe("none");
+  });
+
+  it("never touches a foreign statusline and honors opt-out", async () => {
+    const dir = await makeTempDir();
+    const deps = await makeDeps(dir);
+    await writeFile(deps.settingsPath, JSON.stringify({ statusLine: { type: "command", command: "my-own" } }));
+    expect(await maybeAutoEnableStatusline(deps)).toBe(false);
+
+    const dir2 = await makeTempDir();
+    const deps2 = await makeDeps(dir2);
+    await writeFile(deps2.optOutPath, "x");
+    expect(await maybeAutoEnableStatusline(deps2)).toBe(false);
+    expect(existsSync(deps2.settingsPath)).toBe(false);
+  });
+
+  it("classifies a pipeline that merely mentions ccclub as foreign", async () => {
+    const dir = await makeTempDir();
+    const settingsPath = join(dir, "settings.json");
+    await writeFile(settingsPath, JSON.stringify({
+      statusLine: { type: "command", command: "ccclub-statusline | my-filter" },
+    }));
+    expect(await getStatuslineState(settingsPath)).toBe("other");
+    // "other" is the protected class: off refuses to delete it.
+    await uninstallStatusline(settingsPath);
+    expect((await readFile(settingsPath, "utf-8"))).toContain("my-filter");
   });
 });

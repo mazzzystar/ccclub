@@ -89,13 +89,6 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
   const config = silent ? await loadConfig() : await requireConfig();
   if (!config) return; // Not initialized — nothing to sync
 
-  // Running a newer CLI once must also pin background entrypoints to that
-  // exact package version instead of resolving a globally installed binary.
-  await Promise.all([
-    isHookInstalled() ? Promise.resolve(true) : installHook(),
-    isHeartbeatInstalled() ? Promise.resolve(true) : installHeartbeat(),
-  ]);
-
   const lock = await acquireSyncLock();
   if (lock == null) {
     if (!silent) console.log(chalk.dim("  Sync already running; skipping duplicate."));
@@ -103,6 +96,16 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
   }
 
   try {
+    // Running a newer CLI once must also pin background entrypoints to that
+    // exact package version instead of resolving a globally installed binary.
+    // Inside the lock: hook and heartbeat syncs run concurrently, and this is
+    // a read-modify-write of ~/.claude/settings.json — unserialized, two
+    // writers could drop each other's (or the user's) unrelated changes.
+    await Promise.all([
+      isHookInstalled() ? Promise.resolve(true) : installHook(),
+      isHeartbeatInstalled() ? Promise.resolve(true) : installHeartbeat(),
+    ]);
+
     await performSync(config, firstSync, silent);
   } finally {
     await lock.release();

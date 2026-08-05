@@ -14,6 +14,11 @@ export const STATUSLINE_COMMAND = "ccclub-statusline";
 // ever reinstalling behind the user's back.
 const OPT_OUT_PATH = join(homedir(), CCCLUB_CONFIG_DIR, "statusline-opt-out");
 
+// Written after the one automatic enable, making "one-time" actually one-time:
+// without it, a user who removed the statusLine key by hand (rather than via
+// `ccclub statusline off`) would get it re-added on every ccclub run.
+const AUTO_ENABLED_PATH = join(homedir(), CCCLUB_CONFIG_DIR, "statusline-auto-enabled");
+
 export type StatuslineState = "ours" | "other" | "none";
 
 interface ClaudeSettings {
@@ -33,7 +38,10 @@ async function readSettings(path: string): Promise<ClaudeSettings | null> {
 function stateOf(settings: ClaudeSettings): StatuslineState {
   const command = settings.statusLine?.command;
   if (settings.statusLine == null) return "none";
-  if (typeof command === "string" && command.includes("ccclub")) return "ours";
+  // Exact match only: a user's custom pipeline that merely mentions ccclub
+  // (e.g. "ccclub-statusline | my-filter") is theirs, and "other" is the
+  // classification that protects it from being overwritten or removed.
+  if (command === STATUSLINE_COMMAND) return "ours";
   return "other";
 }
 
@@ -95,15 +103,28 @@ export async function clearOptOut(optOutPath = OPT_OUT_PATH): Promise<void> {
 
 /**
  * One-time automatic enable for users who set up ccclub before the statusline
- * existed: only when nothing else is configured, the user never opted out,
- * and the global binary actually resolves. Returns true when newly enabled.
+ * existed: only once ever (marker file), only when nothing else is configured,
+ * the user never opted out, and the global binary actually resolves. Returns
+ * true when newly enabled.
  */
-export async function maybeAutoEnableStatusline(): Promise<boolean> {
+export async function maybeAutoEnableStatusline(deps: {
+  settingsPath?: string;
+  optOutPath?: string;
+  autoEnabledPath?: string;
+  checkGlobal?: () => Promise<boolean>;
+} = {}): Promise<boolean> {
+  const autoEnabledPath = deps.autoEnabledPath ?? AUTO_ENABLED_PATH;
   try {
-    if (hasOptedOut()) return false;
-    if ((await getStatuslineState()) !== "none") return false;
-    if (!(await isGloballyInstalled())) return false;
-    return await installStatusline();
+    if (existsSync(autoEnabledPath)) return false;
+    if (hasOptedOut(deps.optOutPath)) return false;
+    if ((await getStatuslineState(deps.settingsPath)) !== "none") return false;
+    if (!(await (deps.checkGlobal ?? isGloballyInstalled)())) return false;
+    const enabled = await installStatusline(deps.settingsPath);
+    if (enabled) {
+      await mkdir(dirname(autoEnabledPath), { recursive: true });
+      await writeFile(autoEnabledPath, new Date().toISOString());
+    }
+    return enabled;
   } catch {
     return false;
   }

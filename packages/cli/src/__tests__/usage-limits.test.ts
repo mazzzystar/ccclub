@@ -1,9 +1,9 @@
-import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, readFile, mkdir, utimes } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach } from "vitest";
-import { parseModelWeekly, writeModelWeekly } from "../usage-limits.js";
+import { parseModelWeekly, writeModelWeekly, isTokenExpired, readCostlineFallback } from "../usage-limits.js";
 
 const tempDirs: string[] = [];
 
@@ -132,6 +132,88 @@ describe("writeModelWeekly", () => {
     for (let i = 0; i < 25; i++) {
       writeModelWeekly({ state: "found", limit: { label: "Fable", percent: i } }, path);
       expect(() => JSON.parse(readFileSync(path, "utf-8"))).not.toThrow();
+    }
+  });
+});
+
+describe("isTokenExpired", () => {
+  const NOW = new Date("2026-08-05T10:00:00Z").getTime();
+
+  it("compares epoch-millisecond expiries correctly", () => {
+    // The previous check divided now by 1000 against a ms value, so it never
+    // fired — these are the exact shapes from Claude Code's keychain entry.
+    expect(isTokenExpired(NOW - 60_000, NOW)).toBe(true);
+    expect(isTokenExpired(NOW + 60_000, NOW)).toBe(false);
+  });
+
+  it("tolerates an expiry expressed in seconds", () => {
+    expect(isTokenExpired(Math.floor((NOW - 60_000) / 1000), NOW)).toBe(true);
+    expect(isTokenExpired(Math.floor((NOW + 60_000) / 1000), NOW)).toBe(false);
+  });
+
+  it("treats a missing or malformed expiry as not expired", () => {
+    for (const bad of [undefined, null, "soon", NaN, Infinity, 0, -5]) {
+      expect(isTokenExpired(bad, NOW)).toBe(false);
+    }
+  });
+});
+
+describe("readCostlineFallback", () => {
+  const NOW = new Date("2026-08-05T10:00:00Z").getTime();
+
+  async function writeTmpFile(dir: string, body: string, mtimeMs: number): Promise<string> {
+    const path = join(dir, "sl-claude-usage");
+    await writeFile(path, body);
+    await utimes(path, new Date(mtimeMs), new Date(mtimeMs));
+    return path;
+  }
+
+  it("returns the values with the file's mtime as the honest fetch time", async () => {
+    const mtime = NOW - 10 * 60_000;
+    const path = await writeTmpFile(await makeTempDir(), JSON.stringify({ fiveHour: 42, sevenDay: 7 }), mtime);
+
+    const result = readCostlineFallback(path, NOW);
+    expect(result?.snapshot.fiveHour).toBe(42);
+    expect(result?.snapshot.sevenDay).toBe(7);
+    // Restamping with "now" would launder stale numbers into fresh-looking data.
+    expect(result?.fetchedAt).toBe(mtime);
+  });
+
+  it("rejects a file older than the statusline's freshness bound", async () => {
+    const path = await writeTmpFile(
+      await makeTempDir(),
+      JSON.stringify({ fiveHour: 42, sevenDay: 7 }),
+      NOW - 4 * 60 * 60 * 1000,
+    );
+    expect(readCostlineFallback(path, NOW)).toBeNull();
+  });
+
+  it("rejects a future-dated file", async () => {
+    const path = await writeTmpFile(
+      await makeTempDir(),
+      JSON.stringify({ fiveHour: 42, sevenDay: 7 }),
+      NOW + 60 * 60 * 1000,
+    );
+    expect(readCostlineFallback(path, NOW)).toBeNull();
+  });
+
+  it("rejects anything that is not a small regular file", async () => {
+    const dir = await makeTempDir();
+    // A directory stands in for the general non-regular-file case (a planted
+    // FIFO would block readFileSync forever — the lstat gate runs first).
+    await mkdir(join(dir, "a-directory"));
+    expect(readCostlineFallback(join(dir, "a-directory"), NOW)).toBeNull();
+    expect(readCostlineFallback(join(dir, "missing"), NOW)).toBeNull();
+
+    const big = await writeTmpFile(dir, JSON.stringify({ fiveHour: 1, sevenDay: 1 }).padEnd(5000, " "), NOW - 1000);
+    expect(readCostlineFallback(big, NOW)).toBeNull();
+  });
+
+  it("rejects malformed or non-numeric contents", async () => {
+    const dir = await makeTempDir();
+    for (const body of ["nonsense", "{}", JSON.stringify({ fiveHour: "42", sevenDay: 7 }), JSON.stringify({ fiveHour: NaN })]) {
+      const path = await writeTmpFile(dir, body, NOW - 1000);
+      expect(readCostlineFallback(path, NOW)).toBeNull();
     }
   });
 });

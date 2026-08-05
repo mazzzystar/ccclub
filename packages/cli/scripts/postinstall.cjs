@@ -1,6 +1,12 @@
+// Runs on every npm install. Re-pins the background entrypoints (Claude Code
+// hooks and, on macOS, the heartbeat LaunchAgent) to the version being
+// installed, so `npm i -g ccclub@latest` upgrades everything in one command.
+// Without the LaunchAgent half, a still-old heartbeat would keep rewriting the
+// hooks back to its own version every 5 minutes until the user ran ccclub.
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const { execFileSync } = require("child_process");
 const pkg = require("../package.json");
 
 const settingsPath = path.join(os.homedir(), ".claude", "settings.json");
@@ -14,13 +20,17 @@ const LEGACY_HOOK_COMMANDS = new Set([
 ]);
 const VERSIONED_HOOK_COMMAND = /^npx --yes ccclub@[0-9A-Za-z][0-9A-Za-z.+-]* sync --silent$/u;
 const HOOK_EVENTS = ["SessionEnd", "Stop"];
+
+const PLIST_NAME = "dev.ccclub.sync";
+const PLIST_PATH = path.join(os.homedir(), "Library", "LaunchAgents", `${PLIST_NAME}.plist`);
+
 const isManagedHookCommand = (command) =>
   typeof command === "string" &&
   (LEGACY_HOOK_COMMANDS.has(command) || VERSIONED_HOOK_COMMAND.test(command));
 
-try {
-  // Only install hook if user has Claude Code configured
-  if (!fs.existsSync(settingsPath)) process.exit(0);
+function updateHooks() {
+  // Only install hooks if the user has Claude Code configured.
+  if (!fs.existsSync(settingsPath)) return;
 
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
   if (!settings.hooks) settings.hooks = {};
@@ -31,7 +41,7 @@ try {
     const eventHooks = settings.hooks[event] || [];
     const managed = eventHooks.flatMap((g) =>
       (g && typeof g === "object" && Array.isArray(g.hooks) ? g.hooks : [])
-        .filter((h) => isManagedHookCommand(h.command))
+        .filter((h) => h && typeof h === "object" && isManagedHookCommand(h.command))
         .map((h) => ({ command: h.command, hasMatcher: g.matcher !== undefined })),
     );
     if (
@@ -45,7 +55,7 @@ try {
     settings.hooks[event] = eventHooks.flatMap((g) => {
       if (!g || typeof g !== "object") return [g];
       if (!Array.isArray(g.hooks)) return [g];
-      const hooks = g.hooks.filter((h) => !isManagedHookCommand(h.command));
+      const hooks = g.hooks.filter((h) => !isManagedHookCommand(h && typeof h === "object" ? h.command : undefined));
       return hooks.length > 0 ? [{ ...g, hooks }] : [];
     });
 
@@ -67,6 +77,76 @@ try {
   if (changed) {
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
   }
-} catch {
-  // Silent fail — hook can be installed later via `ccclub hook`
 }
+
+function xmlEscape(value) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// Mirror of getPlist in src/heartbeat.ts (an ESM module this CJS script can't
+// import). heartbeat.test.ts asserts the two stay byte-identical — a drift
+// would only cause one harmless rewrite on the next sync, but keep them same.
+function buildPlist(version) {
+  const logPath = path.join(os.homedir(), ".ccclub", "sync.log");
+  const pathEnv = `${path.dirname(process.execPath)}:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin`;
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${PLIST_NAME}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>npx</string>
+    <string>--yes</string>
+    <string>ccclub@${xmlEscape(version)}</string>
+    <string>sync</string>
+    <string>--silent</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>300</integer>
+  <key>StandardOutPath</key>
+  <string>${xmlEscape(logPath)}</string>
+  <key>StandardErrorPath</key>
+  <string>${xmlEscape(logPath)}</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>${xmlEscape(pathEnv)}</string>
+  </dict>
+</dict>
+</plist>`;
+}
+
+function updateHeartbeat() {
+  // Only refresh an EXISTING heartbeat: whether one should exist at all is
+  // init/join/sync's decision, not npm's.
+  if (process.platform !== "darwin") return;
+  if (!fs.existsSync(PLIST_PATH)) return;
+
+  const plist = buildPlist(pkg.version);
+  if (fs.readFileSync(PLIST_PATH, "utf-8") === plist) return;
+
+  fs.writeFileSync(PLIST_PATH, plist);
+  // Reload so launchd picks up the new pin now; failures (SSH session, CI)
+  // self-heal at next login via RunAtLoad.
+  for (const action of ["unload", "load"]) {
+    try {
+      execFileSync("launchctl", [action, PLIST_PATH], { stdio: "ignore", timeout: 10000 });
+    } catch { /* non-fatal */ }
+  }
+}
+
+function main() {
+  // Each step fails silently and independently — a broken settings.json must
+  // not break `npm install`, and hooks can be repaired later via ccclub.
+  try { updateHooks(); } catch { /* ignore */ }
+  try { updateHeartbeat(); } catch { /* ignore */ }
+}
+
+module.exports = { buildPlist, updateHooks, updateHeartbeat, PLIST_NAME };
+
+if (require.main === module) main();

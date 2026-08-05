@@ -9,7 +9,7 @@ const app = new Hono<{ Bindings: Env }>();
 const SITE = "https://ccclub.dev";
 
 // Bump when the landing page content changes meaningfully.
-const HOMEPAGE_UPDATED = "2026-07-07";
+const HOMEPAGE_UPDATED = "2026-08-04";
 
 // Public IndexNow key (by design, the key is public — ownership is proven
 // by serving it from this domain). Pinged by scripts/indexnow.mjs on deploy.

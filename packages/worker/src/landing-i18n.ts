@@ -32,6 +32,7 @@ export type LandingT = {
   step3p: string;
   howDetail1: string;
   howDetail2: string; // may contain <code>
+  guidesNote: string; // contains <a> links to the guides
   commandsTitle: string;
   cmdCreate: string;
   cmdJoin: string;
@@ -78,6 +79,8 @@ export const LANDING_T: Record<LandingLang, LandingT> = {
     howDetail1:
       "ccclub reads token counts, cost estimates, model names, and number of calls from local coding agent logs for Claude Code, Codex, OpenCode, Amp, and pi-agent. No prompts, responses, code, file paths, or conversation data ever leave your machine.",
     howDetail2: 'Run <code class="mono">ccclub show-data</code> to see exactly what gets uploaded.',
+    guidesNote:
+      'New to usage tracking? See <a href="/claude-code-usage">how to check Claude Code usage</a> and <a href="/claude-code-limits">how the 5-hour and weekly limits work</a>.',
     commandsTitle: "Commands",
     cmdCreate: "Create a group",
     cmdJoin: "Join a friend's group",
@@ -117,6 +120,8 @@ export const LANDING_T: Record<LandingLang, LandingT> = {
     howDetail1:
       "ccclub 只从本机的 coding agent 日志（Claude Code、Codex、OpenCode、Amp、pi-agent）读取 token 数、费用估算、模型名和调用次数。提示词、回复、代码、文件路径和对话内容永远不会离开你的电脑。",
     howDetail2: '运行 <code class="mono">ccclub show-data</code> 可以看到上传内容的完整明细。',
+    guidesNote:
+      '刚开始关注用量？看看<a href="/claude-code-usage">如何查看 Claude Code 用量</a>，以及 <a href="/claude-code-limits">5 小时窗口和每周上限的规则</a>。',
     commandsTitle: "命令",
     cmdCreate: "创建小组",
     cmdJoin: "加入朋友的小组",
@@ -161,6 +166,8 @@ export const LANDING_T: Record<LandingLang, LandingT> = {
     howDetail1:
       "ccclub が読み取るのは、ローカルのエージェントログ（Claude Code、Codex、OpenCode、Amp、pi-agent）にあるトークン数・コスト見積もり・モデル名・呼び出し回数だけです。プロンプト、応答、コード、ファイルパス、会話内容がマシンの外に出ることはありません。",
     howDetail2: '<code class="mono">ccclub show-data</code> を実行すると、アップロードされる内容を正確に確認できます。',
+    guidesNote:
+      '使用量トラッキングが初めてなら、<a href="/claude-code-usage">Claude Code の使用量を確認する方法</a>と<a href="/claude-code-limits">5時間・週間リミットの仕組み</a>をご覧ください。',
     commandsTitle: "コマンド",
     cmdCreate: "グループを作成",
     cmdJoin: "友達のグループに参加",
@@ -206,6 +213,8 @@ export const LANDING_T: Record<LandingLang, LandingT> = {
     howDetail1:
       "ccclub liest aus den lokalen Agent-Logs (Claude Code, Codex, OpenCode, Amp, pi-agent) nur Token-Zahlen, Kostenschätzungen, Modellnamen und Aufrufzahlen. Prompts, Antworten, Code, Dateipfade oder Gesprächsinhalte verlassen deinen Rechner nie.",
     howDetail2: 'Mit <code class="mono">ccclub show-data</code> siehst du genau, was hochgeladen wird.',
+    guidesNote:
+      'Neu beim Usage-Tracking? Siehe <a href="/claude-code-usage">wie man den Claude-Code-Verbrauch prüft</a> und <a href="/claude-code-limits">wie das 5-Stunden-Fenster und die Wochenlimits funktionieren</a>.',
     commandsTitle: "Befehle",
     cmdCreate: "Gruppe erstellen",
     cmdJoin: "Gruppe eines Freundes beitreten",
@@ -251,6 +260,8 @@ export const LANDING_T: Record<LandingLang, LandingT> = {
     howDetail1:
       "ccclub читает из локальных логов агентов (Claude Code, Codex, OpenCode, Amp, pi-agent) только количество токенов, оценку затрат, названия моделей и число вызовов. Промпты, ответы, код, пути к файлам и содержимое диалогов никогда не покидают ваш компьютер.",
     howDetail2: 'Команда <code class="mono">ccclub show-data</code> показывает, что именно будет загружено.',
+    guidesNote:
+      'Впервые следите за расходом? Смотрите <a href="/claude-code-usage">как проверить использование Claude Code</a> и <a href="/claude-code-limits">как работают 5-часовое окно и недельные лимиты</a>.',
     commandsTitle: "Команды",
     cmdCreate: "Создать группу",
     cmdJoin: "Присоединиться к группе друга",

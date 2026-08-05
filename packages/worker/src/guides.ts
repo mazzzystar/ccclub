@@ -30,7 +30,7 @@ export const GUIDE_PAGES: GuidePage[] = [
     description:
       "Built-in commands (/usage, /stats), local JSONL logs, and open-source tools for tracking Claude Code token usage and costs — for yourself or a whole team.",
     datePublished: "2026-07-07",
-    dateModified: "2026-07-07",
+    dateModified: "2026-08-04",
     body: `
       <p>Claude Code records everything it does, but the numbers are spread across a few places: two built-in commands, a directory of local log files, and (for API users) the Anthropic Console. This guide covers each layer and the open-source tools built on top of them.</p>
 
@@ -58,7 +58,7 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
 
       <h2>Real-time limit monitoring</h2>
 
-      <p>For a live view while you work — burn rate, predicted time until you hit the session limit — <a href="https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor" rel="noopener">Claude Code Usage Monitor</a> runs a terminal dashboard with predictions and warnings. A custom <a href="https://code.claude.com/docs/en/statusline" rel="noopener">status line</a> can also surface token counts in the Claude Code UI itself.</p>
+      <p>For a live view while you work — burn rate, predicted time until you hit the session limit — <a href="https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor" rel="noopener">Claude Code Usage Monitor</a> runs a terminal dashboard with predictions and warnings. A custom <a href="https://code.claude.com/docs/en/statusline" rel="noopener">status line</a> can also surface token counts in the Claude Code UI itself. If you run several sessions in parallel, <a href="https://github.com/t-soda/claude-code-park" rel="noopener">claude-code-park</a> ("ccpark") visualizes them all on one live dashboard with per-agent token and call stats — local-only, like everything above.</p>
 
       <h2>Seeing usage across a group</h2>
 
@@ -98,12 +98,12 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
   },
   {
     slug: "claude-code-limits",
-    metaTitle: "Claude Code Limits: 5-Hour Window & Weekly Caps Explained (2026)",
+    metaTitle: "Claude Code Limits: 5-Hour Window, Weekly Caps & Reset Times (2026)",
     h1: "Claude Code limits, explained",
     description:
-      "How Claude Code rate limits work on Pro and Max — the 5-hour rolling window, weekly caps, Opus-specific limits — and how to see exactly where you stand.",
+      "How Claude Code rate limits work on Pro and Max — the 5-hour rolling window, weekly caps, when each one resets — and how to see exactly where you stand.",
     datePublished: "2026-07-07",
-    dateModified: "2026-07-07",
+    dateModified: "2026-08-04",
     body: `
       <p>If you use Claude Code on a Pro or Max subscription, your usage is governed by rolling limits rather than a per-token bill. The mechanics are simple once laid out, but they're spread across several docs. Here's the short version, plus how to track where you stand. (Details as of July 2026 — Anthropic adjusts limits over time, so treat <code>/usage</code> as the source of truth.)</p>
 
@@ -114,6 +114,17 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
       <h2>Weekly caps</h2>
 
       <p>On top of the session window, subscriptions have weekly caps that reset every seven days: one covering all models, and on Max plans a separate one for Opus. These mostly matter to heavy users — if you regularly hit session limits, the weekly cap is the next ceiling you'll meet.</p>
+
+      <h2>When do limits reset?</h2>
+
+      <p>Two different clocks, and neither is tied to the calendar day:</p>
+
+      <ul>
+        <li><strong>Session:</strong> the 5-hour window starts at your first message and resets five hours after that — not at midnight, and not on some fixed server schedule. Start at 9:14, reset at 14:14.</li>
+        <li><strong>Weekly:</strong> caps reset on a rolling 7-day schedule specific to your account.</li>
+      </ul>
+
+      <p><code>/usage</code> shows the exact reset time for both. And no, the session limit is not a daily quota — if you work in bursts, several full windows can fit in one day.</p>
 
       <h2>What the limits actually count</h2>
 
@@ -135,6 +146,7 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
         <li><strong>Keep contexts small.</strong> Start new sessions for new tasks and use <code>/compact</code> — resending a huge conversation with every turn is what drains windows fastest.</li>
         <li><strong>Batch related questions</strong> instead of many small turns; each turn re-sends context.</li>
         <li><strong>API key as overflow.</strong> If you hit a wall mid-task, switching to pay-per-token API billing for the remainder is often cheaper than a plan upgrade you rarely need.</li>
+        <li><strong>Extra usage.</strong> Some plans can opt into extra usage that bills overflow at standard API rates once a cap is hit — see <code>/extra-usage</code> in Claude Code or your plan settings.</li>
       </ul>
 
       <h2>Tracking usage over time</h2>
@@ -147,8 +159,24 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
         a: "Your first message starts a rolling 5-hour session window, and usage within that window counts against a session cap. When you hit it, you wait for the window to reset. Claude app usage and Claude Code usage share the same pool.",
       },
       {
+        q: "When does the Claude Code limit reset?",
+        a: "The 5-hour session window resets five hours after the first message that started it — not at midnight or on a fixed server time. Weekly caps reset on your account's own 7-day schedule. /usage shows the exact reset time for both.",
+      },
+      {
+        q: "Is the Claude Code session limit daily?",
+        a: "No — it's a rolling 5-hour window, not a daily quota. Several full windows can fit in one day if you work in bursts. The longer-horizon ceilings are the weekly caps, which reset every seven days.",
+      },
+      {
+        q: "How many tokens do you get per 5-hour window?",
+        a: "Anthropic doesn't publish fixed token quotas, and effective capacity shifts with model choice and context size — Opus drains the allowance several times faster than Sonnet. The percentages in /usage are the only authoritative measure.",
+      },
+      {
         q: "How do I check how close I am to my Claude Code limit?",
         a: "Run /usage inside Claude Code — it shows live session and weekly usage. For continuous visibility, use a custom status line or a real-time monitor like Claude Code Usage Monitor.",
+      },
+      {
+        q: "Can I keep working after hitting a limit?",
+        a: "Three options: wait for the window to reset (/usage shows when), switch the task to a pay-per-token API key, or use extra usage if your plan offers it (billed at API rates — see /extra-usage). ccusage blocks helps you see the historical pattern so you can plan around resets.",
       },
       {
         q: "Why am I hitting Claude Code limits faster than before?",
@@ -166,12 +194,12 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
   },
   {
     slug: "codex-usage",
-    metaTitle: "How to Track Codex Usage and Costs (2026)",
+    metaTitle: "Codex Usage: How to Check Limits, Logs and Costs (2026)",
     h1: "How to track Codex usage",
     description:
-      "Where Codex CLI stores its session logs, how ChatGPT plan limits apply, and the tools that report Codex token usage — including alongside Claude Code.",
+      "Check Codex usage with /status, find the local session logs in ~/.codex/sessions/, and see the tools that report Codex token usage — including alongside Claude Code.",
     datePublished: "2026-07-07",
-    dateModified: "2026-07-07",
+    dateModified: "2026-08-04",
     body: `
       <p>OpenAI's Codex CLI gets less usage-tooling attention than Claude Code, but the same layers exist: a built-in status command, local session logs, and open-source tools that read them. (Details as of July 2026.)</p>
 
@@ -293,7 +321,7 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
     description:
       "viberank, ccgather, tokenleaders, and ccclub take different approaches to ranking coding-agent usage. What each does, and how to pick. (We build ccclub.)",
     datePublished: "2026-07-07",
-    dateModified: "2026-07-07",
+    dateModified: "2026-08-04",
     body: `
       <p>Ranking Claude Code usage has become a small genre of its own. The tools differ mainly on two axes: <strong>who sees the board</strong> (the public, or just your group) and <strong>how data gets there</strong> (manual submission, or automatic sync). Disclosure: <a href="/">ccclub</a> is our project; descriptions of the others are based on their public docs as of July 2026.</p>
 
@@ -301,9 +329,11 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
 
       <p><strong><a href="https://www.viberank.app" rel="noopener">viberank</a></strong> — a public community leaderboard. You sign in with GitHub and submit your usage (generated via ccusage); rankings by cost and tokens. Good if you want your numbers visible in a global community.</p>
 
-      <p><strong><a href="https://ccgather.com" rel="noopener">ccgather</a></strong> — a public leaderboard and community with country-level stats. Same public model, more emphasis on community features.</p>
+      <p><strong><a href="https://ccgather.com" rel="noopener">ccgather</a></strong> — an open-source public leaderboard and community. You sync usage with its CLI (<code>npx ccgather</code>) and get global and country-level rankings, levels and badges, an activity heatmap, and an AI-translated community feed. The most community-oriented of the group.</p>
 
       <p><strong><a href="https://tokenleaders.fun" rel="noopener">tokenleaders</a></strong> — a lightweight public Claude usage ranking; simple and fun rather than feature-heavy.</p>
+
+      <p>Other public boards in the same vein: <a href="https://clawd.gg" rel="noopener">clawd.gg</a> (ranks prompts, tokens, and lines of code) and <a href="https://ccleaderboard.com" rel="noopener">CCLeaderboard</a> (CLI submission, daily and all-time rankings).</p>
 
       <p><strong>ccclub</strong> — private-first. You create a group with <code>npx ccclub init</code>, friends join with a 6-letter code, and the board updates automatically from local logs (Claude Code session-end hook; background sync for Codex, OpenCode, Amp, pi-agent). No accounts. Each group gets a live web dashboard, and there's an opt-in <a href="/g/global">global board</a> if you do want a public ranking. Only numeric summaries are uploaded — no prompts, code, or file paths.</p>
 

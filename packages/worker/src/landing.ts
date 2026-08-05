@@ -798,6 +798,7 @@ function landingHTML(lang: LandingLang, demoBoard: string | null = null) {
       <div class="how-detail">
         <p>${t.howDetail1}</p>
         <p style="margin-top:8px">${raw(t.howDetail2)}</p>
+        <p style="margin-top:8px">${raw(t.guidesNote)}</p>
       </div>
     </div>
 

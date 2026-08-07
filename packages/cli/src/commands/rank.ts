@@ -142,7 +142,7 @@ export async function rankCommand(options: RankCommandOptions): Promise<void> {
   // Skipped in JSON mode: machine consumers should never trigger installs.
   const statuslineEnabledPromise = options.json
     ? Promise.resolve(false)
-    : maybeAutoEnableStatusline().catch(() => false);
+    : maybeAutoEnableStatusline().then((r) => r === "enabled").catch(() => false);
 
   // Spinner only for interactive human use; never on pipes or JSON output.
   const spinner = options.json || !process.stdout.isTTY ? null : ora("Loading leaderboard...").start();

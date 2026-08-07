@@ -7,7 +7,7 @@ import { installHook, isHookInstalled } from "../hook.js";
 import { installHeartbeat, isHeartbeatInstalled } from "../heartbeat.js";
 import { doSync } from "./sync.js";
 import { ensureGlobalInstall } from "../global-install.js";
-import { getStatuslineState, hasOptedOut, installStatusline } from "../statusline-install.js";
+import { maybeAutoEnableStatusline } from "../statusline-install.js";
 import { formatFetchError } from "../fetch-error.js";
 import { theme } from "../theme.js";
 import type { InitResponse } from "@ccclub/shared";
@@ -26,6 +26,14 @@ export async function initCommand(): Promise<void> {
     if (!isHeartbeatInstalled()) {
       const heartbeatOk = await installHeartbeat();
       if (heartbeatOk) console.log(chalk.green("  Background sync installed!"));
+    }
+    // ...and the statusline, whose one-shot enable at first init/join is
+    // easy to have missed (e.g. the global install failed that day).
+    const statusline = await maybeAutoEnableStatusline();
+    if (statusline === "enabled") {
+      console.log(chalk.green("  Claude Code statusline enabled!"));
+    } else if (statusline === "no-global") {
+      console.log(chalk.dim('  Statusline needs a global install — run "npm install -g ccclub" and it will enable itself.'));
     }
     console.log(chalk.dim('\n  Run "ccclub" to see the leaderboard'));
     return;
@@ -107,8 +115,11 @@ export async function initCommand(): Promise<void> {
     const globalOk = await ensureGlobalInstall();
 
     // Claim the Claude Code statusline only when nothing else occupies it
-    // (an existing cc-costline or custom command is never touched).
-    if (globalOk && !hasOptedOut() && (await getStatuslineState()) === "none" && (await installStatusline())) {
+    // (an existing cc-costline or custom command is never touched). Going
+    // through maybeAutoEnableStatusline records the once-ever marker, and a
+    // miss here is no longer final — background sync retries.
+    const statusline = await maybeAutoEnableStatusline({ checkGlobal: async () => globalOk });
+    if (statusline === "enabled") {
       console.log(chalk.dim('  ✓ Claude Code statusline enabled — model · 5h/7d limits · rank ("ccclub statusline off" to remove)'));
     }
 

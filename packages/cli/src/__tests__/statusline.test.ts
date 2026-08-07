@@ -447,6 +447,7 @@ describe("maybeAutoEnableStatusline", () => {
       settingsPath: join(dir, "settings.json"),
       optOutPath: join(dir, "opt-out"),
       autoEnabledPath: join(dir, "auto-enabled"),
+      globalRetryPath: join(dir, "global-retry"),
       checkGlobal: async () => true,
     };
   }
@@ -455,12 +456,12 @@ describe("maybeAutoEnableStatusline", () => {
     const dir = await makeTempDir();
     const deps = await makeDeps(dir);
 
-    expect(await maybeAutoEnableStatusline(deps)).toBe(true);
+    expect(await maybeAutoEnableStatusline(deps)).toBe("enabled");
     expect(await getStatuslineState(deps.settingsPath)).toBe("ours");
 
     // The user edits settings.json and deletes the statusLine key.
     await writeFile(deps.settingsPath, "{}\n");
-    expect(await maybeAutoEnableStatusline(deps)).toBe(false);
+    expect(await maybeAutoEnableStatusline(deps)).toBe("already-done");
     expect(await getStatuslineState(deps.settingsPath)).toBe("none");
   });
 
@@ -468,13 +469,51 @@ describe("maybeAutoEnableStatusline", () => {
     const dir = await makeTempDir();
     const deps = await makeDeps(dir);
     await writeFile(deps.settingsPath, JSON.stringify({ statusLine: { type: "command", command: "my-own" } }));
-    expect(await maybeAutoEnableStatusline(deps)).toBe(false);
+    expect(await maybeAutoEnableStatusline(deps)).toBe("occupied");
 
     const dir2 = await makeTempDir();
     const deps2 = await makeDeps(dir2);
     await writeFile(deps2.optOutPath, "x");
-    expect(await maybeAutoEnableStatusline(deps2)).toBe(false);
+    expect(await maybeAutoEnableStatusline(deps2)).toBe("opted-out");
     expect(existsSync(deps2.settingsPath)).toBe(false);
+  });
+
+  it("reports a missing global install and succeeds on a later retry", async () => {
+    // The bug this converges away from: the enable used to have exactly one
+    // shot, at first init/join — if `npm install -g` failed that day, the
+    // machine stayed without a statusline forever.
+    const deps = await makeDeps(await makeTempDir());
+    let installed = false;
+    const withGlobal = { ...deps, checkGlobal: async () => installed };
+
+    expect(await maybeAutoEnableStatusline(withGlobal)).toBe("no-global");
+    expect(await getStatuslineState(deps.settingsPath)).toBe("none");
+
+    installed = true; // the user runs npm install -g at some later point
+    expect(await maybeAutoEnableStatusline(withGlobal)).toBe("enabled");
+    expect(await getStatuslineState(deps.settingsPath)).toBe("ours");
+  });
+
+  it("throttles only the global probe, and only for background callers", async () => {
+    const NOW = new Date("2026-08-07T10:00:00Z").getTime();
+    const DAY = 24 * 60 * 60 * 1000;
+    const deps = await makeDeps(await makeTempDir());
+    let probes = 0;
+    const failing = { ...deps, checkGlobal: async () => { probes++; return false; } };
+
+    // Background caller: first probe runs, second is throttled away.
+    expect(await maybeAutoEnableStatusline({ ...failing, retryThrottleMs: DAY, now: NOW })).toBe("no-global");
+    expect(await maybeAutoEnableStatusline({ ...failing, retryThrottleMs: DAY, now: NOW + 60_000 })).toBe("throttled");
+    expect(probes).toBe(1);
+
+    // An interactive caller (no throttle) probes regardless.
+    expect(await maybeAutoEnableStatusline({ ...failing, now: NOW + 120_000 })).toBe("no-global");
+    expect(probes).toBe(2);
+
+    // Past the window the background caller probes again — and a success
+    // enables even though earlier attempts failed.
+    const succeeding = { ...deps, retryThrottleMs: DAY, now: NOW + DAY + 60_000 };
+    expect(await maybeAutoEnableStatusline(succeeding)).toBe("enabled");
   });
 
   it("classifies a pipeline that merely mentions ccclub as foreign", async () => {

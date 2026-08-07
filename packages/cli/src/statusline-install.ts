@@ -1,9 +1,10 @@
 import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
 import { isGloballyInstalled } from "./global-install.js";
+import { atomicWriteFile } from "./fs-utils.js";
 
 const CLAUDE_SETTINGS_PATH = join(homedir(), ".claude", "settings.json");
 
@@ -18,6 +19,11 @@ const OPT_OUT_PATH = join(homedir(), CCCLUB_CONFIG_DIR, "statusline-opt-out");
 // without it, a user who removed the statusLine key by hand (rather than via
 // `ccclub statusline off`) would get it re-added on every ccclub run.
 const AUTO_ENABLED_PATH = join(homedir(), CCCLUB_CONFIG_DIR, "statusline-auto-enabled");
+
+// Timestamp of the last failed global-binary probe. Background retries read
+// this so an npx-only machine costs one `npm list -g` per throttle window,
+// not one per five-minute sync.
+const GLOBAL_RETRY_PATH = join(homedir(), CCCLUB_CONFIG_DIR, "statusline-global-retry");
 
 export type StatuslineState = "ours" | "other" | "none";
 
@@ -62,7 +68,7 @@ export async function installStatusline(settingsPath = CLAUDE_SETTINGS_PATH): Pr
 
     settings.statusLine = { type: "command", command: STATUSLINE_COMMAND };
     await mkdir(dirname(settingsPath), { recursive: true });
-    await writeFile(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+    await atomicWriteFile(settingsPath, JSON.stringify(settings, null, 2) + "\n");
     return true;
   } catch {
     return false;
@@ -77,7 +83,7 @@ export async function uninstallStatusline(settingsPath = CLAUDE_SETTINGS_PATH): 
     if (stateOf(settings) !== "ours") return true; // Nothing of ours to remove.
 
     delete settings.statusLine;
-    await writeFile(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+    await atomicWriteFile(settingsPath, JSON.stringify(settings, null, 2) + "\n");
     return true;
   } catch {
     return false;
@@ -101,31 +107,71 @@ export async function clearOptOut(optOutPath = OPT_OUT_PATH): Promise<void> {
   } catch { /* best effort */ }
 }
 
+/** Why an automatic enable did or didn't happen. Only "enabled" changed anything. */
+export type AutoEnableOutcome =
+  | "enabled"      // newly enabled just now
+  | "already-done" // the one automatic enable already happened on this machine
+  | "opted-out"    // user ran `ccclub statusline off`
+  | "occupied"     // a statusline is configured (ours or someone else's)
+  | "no-global"    // the ccclub-statusline binary isn't globally installed
+  | "throttled"    // background retry window for the global probe not reached
+  | "failed";      // eligible, but writing settings.json failed
+
 /**
- * One-time automatic enable for users who set up ccclub before the statusline
- * existed: only once ever (marker file), only when nothing else is configured,
- * the user never opted out, and the global binary actually resolves. Returns
- * true when newly enabled.
+ * Automatic enable with a once-ever marker: only when nothing else is
+ * configured, the user never opted out, and the global binary resolves.
+ *
+ * Callers fall into two kinds. Interactive commands (rank, init, join) call
+ * it bare and can show the outcome. Background sync passes retryThrottleMs —
+ * that is what makes this converge: the original enable had exactly one shot
+ * (first init/join, and only if `npm install -g` happened to succeed that
+ * day), and a machine that missed it stayed without a statusline forever.
+ * With sync retrying, it appears within one heartbeat of the blocker
+ * clearing. The cost stays negligible: the common outcomes short-circuit on
+ * local file reads, and only an eligible machine probes `npm list -g`, at
+ * most once per throttle window.
  */
 export async function maybeAutoEnableStatusline(deps: {
   settingsPath?: string;
   optOutPath?: string;
   autoEnabledPath?: string;
+  globalRetryPath?: string;
+  /** When set, a failed global probe is not repeated within this window. */
+  retryThrottleMs?: number;
   checkGlobal?: () => Promise<boolean>;
-} = {}): Promise<boolean> {
+  now?: number;
+} = {}): Promise<AutoEnableOutcome> {
   const autoEnabledPath = deps.autoEnabledPath ?? AUTO_ENABLED_PATH;
+  const globalRetryPath = deps.globalRetryPath ?? GLOBAL_RETRY_PATH;
+  const now = deps.now ?? Date.now();
   try {
-    if (existsSync(autoEnabledPath)) return false;
-    if (hasOptedOut(deps.optOutPath)) return false;
-    if ((await getStatuslineState(deps.settingsPath)) !== "none") return false;
-    if (!(await (deps.checkGlobal ?? isGloballyInstalled)())) return false;
-    const enabled = await installStatusline(deps.settingsPath);
-    if (enabled) {
-      await mkdir(dirname(autoEnabledPath), { recursive: true });
-      await writeFile(autoEnabledPath, new Date().toISOString());
+    if (existsSync(autoEnabledPath)) return "already-done";
+    if (hasOptedOut(deps.optOutPath)) return "opted-out";
+    if ((await getStatuslineState(deps.settingsPath)) !== "none") return "occupied";
+
+    if (deps.retryThrottleMs != null && existsSync(globalRetryPath)) {
+      try {
+        const last = parseInt(readFileSync(globalRetryPath, "utf-8").trim(), 10);
+        const age = now - last;
+        if (Number.isFinite(last) && age >= 0 && age < deps.retryThrottleMs) return "throttled";
+      } catch { /* unreadable throttle file — probe again */ }
     }
-    return enabled;
+
+    if (!(await (deps.checkGlobal ?? isGloballyInstalled)())) {
+      if (deps.retryThrottleMs != null) {
+        try {
+          await mkdir(dirname(globalRetryPath), { recursive: true });
+          await writeFile(globalRetryPath, String(now));
+        } catch { /* best effort */ }
+      }
+      return "no-global";
+    }
+
+    if (!(await installStatusline(deps.settingsPath))) return "failed";
+    await mkdir(dirname(autoEnabledPath), { recursive: true });
+    await writeFile(autoEnabledPath, new Date(now).toISOString());
+    return "enabled";
   } catch {
-    return false;
+    return "failed";
   }
 }

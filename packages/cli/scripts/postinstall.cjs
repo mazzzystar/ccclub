@@ -75,7 +75,20 @@ function updateHooks() {
   }
 
   if (changed) {
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+    atomicWrite(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+  }
+}
+
+// Mirror of atomicWriteFile in src/fs-utils.ts: Claude Code reads
+// settings.json while we write, and a plain write truncates first.
+function atomicWrite(target, data) {
+  const tmp = `${target}.${process.pid}.tmp`;
+  try {
+    fs.writeFileSync(tmp, data);
+    fs.renameSync(tmp, target);
+  } catch (err) {
+    try { fs.rmSync(tmp, { force: true }); } catch { /* nothing to clean up */ }
+    throw err;
   }
 }
 
@@ -130,7 +143,7 @@ function updateHeartbeat() {
   const plist = buildPlist(pkg.version);
   if (fs.readFileSync(PLIST_PATH, "utf-8") === plist) return;
 
-  fs.writeFileSync(PLIST_PATH, plist);
+  atomicWrite(PLIST_PATH, plist);
   // Reload so launchd picks up the new pin now; failures (SSH session, CI)
   // self-heal at next login via RunAtLoad.
   for (const action of ["unload", "load"]) {

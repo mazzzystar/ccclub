@@ -19,6 +19,7 @@ import { fetchUsageLimits } from "../usage-limits.js";
 import { acquireSyncLock } from "../sync-lock.js";
 import { installHook, isHookInstalled } from "../hook.js";
 import { installHeartbeat, isHeartbeatInstalled } from "../heartbeat.js";
+import { maybeAutoEnableStatusline } from "../statusline-install.js";
 
 // Bump this when the block format or accounting semantics change. It forces a
 // one-time source replacement so corrected parsing can also delete obsolete
@@ -105,6 +106,13 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
       isHookInstalled() ? Promise.resolve(true) : installHook(),
       isHeartbeatInstalled() ? Promise.resolve(true) : installHeartbeat(),
     ]);
+
+    // Statusline setup converges here too. Its original enable had exactly
+    // one shot — first init/join, and only if `npm install -g` succeeded that
+    // day — so a machine that missed it stayed without a statusline forever.
+    // The throttle keeps the `npm list -g` probe to once a day; every other
+    // outcome short-circuits on local file reads.
+    await maybeAutoEnableStatusline({ retryThrottleMs: 24 * 60 * 60 * 1000 });
 
     await performSync(config, firstSync, silent);
   } finally {

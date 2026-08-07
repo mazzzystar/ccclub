@@ -1,8 +1,9 @@
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { existsSync, readFileSync } from "node:fs";
 import { getCurrentVersion } from "./version.js";
+import { atomicWriteFile } from "./fs-utils.js";
 
 const CLAUDE_SETTINGS_DIR = join(homedir(), ".claude");
 const CLAUDE_SETTINGS_PATH = join(CLAUDE_SETTINGS_DIR, "settings.json");
@@ -114,7 +115,7 @@ export async function installHook(): Promise<boolean> {
 
     if (!updateManagedHooks(settings)) return true;
 
-    await writeFile(CLAUDE_SETTINGS_PATH, JSON.stringify(settings, null, 2) + "\n");
+    await atomicWriteFile(CLAUDE_SETTINGS_PATH, JSON.stringify(settings, null, 2) + "\n");
     return true;
   } catch {
     return false;

@@ -97,7 +97,7 @@ const AGENT_ICONS: Partial<Record<AgentSource, string>> = {
   codex: "/agent-icons/codex.svg",
   opencode: "/agent-icons/opencode.svg",
   amp: "/agent-icons/amp.svg",
-  grok: "/agent-icons/grok.svg",
+  grok: "/agent-icons/grok-light.svg",
 };
 
 function agentIconHTML(source: AgentSource, size: number): string {

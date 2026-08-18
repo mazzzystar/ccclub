@@ -11,8 +11,17 @@ import { slugifyName, isReservedSlug } from "@ccclub/shared/slug";
 const NS = "04ff7a30114d42f9bd986d692d888f96";
 
 function wr(...args) {
-  return execFileSync("npx", ["wrangler", "kv", "key", ...args, `--namespace-id=${NS}`],
-    { encoding: "utf-8", timeout: 120_000 });
+  // Retry transient registry/network hiccups — a 500-write run shouldn't die
+  // to one failed fetch.
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return execFileSync("npx", ["wrangler", "kv", "key", ...args, `--namespace-id=${NS}`],
+        { encoding: "utf-8", timeout: 120_000 });
+    } catch (err) {
+      if (attempt >= 3) throw err;
+      execFileSync("sleep", [String(attempt * 2)]);
+    }
+  }
 }
 function list(prefix) {
   return JSON.parse(wr("list", `--prefix=${prefix}`)).map((k) => k.name);

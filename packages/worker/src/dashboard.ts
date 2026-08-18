@@ -47,9 +47,9 @@ function ssrGlobalContentHTML(rankings: RankingEntry[]): string {
   const rows = rankings
     .map((r, i) => {
       const rankClass = i === 0 ? "rank gold" : i === 1 ? "rank silver" : i === 2 ? "rank bronze" : "rank";
-      const name = r.url
-        ? `<a href="${htmlEsc(r.url)}" rel="noopener" class="name-link">${htmlEsc(r.displayName)}</a>`
-        : htmlEsc(r.displayName);
+      // Names go to the member's ccclub activity page; a member's own URL is
+      // shown there rather than hijacking the name click.
+      const name = `<a href="/u/${htmlEsc(r.userId)}" class="name-link">${htmlEsc(r.displayName)}</a>`;
       return `<tr><td class="${rankClass}">${i + 1}</td><td><span class="name-text">${name}</span></td><td class="cost">$${r.costUSD.toFixed(2)}</td><td class="tokens">${formatCompactNumber(r.totalTokens)}</td><td class="calls">${formatCompactNumber(r.chatCount || 0)}</td></tr>`;
     })
     .join("");
@@ -978,7 +978,7 @@ function dashboardHTML(
             h += '<tr class="' + rowClass + '">' +
               '<td class="' + rankClass + '">' + r.rank + '</td>' +
               '<td><div class="name-cell">' + avatarHTML(r.userId, r.displayName, r.avatar, isActive) +
-                '<div><div class="name-text">' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" rel="noopener" class="name-link">' + esc(r.displayName) + '</a>' : esc(r.displayName)) + activeBadgeHTML(r, isActive) + '</div>' +
+                '<div><div class="name-text">' + '<a href="/u/' + esc(r.userId) + '" class="name-link">' + esc(r.displayName) + '</a>' + activeBadgeHTML(r, isActive) + '</div>' +
                 agentLine + '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +
               '<td class="cost">$' + r.costUSD.toFixed(2) + '</td>' +
               '<td class="tokens">' + formatTokens(displayedTokens) + '</td>';
@@ -1102,7 +1102,7 @@ function dashboardHTML(
         var points = buckets.map(function(v, i) {
           return { t: startMs + (i + 0.5) * bucketMs, v: v };
         });
-        return { name: user.displayName, url: user.url || "", total: total, points: points };
+        return { name: user.displayName, userId: user.userId || "", total: total, points: points };
       });
 
       if (globalMax === 0) globalMax = 1;
@@ -1165,7 +1165,7 @@ function dashboardHTML(
       var legend = '<div class="chart-legend">';
       userSeries.forEach(function(us, idx) {
         var color = CHART_COLORS[idx % CHART_COLORS.length];
-        var legendName = us.url ? '<a href="' + esc(us.url) + '" target="_blank" rel="noopener" class="name-link">' + esc(us.name) + '</a>' : esc(us.name);
+        var legendName = us.userId ? '<a href="/u/' + esc(us.userId) + '" class="name-link">' + esc(us.name) + '</a>' : esc(us.name);
         legend += '<div class="chart-legend-item" data-idx="' + idx + '"><span class="chart-legend-dot" style="background:' + color + '"></span>' +
           legendName + ' $' + us.total.toFixed(2) + '</div>';
       });

@@ -9,6 +9,7 @@ import { pricingRoutes } from "./routes/pricing.js";
 import { refreshPricingTable } from "./pricing-refresh.js";
 import { llmsRoute } from "./llms.js";
 import { dashboardRoute } from "./dashboard.js";
+import { userActivityRoute } from "./user-activity.js";
 import { landingRoute } from "./landing.js";
 import { inviteRoute } from "./invite.js";
 import { guideRoute } from "./guide.js";
@@ -32,6 +33,7 @@ app.route("/", guideRoute);
 app.route("/", blogRoute);
 app.route("/", guidesRoute);
 app.route("/", inviteRoute);
+app.route("/", userActivityRoute);
 app.route("/", dashboardRoute);
 
 export default {

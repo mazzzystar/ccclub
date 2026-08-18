@@ -9,6 +9,7 @@ import { createGroupCommand } from "./commands/group.js";
 import { leaveCommand } from "./commands/leave.js";
 import { hookCommand } from "./commands/hook.js";
 import { statuslineCommand } from "./commands/statusline.js";
+import { activityCommand } from "./commands/activity.js";
 import { startUpdateCheck } from "./update-check.js";
 import { getCurrentVersion } from "./version.js";
 
@@ -94,6 +95,12 @@ program
   .description("Leave a group")
   .argument("[code]", "Group invite code")
   .action((code: string | undefined) => leaveCommand(code));
+
+program
+  .command("activity")
+  .description("Your daily token activity as a GitHub-style heatmap")
+  .option("--json", "Output day totals and stats as JSON")
+  .action(activityCommand);
 
 program
   .command("show-data")

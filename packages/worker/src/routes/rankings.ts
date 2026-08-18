@@ -505,6 +505,7 @@ app.get("/activity/:code", async (c) => {
   // Build per-user time series
   type BlockEntry = { t: number; cost: number; tokens: number; totalTokens: number; chats: number };
   const series: Array<{
+    userId: string;
     displayName: string;
     avatar: string;
     url?: string;
@@ -544,7 +545,7 @@ app.get("/activity/:code", async (c) => {
       chats: bl.chats,
     }));
 
-    series.push({ displayName: info.displayName, avatar: info.avatar, url: info.url, totalCost, blocks });
+    series.push({ userId, displayName: info.displayName, avatar: info.avatar, url: info.url, totalCost, blocks });
   }
 
   // Sort by total cost descending, limit to top N

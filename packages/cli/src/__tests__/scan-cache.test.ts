@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, stat, writeFile, utimes } from "node:fs/promises";
+import { mkdtemp, mkdir, readdir, rm, stat, writeFile, utimes } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach, vi } from "vitest";
@@ -64,9 +64,8 @@ describe("scan cache factory", () => {
     expect(third.get("/kept.json", STAT_A)).toBe("kept");
   });
 
-  it("does not rewrite a fully hot cache", async () => {
+  it("does not rewrite any shard of a fully hot cache", async () => {
     const dir = await makeTempDir();
-    const path = join(dir, "claude.json");
     const factory = createScanCacheFactory(dir);
 
     const first = await factory<string>("claude", "parser=1");
@@ -74,16 +73,52 @@ describe("scan cache factory", () => {
     await first.save();
 
     const fixedTime = new Date(1_700_000_000_000);
-    await utimes(path, fixedTime, fixedTime);
+    const shardPaths = (await readdir(join(dir, "claude"))).map((name) => join(dir, "claude", name));
+    for (const path of shardPaths) await utimes(path, fixedTime, fixedTime);
 
     const hot = await factory<string>("claude", "parser=1");
     expect(hot.get("/a.jsonl", STAT_A)).toBe("parsed-a");
     await hot.save();
 
-    expect((await stat(path)).mtimeMs).toBe(fixedTime.getTime());
+    for (const path of shardPaths) {
+      expect((await stat(path)).mtimeMs).toBe(fixedTime.getTime());
+    }
   });
 
-  it("treats a corrupt cache file as cold and recovers on save", async () => {
+  it("rewrites only the dirty shard, never its unchanged neighbors", async () => {
+    const dir = await makeTempDir();
+    const factory = createScanCacheFactory(dir);
+
+    const first = await factory<string>("codex", "v1");
+    first.set("/stable.jsonl", STAT_A, "stable");
+    first.set("/active.jsonl", STAT_A, "old");
+    await first.save();
+
+    const fixedTime = new Date(1_700_000_000_000);
+    const shardPaths = (await readdir(join(dir, "codex")))
+      .filter((name) => name !== "meta.json")
+      .map((name) => join(dir, "codex", name));
+    expect(shardPaths).toHaveLength(2);
+    for (const path of shardPaths) await utimes(path, fixedTime, fixedTime);
+
+    const second = await factory<string>("codex", "v1");
+    expect(second.get("/stable.jsonl", STAT_A)).toBe("stable");
+    expect(second.get("/active.jsonl", STAT_B)).toBeUndefined();
+    second.set("/active.jsonl", STAT_B, "new");
+    await second.save();
+
+    const untouched = [];
+    for (const path of shardPaths) {
+      if ((await stat(path)).mtimeMs === fixedTime.getTime()) untouched.push(path);
+    }
+    expect(untouched).toHaveLength(1);
+
+    const third = await factory<string>("codex", "v1");
+    expect(third.get("/stable.jsonl", STAT_A)).toBe("stable");
+    expect(third.get("/active.jsonl", STAT_B)).toBe("new");
+  });
+
+  it("treats a corrupt legacy cache file as cold and recovers on save", async () => {
     const dir = await makeTempDir();
     await writeFile(join(dir, "pi.json"), "{corrupt");
     const factory = createScanCacheFactory(dir);
@@ -95,6 +130,57 @@ describe("scan cache factory", () => {
 
     const next = await factory<string>("pi", "v1");
     expect(next.get("/a.jsonl", STAT_A)).toBe("fresh");
+    // The unusable single-file cache is cleaned up either way.
+    await expect(stat(join(dir, "pi.json"))).rejects.toThrow();
+  });
+
+  it("migrates a v2 single-file cache into shards without reparsing", async () => {
+    const dir = await makeTempDir();
+    const legacy = {
+      version: 2,
+      metaToken: "parser=5",
+      files: {
+        "/sessions/a.jsonl": { mtimeMs: STAT_A.mtimeMs, size: STAT_A.size, data: "fact-a" },
+        "/sessions/b.jsonl": { mtimeMs: STAT_B.mtimeMs, size: STAT_B.size, data: "fact-b" },
+      },
+    };
+    await writeFile(join(dir, "codex.json"), JSON.stringify(legacy));
+    const factory = createScanCacheFactory(dir);
+
+    const migrated = await factory<string>("codex", "parser=5");
+    // Warm hits straight out of the legacy payload — no reparse needed.
+    expect(migrated.get("/sessions/a.jsonl", STAT_A)).toBe("fact-a");
+    expect(migrated.get("/sessions/b.jsonl", STAT_B)).toBe("fact-b");
+    await migrated.save();
+
+    // The monolith is gone and both entries survived as shards.
+    await expect(stat(join(dir, "codex.json"))).rejects.toThrow();
+    const shards = (await readdir(join(dir, "codex"))).filter((name) => name !== "meta.json");
+    expect(shards).toHaveLength(2);
+
+    const reopened = await factory<string>("codex", "parser=5");
+    expect(reopened.get("/sessions/a.jsonl", STAT_A)).toBe("fact-a");
+    expect(reopened.get("/sessions/b.jsonl", STAT_B)).toBe("fact-b");
+  });
+
+  it("ignores a legacy cache whose meta token no longer matches", async () => {
+    const dir = await makeTempDir();
+    const legacy = {
+      version: 2,
+      metaToken: "parser=4",
+      files: { "/sessions/a.jsonl": { mtimeMs: STAT_A.mtimeMs, size: STAT_A.size, data: "stale" } },
+    };
+    await writeFile(join(dir, "codex.json"), JSON.stringify(legacy));
+    const factory = createScanCacheFactory(dir);
+
+    const cache = await factory<string>("codex", "parser=5");
+    expect(cache.get("/sessions/a.jsonl", STAT_A)).toBeUndefined();
+    cache.set("/sessions/a.jsonl", STAT_A, "fresh");
+    await cache.save();
+
+    const next = await factory<string>("codex", "parser=5");
+    expect(next.get("/sessions/a.jsonl", STAT_A)).toBe("fresh");
+    await expect(stat(join(dir, "codex.json"))).rejects.toThrow();
   });
 });
 

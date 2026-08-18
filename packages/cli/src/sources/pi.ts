@@ -134,6 +134,6 @@ export async function collectPiUsage(context: CollectorContext): Promise<SourceC
 
 export const piCollector: AgentSourceCollector = {
   source: "pi",
-  label: "pi-agent",
+  label: "Pi",
   collect: collectPiUsage,
 };

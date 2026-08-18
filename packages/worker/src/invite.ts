@@ -449,7 +449,7 @@ function buildOgSvg(group: GroupRecord): string {
   <text x="716" y="430" fill="#8a8480" font-size="17" font-family="Inter, sans-serif">No signup. Local logs only.</text>
 
   <!-- Footer -->
-  <text x="86" y="560" fill="#4f4942" font-size="16" font-family="Inter, sans-serif">Claude Code · Codex · OpenCode · Amp · Grok · pi-agent</text>
+  <text x="86" y="560" fill="#4f4942" font-size="16" font-family="Inter, sans-serif">Claude Code · Codex · OpenCode · Amp · Grok · Pi</text>
   <text x="${W - 86}" y="560" text-anchor="end" fill="#4f4942" font-size="16" font-family="Inter, sans-serif">ccclub.dev/invite/${svgEsc(code)}</text>
 </svg>`;
 }

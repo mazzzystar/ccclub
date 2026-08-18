@@ -26,7 +26,7 @@ if (process.argv.slice(2).includes("-v")) {
 
 program
   .name("ccclub")
-  .description("Claude Code, Codex, OpenCode, Amp, Grok, and pi-agent usage leaderboard among friends")
+  .description("Claude Code, Codex, OpenCode, Amp, Grok, and Pi usage leaderboard among friends")
   .version(VERSION);
 
 // Default command — just running `ccclub` shows the leaderboard
@@ -125,7 +125,7 @@ Setup:
   ccclub join <code>      Join a friend's group
 
 Supported agents:
-  Claude Code, Codex, OpenCode, Amp, Grok, pi-agent
+  Claude Code, Codex, OpenCode, Amp, Grok, Pi
 
 Leaderboard options:
   -d <period>              Time window: 1 | 7 | 30 | all (default: today)

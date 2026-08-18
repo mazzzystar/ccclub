@@ -136,7 +136,7 @@ export const DEFAULT_FALLBACK_MODEL = "claude-sonnet-4-6";
 
 /**
  * Canonical lookup key for a model ID as reported by agent logs: lowercase,
- * without the pi-agent "[pi] " marker or provider prefixes such as
+ * without the Pi "[pi] " marker or provider prefixes such as
  * "openai/gpt-5" (OpenCode) or "openrouter/anthropic/claude-…".
  */
 export function normalizeModelId(model: string): string {

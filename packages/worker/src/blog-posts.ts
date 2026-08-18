@@ -41,7 +41,7 @@ export const BLOG_POSTS: BlogPost[] = [
 
       <h2>Beyond Claude Code</h2>
 
-      <p>Since the initial release, ccclub has grown to support multiple coding agents. It now reads usage logs from Claude Code, Codex, OpenCode, Amp, Grok, and pi-agent. If you use more than one, all of them show up in the same leaderboard.</p>
+      <p>Since the initial release, ccclub has grown to support multiple coding agents. It now reads usage logs from Claude Code, Codex, OpenCode, Amp, Grok, and Pi. If you use more than one, all of them show up in the same leaderboard.</p>
 
       <p>The data stays local — ccclub reads from each agent's default log directory, aggregates everything into 30-minute blocks, and uploads only the numeric summaries.</p>
 

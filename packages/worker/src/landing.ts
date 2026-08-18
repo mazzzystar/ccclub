@@ -753,11 +753,11 @@ function landingHTML(lang: LandingLang, demoBoard: string | null = null) {
               <span class="agent-logo" title="OpenCode"><img src="/agent-icons/opencode.svg" alt="OpenCode" /></span>
               <span class="agent-logo" title="Amp"><img src="/agent-icons/amp.svg" alt="Amp" /></span>
               <span class="agent-logo" title="Grok"><img src="/agent-icons/grok.svg" alt="Grok" /></span>
-              <span class="agent-logo pi" title="pi-agent"><img src="/agent-icons/pi-light.svg" alt="pi-agent" /></span>
+              <span class="agent-logo pi" title="Pi"><img src="/agent-icons/pi-light.svg" alt="Pi" /></span>
             </div>
             <div class="supported-copy">
               <strong>${t.supportedStrong}</strong>
-              <span>Claude Code · Codex · OpenCode · Amp · Grok · pi-agent</span>
+              <span>Claude Code · Codex · OpenCode · Amp · Grok · Pi</span>
             </div>
           </div>
           <button class="setup-command" id="copy-setup" type="button" data-copy="npx ccclub init">

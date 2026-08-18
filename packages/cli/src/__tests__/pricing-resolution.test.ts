@@ -23,7 +23,7 @@ describe("normalizeModelId", () => {
     expect(normalizeModelId("openrouter/anthropic/claude-sonnet-4-6")).toBe("claude-sonnet-4-6");
   });
 
-  it("strips the pi-agent marker", () => {
+  it("strips the Pi marker", () => {
     expect(normalizeModelId("[pi] gpt-5")).toBe("gpt-5");
   });
 });

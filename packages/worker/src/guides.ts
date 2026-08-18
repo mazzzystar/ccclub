@@ -66,7 +66,7 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
 
       <ul>
         <li><strong>Team / Enterprise plans</strong> have admin usage analytics in the Claude console — per-member usage by product and model. The official option if your org pays for seats.</li>
-        <li><strong><a href="/">ccclub</a></strong> (our project) is the informal option: everyone runs <code>npx ccclub init</code> / <code>join</code>, and the group shares one leaderboard of tokens, estimated cost, and agent mix — covering Codex, OpenCode, Amp, Grok, and pi-agent too. Only aggregated numeric summaries are uploaded (no prompts, code, or file paths; <code>ccclub show-data</code> shows the exact payload). It's the right tool for friends comparing usage, not for compliance reporting.</li>
+        <li><strong><a href="/">ccclub</a></strong> (our project) is the informal option: everyone runs <code>npx ccclub init</code> / <code>join</code>, and the group shares one leaderboard of tokens, estimated cost, and agent mix — covering Codex, OpenCode, Amp, Grok, and Pi too. Only aggregated numeric summaries are uploaded (no prompts, code, or file paths; <code>ccclub show-data</code> shows the exact payload). It's the right tool for friends comparing usage, not for compliance reporting.</li>
       </ul>
 
       <h2>A note on "cost" when you're on a subscription</h2>
@@ -217,7 +217,7 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
 
       <h2>Codex and Claude Code on one board</h2>
 
-      <p>Many developers now run both agents and want one picture of usage — or want to compare with friends who use a different agent. <a href="/">ccclub</a> (our project) reads local logs from Codex, Claude Code, OpenCode, Amp, Grok, and pi-agent, and puts a group on a single leaderboard with each member's agent mix. Set up with <code>npx ccclub init</code>; only numeric summaries are uploaded (no prompts, code, or file paths). If you only want your own numbers, stick with ccusage — see the <a href="/ccusage-vs-ccclub">comparison</a>.</p>
+      <p>Many developers now run both agents and want one picture of usage — or want to compare with friends who use a different agent. <a href="/">ccclub</a> (our project) reads local logs from Codex, Claude Code, OpenCode, Amp, Grok, and Pi, and puts a group on a single leaderboard with each member's agent mix. Set up with <code>npx ccclub init</code>; only numeric summaries are uploaded (no prompts, code, or file paths). If you only want your own numbers, stick with ccusage — see the <a href="/ccusage-vs-ccclub">comparison</a>.</p>
 
       <h2>A note on Codex "cost"</h2>
 
@@ -234,7 +234,7 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
       },
       {
         q: "Can I track Codex and Claude Code usage together?",
-        a: "Yes. ccusage reports both locally, and ccclub shows both (plus OpenCode, Amp, Grok, and pi-agent) on one shared leaderboard, with each person's agent mix.",
+        a: "Yes. ccusage reports both locally, and ccclub shows both (plus OpenCode, Amp, Grok, and Pi) on one shared leaderboard, with each person's agent mix.",
       },
       {
         q: "Does Codex have usage limits on ChatGPT plans?",
@@ -257,7 +257,7 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
 
       <p><strong>ccusage</strong> is a reporting CLI. It reads local coding-agent logs and prints tables — daily, monthly, per-session, or 5-hour billing blocks — with cost estimated at API pricing. It supports a long list of coding CLIs, runs entirely offline, and uploads nothing. It has become the de-facto standard for personal usage reports.</p>
 
-      <p><strong>ccclub</strong> is a shared leaderboard. Everyone in a group runs <code>npx ccclub init</code> or <code>join CODE</code>; after that, usage syncs automatically (a session-end hook for Claude Code, background sync for Codex, OpenCode, Amp, Grok, and pi-agent) and the group sees one ranking — in the terminal via <code>ccclub</code> or on a live web dashboard. It uploads aggregated numeric summaries only: token counts, estimated cost, model names, turn counts, in 30-minute blocks. No prompts, code, or file paths; <code>ccclub show-data</code> prints the exact payload.</p>
+      <p><strong>ccclub</strong> is a shared leaderboard. Everyone in a group runs <code>npx ccclub init</code> or <code>join CODE</code>; after that, usage syncs automatically (a session-end hook for Claude Code, background sync for Codex, OpenCode, Amp, Grok, and Pi) and the group sees one ranking — in the terminal via <code>ccclub</code> or on a live web dashboard. It uploads aggregated numeric summaries only: token counts, estimated cost, model names, turn counts, in 30-minute blocks. No prompts, code, or file paths; <code>ccclub show-data</code> prints the exact payload.</p>
 
       <h2>Side by side</h2>
 
@@ -271,7 +271,7 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
           <tr><td>Report granularity</td><td>Daily / monthly / session / 5-hour blocks</td><td>Today / yesterday / 7d / 30d / all-time</td></tr>
           <tr><td>Web dashboard</td><td>No (terminal tables)</td><td>Yes, live per group</td></tr>
           <tr><td>Auto-sync</td><td>n/a (run on demand)</td><td>Yes (hook + background)</td></tr>
-          <tr><td>Agent coverage</td><td>Very broad (15+ CLIs)</td><td>Claude Code, Codex, OpenCode, Amp, Grok, pi-agent</td></tr>
+          <tr><td>Agent coverage</td><td>Very broad (15+ CLIs)</td><td>Claude Code, Codex, OpenCode, Amp, Grok, Pi</td></tr>
           <tr><td>License</td><td>MIT</td><td>MIT</td></tr>
         </tbody>
       </table>
@@ -306,7 +306,7 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
       },
       {
         q: "Which supports more coding agents?",
-        a: "ccusage covers more CLIs overall. ccclub currently supports Claude Code, Codex, OpenCode, Amp, Grok, and pi-agent — the ones it can sync into a shared leaderboard.",
+        a: "ccusage covers more CLIs overall. ccclub currently supports Claude Code, Codex, OpenCode, Amp, Grok, and Pi — the ones it can sync into a shared leaderboard.",
       },
       {
         q: "Can I use ccclub just for myself?",
@@ -335,7 +335,7 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
 
       <p>Other public boards in the same vein: <a href="https://clawd.gg" rel="noopener">clawd.gg</a> (ranks prompts, tokens, and lines of code) and <a href="https://ccleaderboard.com" rel="noopener">CCLeaderboard</a> (CLI submission, daily and all-time rankings).</p>
 
-      <p><strong>ccclub</strong> — private-first. You create a group with <code>npx ccclub init</code>, friends join with a 6-letter code, and the board updates automatically from local logs (Claude Code session-end hook; background sync for Codex, OpenCode, Amp, Grok, pi-agent). No accounts. Each group gets a live web dashboard, and there's an opt-in <a href="/g/global">global board</a> if you do want a public ranking. Only numeric summaries are uploaded — no prompts, code, or file paths.</p>
+      <p><strong>ccclub</strong> — private-first. You create a group with <code>npx ccclub init</code>, friends join with a 6-letter code, and the board updates automatically from local logs (Claude Code session-end hook; background sync for Codex, OpenCode, Amp, Grok, Pi). No accounts. Each group gets a live web dashboard, and there's an opt-in <a href="/g/global">global board</a> if you do want a public ranking. Only numeric summaries are uploaded — no prompts, code, or file paths.</p>
 
       <h2>Side by side</h2>
 
@@ -346,7 +346,7 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
           <tr><td>Audience</td><td>Public</td><td>Public</td><td>Public</td><td>Private group (opt-in global)</td></tr>
           <tr><td>Account</td><td>GitHub</td><td>Sign-up</td><td>Varies</td><td>None</td></tr>
           <tr><td>Data flow</td><td>Manual submission</td><td>Submission/sync</td><td>Submission</td><td>Automatic sync</td></tr>
-          <tr><td>Agents beyond Claude Code</td><td>Some</td><td>Claude-focused</td><td>Claude-focused</td><td>Codex, OpenCode, Amp, Grok, pi-agent</td></tr>
+          <tr><td>Agents beyond Claude Code</td><td>Some</td><td>Claude-focused</td><td>Claude-focused</td><td>Codex, OpenCode, Amp, Grok, Pi</td></tr>
           <tr><td>Web dashboard per group</td><td>—</td><td>—</td><td>—</td><td>Yes</td></tr>
         </tbody>
       </table>
@@ -373,7 +373,7 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
       },
       {
         q: "Which leaderboard supports agents other than Claude Code?",
-        a: "ccclub tracks Claude Code, Codex, OpenCode, Amp, Grok, and pi-agent on one board and shows each member's agent mix. Most other leaderboards are Claude-focused.",
+        a: "ccclub tracks Claude Code, Codex, OpenCode, Amp, Grok, and Pi on one board and shows each member's agent mix. Most other leaderboards are Claude-focused.",
       },
       {
         q: "Is a token leaderboard a good measure of productivity?",

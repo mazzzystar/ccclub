@@ -54,7 +54,7 @@ function ssrGlobalContentHTML(rankings: RankingEntry[]): string {
     })
     .join("");
   return `<div class="table-shell"><table><thead><tr><th>#</th><th>Member</th><th>Cost</th><th>Tokens</th><th>Turns</th></tr></thead><tbody>${rows}</tbody></table></div>
-<p class="meta" style="text-align:left;margin-top:16px">Last 7 days, UTC. Everyone here opted in with <code>ccclub profile --public</code>. Cost is an estimate at public API pricing across Claude Code, Codex, OpenCode, Amp, Grok, and pi-agent.</p>`;
+<p class="meta" style="text-align:left;margin-top:16px">Last 7 days, UTC. Everyone here opted in with <code>ccclub profile --public</code>. Cost is an estimate at public API pricing across Claude Code, Codex, OpenCode, Amp, Grok, and Pi.</p>`;
 }
 
 function ssrGlobalJsonLd(rankings: RankingEntry[]): string {
@@ -185,7 +185,7 @@ const AGENT_LABELS_OG: Record<AgentSource, string> = {
   codex: "Codex",
   opencode: "OpenCode",
   amp: "Amp",
-  pi: "pi-agent",
+  pi: "Pi",
   grok: "Grok",
   // Wire-compat only: openclaw blocks are excluded from rankings server-side
   // and never render; the key exists because Record<AgentSource, …> needs it.
@@ -196,7 +196,7 @@ const AGENT_ORDER_OG: AgentSource[] = ["claude", "codex", "opencode", "amp", "gr
 
 function formatAgentSummary(agents: AgentSource[]): string {
   const ordered = AGENT_ORDER_OG.filter((a) => agents.includes(a));
-  return ordered.length > 0 ? ordered.map((a) => AGENT_LABELS_OG[a]).join(" · ") : "Claude Code · Codex · OpenCode · Amp · Grok · pi-agent";
+  return ordered.length > 0 ? ordered.map((a) => AGENT_LABELS_OG[a]).join(" · ") : "Claude Code · Codex · OpenCode · Amp · Grok · Pi";
 }
 
 function formatAgentCell(agents: AgentSource[]): string {
@@ -315,7 +315,7 @@ function dashboardHTML(
       ? `${htmlEsc(truncate(groupName, 40))} \u2014 ccclub`
       : "ccclub \u2014 Leaderboard";
   const ogDesc = isGlobal
-    ? "Live leaderboard of Claude Code, Codex, OpenCode, Amp, Grok, and pi-agent usage \u2014 developers who opted in, ranked by tokens and estimated cost."
+    ? "Live leaderboard of Claude Code, Codex, OpenCode, Amp, Grok, and Pi usage \u2014 developers who opted in, ranked by tokens and estimated cost."
     : groupName
       ? `${memberCount} member${memberCount !== 1 ? "s" : ""} competing on coding agent usage.`
       : "Coding agent leaderboard among friends. See how you're all doing.";
@@ -656,7 +656,7 @@ function dashboardHTML(
     </div>
     <h1 id="title">${isGlobal ? "Global Rankings" : ""}</h1>
     <div class="subtitle" id="date-range">${isGlobal ? "Coding-agent usage leaderboard · opt-in · updates live" : ""}</div>
-    <div class="agent-summary" id="agent-summary">${isGlobal ? "Claude Code · Codex · OpenCode · Amp · Grok · pi-agent" : ""}</div>
+    <div class="agent-summary" id="agent-summary">${isGlobal ? "Claude Code · Codex · OpenCode · Amp · Grok · Pi" : ""}</div>
     <div class="active-count" id="active-count"></div>
 
     <div class="periods">
@@ -767,7 +767,7 @@ function dashboardHTML(
     }
 
     var AGENT_ORDER = ["claude", "codex", "opencode", "amp", "grok", "pi"];
-    var AGENT_LABELS = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode", amp: "Amp", pi: "pi-agent", grok: "Grok" };
+    var AGENT_LABELS = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode", amp: "Amp", pi: "Pi", grok: "Grok" };
     var AGENT_ICONS = { claude: "/agent-icons/claude.svg", codex: "/agent-icons/codex.svg", opencode: "/agent-icons/opencode-light.svg", amp: "/agent-icons/amp.svg", grok: "/agent-icons/grok-light.svg", pi: "/agent-icons/pi-light.svg" };
     function activeTime(row) {
       var value = row.lastActiveAt || row.lastSync;
@@ -933,7 +933,7 @@ function dashboardHTML(
           var agentSummaryEl = document.getElementById("agent-summary");
           agentSummaryEl.textContent = agentNames.length > 0
             ? "Sources this period: " + agentNames.join(" \u00b7 ")
-            : "Supports Claude Code \u00b7 Codex \u00b7 OpenCode \u00b7 Amp \u00b7 Grok \u00b7 pi-agent";
+            : "Supports Claude Code \u00b7 Codex \u00b7 OpenCode \u00b7 Amp \u00b7 Grok \u00b7 Pi";
 
           var activeCount = data.rankings.filter(function(r) {
             return isRecentlyActive(r, now);

@@ -22,7 +22,7 @@ export const AGENT_LABELS: Record<AgentSource, string> = {
   codex: "Codex",
   opencode: "OpenCode",
   amp: "Amp",
-  pi: "pi-agent",
+  pi: "Pi",
   grok: "Grok",
   openclaw: "OpenClaw",
 };

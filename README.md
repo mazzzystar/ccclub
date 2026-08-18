@@ -2,7 +2,7 @@
 
 # ccclub.dev
 
-Claude Code and Codex leaderboard among friends. Track coding agent token usage, costs, active status, and agent mix across Claude Code, Codex, OpenCode, Amp, and pi-agent.
+Claude Code and Codex leaderboard among friends. Track coding agent token usage, costs, active status, and agent mix across Claude Code, Codex, OpenCode, Amp, Grok, and pi-agent.
 
 <img src="assets/demo.png" alt="ccclub" width="80%" />
 
@@ -39,8 +39,9 @@ Supported sources:
 | OpenCode | `~/.local/share/opencode` |
 | Amp | `~/.local/share/amp/threads` |
 | pi-agent | `~/.pi/agent/sessions` |
+| Grok | `~/.grok/logs/unified.jsonl` |
 
-If you use the default locations, there is nothing to configure. Custom locations are supported with `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_DATA_DIR`, `AMP_DATA_DIR`, and `PI_AGENT_DIR`.
+If you use the default locations, there is nothing to configure. Custom locations are supported with `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_DATA_DIR`, `AMP_DATA_DIR`, `PI_AGENT_DIR`, and `GROK_HOME`.
 
 The leaderboard deliberately tracks **coding agents only** — usage from personal-assistant tools (e.g. OpenClaw) is excluded server-side so it can never inflate anyone's rank.
 
@@ -140,7 +141,7 @@ packages/
   worker/     Cloudflare Worker — Hono API + KV + dashboard
 ```
 
-Auto-sync: `ccclub init` installs Claude Code `SessionEnd` + `Stop` hooks and a lightweight background sync that keeps Codex, OpenCode, Amp, and pi-agent fresh (throttled to once per 5 minutes).
+Auto-sync: `ccclub init` installs Claude Code `SessionEnd` + `Stop` hooks and a lightweight background sync that keeps Codex, OpenCode, Amp, Grok, and pi-agent fresh (throttled to once per 5 minutes).
 
 Model pricing: costs are computed locally against a compact price table derived from [LiteLLM](https://github.com/BerriAI/litellm) — the same upstream ccusage uses. The Worker refreshes it daily and serves it at `/api/pricing`; the CLI keeps a 24-hour local cache (`~/.ccclub/pricing.json`) with a bundled snapshot as offline fallback. New models are priced correctly within a day, with no CLI update required.
 

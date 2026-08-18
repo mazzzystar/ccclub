@@ -1,6 +1,6 @@
 ---
 name: ccclub
-description: Check the user's coding-agent leaderboard — token usage, cost, and rank among friends across Claude Code, Codex, OpenCode, Amp, and pi-agent. Use when the user asks how many tokens they burned, what their AI spend is, where they rank in their group, or wants to set up / join a ccclub leaderboard.
+description: Check the user's coding-agent leaderboard — token usage, cost, and rank among friends across Claude Code, Codex, OpenCode, Amp, Grok, and pi-agent. Use when the user asks how many tokens they burned, what their AI spend is, where they rank in their group, or wants to set up / join a ccclub leaderboard.
 ---
 
 # ccclub — coding-agent leaderboard among friends

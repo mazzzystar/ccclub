@@ -55,6 +55,26 @@ const FEED = {
     input_cost_per_token: 0.00000125,
     output_cost_per_token: 0.00001,
   },
+  "xai/grok-4.6": {
+    mode: "chat",
+    litellm_provider: "xai",
+    input_cost_per_token: 0.000002,
+    output_cost_per_token: 0.000006,
+    cache_read_input_token_cost: 0.0000005,
+    input_cost_per_token_above_200k_tokens: 0.000004,
+    output_cost_per_token_above_200k_tokens: 0.000012,
+    cache_read_input_token_cost_above_200k_tokens: 0.000001,
+  },
+  "xai/grok-4": {
+    mode: "chat",
+    litellm_provider: "xai",
+    input_cost_per_token: 0.000003,
+    output_cost_per_token: 0.000015,
+    input_cost_per_token_above_128k_tokens: 0.000006,
+    output_cost_per_token_above_128k_tokens: 0.00003,
+    // A null 200k field must not invent a half-built higher tier.
+    input_cost_per_token_above_200k_tokens: null,
+  },
   "corrupt-gpt-model": {
     mode: "chat",
     input_cost_per_token: 5, // $5 per token — rejected as corrupt
@@ -79,6 +99,29 @@ describe("buildPricingTableFromLiteLLM", () => {
     const table = buildPricingTableFromLiteLLM(FEED, UPDATED_AT);
     expect(table?.models["gpt-5-codex"]).toBeDefined();
     expect(table?.models["gpt-4o-mini-tts"]).toBeUndefined();
+  });
+
+  it("includes Grok models and reads provider-specific long-context bands from field names", () => {
+    const table = buildPricingTableFromLiteLLM(FEED, UPDATED_AT);
+    expect(table?.models["grok-4.6"]).toEqual({
+      input: 2,
+      output: 6,
+      cacheCreation: 0,
+      cacheRead: 0.5,
+      longContextThreshold: 200_000,
+      inputLongContext: 4,
+      outputLongContext: 12,
+      cacheReadLongContext: 1,
+    });
+    expect(table?.models["grok-4"]).toEqual({
+      input: 3,
+      output: 15,
+      cacheCreation: 0,
+      cacheRead: 0,
+      longContextThreshold: 128_000,
+      inputLongContext: 6,
+      outputLongContext: 30,
+    });
   });
 
   it("keeps OpenAI long-context rates and ccusage-compatible fast multipliers", () => {

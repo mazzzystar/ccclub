@@ -10,7 +10,7 @@ export const LITELLM_PRICING_URL =
 
 // The full feed lists ~3000 models (~1.6 MB). Coding agents only ever report
 // these families; filtering keeps the distributed table at a few kilobytes.
-const INCLUDED_MODEL_ID = /^(claude-|gpt-|o[0-9]|codex-|gemini-[0-9]|deepseek)/;
+const INCLUDED_MODEL_ID = /^(claude-|gpt-|o[0-9]|codex-|gemini-[0-9]|deepseek|grok-)/;
 
 // "chat" plus OpenAI's Responses API (Codex models). Excludes embeddings,
 // audio, image, and rerank entries that happen to share a name prefix.
@@ -35,7 +35,7 @@ interface RawLiteLLMEntry {
   provider_specific_entry?: unknown;
 }
 
-const OPENAI_LONG_CONTEXT_THRESHOLD_TOKENS = 272_000;
+const LONG_CONTEXT_INPUT_FIELD = /^input_cost_per_token_above_(\d+)k_tokens$/;
 
 // Kept in step with ccusage's audited fallbacks. LiteLLM does not currently
 // publish provider_specific_entry.fast for these bare model IDs.
@@ -60,21 +60,55 @@ function optionalPrice(value: unknown): number | null {
   return value == null ? 0 : requiredPrice(value);
 }
 
-function toModelPricing(modelId: string, entry: RawLiteLLMEntry): ModelPricing | null {
-  const input = requiredPrice(entry.input_cost_per_token);
-  const output = requiredPrice(entry.output_cost_per_token);
+function detectLongContextTier(
+  modelId: string,
+  entry: Record<string, unknown>,
+): { threshold: number; suffix: string } | null {
+  // OpenAI / Codex stay on the 272k band the rest of the table already uses.
+  // Grok is the exception: xAI mixes 128k (grok-4 / grok-4-fast) and 200k
+  // (grok-4.3 / 4.5 / 4.6), so the threshold has to come from the field name.
+  // When several numeric bands exist, the lowest one wins — better to enter
+  // the higher-price tier a little early than undercount.
+  if (!modelId.startsWith("grok-")) {
+    const openai = entry.input_cost_per_token_above_272k_tokens;
+    if (typeof openai === "number" && Number.isFinite(openai)) {
+      return { threshold: 272_000, suffix: "_above_272k_tokens" };
+    }
+    return null;
+  }
+
+  let best: { threshold: number; suffix: string } | null = null;
+  for (const [key, value] of Object.entries(entry)) {
+    const match = LONG_CONTEXT_INPUT_FIELD.exec(key);
+    if (match == null) continue;
+    if (typeof value !== "number" || !Number.isFinite(value)) continue;
+    const kilotokens = Number(match[1]);
+    if (!Number.isInteger(kilotokens) || kilotokens <= 0) continue;
+    const threshold = kilotokens * 1000;
+    if (best == null || threshold < best.threshold) {
+      best = { threshold, suffix: `_above_${kilotokens}k_tokens` };
+    }
+  }
+  return best;
+}
+
+function toModelPricing(modelId: string, entry: Record<string, unknown>): ModelPricing | null {
+  const raw = entry as RawLiteLLMEntry;
+  const input = requiredPrice(raw.input_cost_per_token);
+  const output = requiredPrice(raw.output_cost_per_token);
   // Anthropic's 5-minute ephemeral cache-write rate; long-lived (1h) cache
   // writes use a separate LiteLLM field when the provider supports them.
-  const cacheCreation = optionalPrice(entry.cache_creation_input_token_cost);
-  const feedCacheCreation1h = entry.cache_creation_input_token_cost_above_1hr == null
+  const cacheCreation = optionalPrice(raw.cache_creation_input_token_cost);
+  const feedCacheCreation1h = raw.cache_creation_input_token_cost_above_1hr == null
     ? undefined
-    : requiredPrice(entry.cache_creation_input_token_cost_above_1hr);
-  const cacheRead = optionalPrice(entry.cache_read_input_token_cost);
-  const longContextRaw = [
-    entry.input_cost_per_token_above_272k_tokens,
-    entry.output_cost_per_token_above_272k_tokens,
-    entry.cache_creation_input_token_cost_above_272k_tokens,
-    entry.cache_read_input_token_cost_above_272k_tokens,
+    : requiredPrice(raw.cache_creation_input_token_cost_above_1hr);
+  const cacheRead = optionalPrice(raw.cache_read_input_token_cost);
+  const tier = detectLongContextTier(modelId, entry);
+  const longContextRaw = tier == null ? [] : [
+    entry[`input_cost_per_token${tier.suffix}`],
+    entry[`output_cost_per_token${tier.suffix}`],
+    entry[`cache_creation_input_token_cost${tier.suffix}`],
+    entry[`cache_read_input_token_cost${tier.suffix}`],
   ];
   const longContextPrices = longContextRaw.map((value) => value == null ? undefined : requiredPrice(value));
   const hasInvalidLongContextPrice = longContextPrices.some((value) => value === null);
@@ -89,13 +123,13 @@ function toModelPricing(modelId: string, entry: RawLiteLLMEntry): ModelPricing |
   // ccusage and Anthropic price 1h writes at exactly 2× base input. Prefer
   // that invariant for Anthropic because LiteLLM has a few stale legacy rows
   // whose explicit above_1hr value belongs to a different model tier.
-  const cacheCreation1h = entry.litellm_provider === "anthropic" && cacheCreation > 0
+  const cacheCreation1h = raw.litellm_provider === "anthropic" && cacheCreation > 0
     ? input * 2
     : feedCacheCreation1h;
   const pricing: ModelPricing = { input, output, cacheCreation, cacheRead };
   if (cacheCreation1h !== undefined) pricing.cacheCreation1h = cacheCreation1h;
-  if (longContextPrices.some((value) => value !== undefined)) {
-    pricing.longContextThreshold = OPENAI_LONG_CONTEXT_THRESHOLD_TOKENS;
+  if (tier != null && longContextPrices.some((value) => value !== undefined)) {
+    pricing.longContextThreshold = tier.threshold;
     const [longInput, longOutput, longCacheCreation, longCacheRead] = longContextPrices;
     if (typeof longInput === "number") pricing.inputLongContext = longInput;
     if (typeof longOutput === "number") pricing.outputLongContext = longOutput;
@@ -167,7 +201,7 @@ export function buildPricingTableFromLiteLLM(raw: unknown, updatedAt: string): P
 
     const id = key.slice(key.lastIndexOf("/") + 1).toLowerCase();
     if (!INCLUDED_MODEL_ID.test(id)) continue;
-    const pricing = toModelPricing(id, entry);
+    const pricing = toModelPricing(id, value as Record<string, unknown>);
     if (pricing == null) continue;
 
     const bucket = key.includes("/") ? prefixed : bare;

@@ -4,6 +4,7 @@ import type { ScanCacheFactory } from "../scan-cache.js";
 import { ampCollector } from "./amp.js";
 import { claudeCollector } from "./claude.js";
 import { codexCollector } from "./codex.js";
+import { grokCollector } from "./grok.js";
 import { openCodeCollector } from "./opencode.js";
 import { piCollector } from "./pi.js";
 import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageTurn } from "./types.js";
@@ -19,6 +20,7 @@ const COLLECTORS: Partial<Record<AgentSource, AgentSourceCollector>> = {
   opencode: openCodeCollector,
   amp: ampCollector,
   pi: piCollector,
+  grok: grokCollector,
 };
 
 export interface CollectionResult {

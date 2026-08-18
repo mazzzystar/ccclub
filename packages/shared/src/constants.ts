@@ -15,11 +15,13 @@ export const CODEX_HOME_ENV = "CODEX_HOME";
 export const OPENCODE_DATA_DIR_ENV = "OPENCODE_DATA_DIR";
 export const AMP_DATA_DIR_ENV = "AMP_DATA_DIR";
 export const PI_AGENT_DIR_ENV = "PI_AGENT_DIR";
+export const GROK_HOME_ENV = "GROK_HOME";
 
 export const DEFAULT_CODEX_DIR = ".codex";
 export const DEFAULT_OPENCODE_DIR = ".local/share/opencode";
 export const DEFAULT_AMP_DIR = ".local/share/amp";
 export const DEFAULT_PI_AGENT_SESSIONS_DIR = ".pi/agent/sessions";
+export const DEFAULT_GROK_DIR = ".grok";
 
 // CCClub config directory
 export const CCCLUB_CONFIG_DIR = ".ccclub";

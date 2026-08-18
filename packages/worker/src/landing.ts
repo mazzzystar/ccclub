@@ -95,7 +95,7 @@ function avatarColor(userId: string): string {
 const AGENT_ICONS: Partial<Record<AgentSource, string>> = {
   claude: "/agent-icons/claude.svg",
   codex: "/agent-icons/codex.svg",
-  opencode: "/agent-icons/opencode.svg",
+  opencode: "/agent-icons/opencode-light.svg",
   amp: "/agent-icons/amp.svg",
   grok: "/agent-icons/grok-light.svg",
 };

@@ -768,7 +768,7 @@ function dashboardHTML(
 
     var AGENT_ORDER = ["claude", "codex", "opencode", "amp", "grok", "pi"];
     var AGENT_LABELS = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode", amp: "Amp", pi: "pi-agent", grok: "Grok" };
-    var AGENT_ICONS = { claude: "/agent-icons/claude.svg", codex: "/agent-icons/codex.svg", opencode: "/agent-icons/opencode.svg", amp: "/agent-icons/amp.svg", grok: "/agent-icons/grok-light.svg" };
+    var AGENT_ICONS = { claude: "/agent-icons/claude.svg", codex: "/agent-icons/codex.svg", opencode: "/agent-icons/opencode-light.svg", amp: "/agent-icons/amp.svg", grok: "/agent-icons/grok-light.svg" };
     function activeTime(row) {
       var value = row.lastActiveAt || row.lastSync;
       if (!value) return 0;

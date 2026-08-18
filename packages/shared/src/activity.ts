@@ -77,29 +77,34 @@ export function computeActivityStats(days: Map<string, DayTotal>, todayKey: stri
   };
 }
 
+
 /**
  * Absolute intensity scale for activity heatmaps, shared by the CLI and the
  * web page so the same day renders the same level everywhere.
  *
- * Levels are log-spaced bands of daily total tokens, grouped into four hue
- * tiers: green (light), amber (moderate), orange (heavy), gold (extreme).
- * Hue encodes the order of magnitude — so two people's pages differ at a
- * glance — and depth within a hue encodes position inside the band. A
- * per-user relative scale would render a 1M/day and a 1B/day user
- * identically, which is exactly the information a leaderboard cares about.
+ * Three hue tiers — green (everyday), gold (heavy), purple (legendary) —
+ * each with a GitHub-style four-step dim-to-bright ramp: hue says which
+ * class of user a page belongs to at a glance, depth within the hue gives
+ * the within-page texture. Boundaries are calibrated on the real per-day
+ * distribution (Aug 2026: median active day ≈ 38M, p90 ≈ 450M, p97 ≈ 1.1B)
+ * so people split roughly 7:3:1 across tiers instead of 98% in one hue.
  */
 export const ACTIVITY_LEVEL_THRESHOLDS = [
-  1,             // L1 dim green
-  10_000_000,    // L2 green
-  50_000_000,    // L3 olive
-  200_000_000,   // L4 amber
-  500_000_000,   // L5 deep orange
-  1_000_000_000, // L6 orange
-  2_000_000_000, // L7 gold
-  5_000_000_000, // L8 blazing gold
+  1,             // green ramp: the everyday range (~62% of active days)
+  10_000_000,
+  30_000_000,
+  60_000_000,
+  100_000_000,   // gold ramp: heavy usage (~33%)
+  200_000_000,
+  400_000_000,
+  700_000_000,
+  1_000_000_000, // purple ramp: legendary (~3% of days, peak-day territory)
+  1_500_000_000,
+  2_500_000_000,
+  4_000_000_000,
 ] as const;
 
-/** 0 (no activity) through 8 (≥5B tokens). */
+/** 0 (no activity) through 12 (≥4B tokens). */
 export function activityLevelFor(tokens: number): number {
   let level = 0;
   for (const min of ACTIVITY_LEVEL_THRESHOLDS) {

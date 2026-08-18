@@ -103,10 +103,9 @@ export function heatmapLines(
   }
   lines.push(
     " ".repeat(GUTTER) +
-      paint.cell(1) + paint.cell(2) + paint.label("<50M  ") +
-      paint.cell(3) + paint.cell(4) + paint.label("<500M  ") +
-      paint.cell(5) + paint.cell(6) + paint.label("<2B  ") +
-      paint.cell(7) + paint.cell(8) + paint.label("2B+"),
+      paint.cell(1) + paint.cell(2) + paint.cell(3) + paint.cell(4) + paint.label("<100M  ") +
+      paint.cell(5) + paint.cell(6) + paint.cell(7) + paint.cell(8) + paint.label("<1B  ") +
+      paint.cell(9) + paint.cell(10) + paint.cell(11) + paint.cell(12) + paint.label("1B+"),
   );
   return lines;
 }
@@ -123,10 +122,12 @@ const ANSI_PAINT: HeatmapPaint = {
   cell: (level) =>
     [
       chalk.hex("#3a3530")("·"),
-      chalk.hex("#2d4f3d")("■"), chalk.hex("#4a8a63")("■"), // green: light
-      chalk.hex("#8f7d3a")("■"), chalk.hex("#c2a04e")("■"), // amber: moderate
-      chalk.hex("#c98148")("■"), chalk.hex("#e29a58")("■"), // orange: heavy
-      chalk.hex("#ecc06c")("■"), chalk.hex("#f7e3a1")("■"), // gold: extreme
+      chalk.hex("#164430")("■"), chalk.hex("#1a6b3e")("■"), // green: everyday
+      chalk.hex("#2aa155")("■"), chalk.hex("#46d371")("■"),
+      chalk.hex("#4d3d12")("■"), chalk.hex("#8a6a16")("■"), // gold: heavy
+      chalk.hex("#c79b1d")("■"), chalk.hex("#f7c72e")("■"),
+      chalk.hex("#372560")("■"), chalk.hex("#57389c")("■"), // purple: legendary
+      chalk.hex("#7e57d9")("■"), chalk.hex("#a97fff")("■"),
     ][level],
   future: () => " ",
   label: (text) => chalk.hex("#5a5550")(text),

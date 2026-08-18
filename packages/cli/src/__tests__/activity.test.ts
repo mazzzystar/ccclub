@@ -45,17 +45,16 @@ describe("buildDayTotals", () => {
 });
 
 describe("absolute activity levels", () => {
-  it("maps daily tokens onto the shared log-spaced scale", () => {
+  it("maps daily tokens onto the shared calibrated scale", () => {
     expect(activityLevelFor(0)).toBe(0);
-    expect(activityLevelFor(1)).toBe(1);             // any activity shows
-    expect(activityLevelFor(9_000_000)).toBe(1);     // dim green
-    expect(activityLevelFor(30_000_000)).toBe(2);    // green
-    expect(activityLevelFor(100_000_000)).toBe(3);   // olive
-    expect(activityLevelFor(300_000_000)).toBe(4);   // amber
-    expect(activityLevelFor(700_000_000)).toBe(5);   // deep orange
-    expect(activityLevelFor(1_500_000_000)).toBe(6); // orange
-    expect(activityLevelFor(3_000_000_000)).toBe(7); // gold
-    expect(activityLevelFor(20_000_000_000)).toBe(8);// blazing gold
+    expect(activityLevelFor(1)).toBe(1);              // any activity shows
+    expect(activityLevelFor(38_000_000)).toBe(3);     // the median active day: mid-green
+    expect(activityLevelFor(99_000_000)).toBe(4);     // top of green
+    expect(activityLevelFor(100_000_000)).toBe(5);    // first gold
+    expect(activityLevelFor(450_000_000)).toBe(7);    // p90 day: solid gold
+    expect(activityLevelFor(999_999_999)).toBe(8);    // top of gold
+    expect(activityLevelFor(1_000_000_000)).toBe(9);  // first purple
+    expect(activityLevelFor(25_000_000_000)).toBe(12);// whale peak: max purple
   });
 
   it("is absolute: the same day renders the same level for every user", () => {
@@ -73,7 +72,7 @@ describe("absolute activity levels", () => {
         prev = lvl;
       }
     }
-    expect(prev).toBe(8);
+    expect(prev).toBe(12);
   });
 });
 
@@ -103,9 +102,9 @@ describe("heatmapLines", () => {
     const { painted, paint, futures } = recordCells();
     heatmapLines(new Map(), TODAY, paint);
     // 53 weeks × 7 days = 371 cells; today is a Tuesday so 4 cells of the
-    // final week are future (Wed..Sat) — minus the 8 legend swatches.
+    // final week are future (Wed..Sat) — minus the 12 legend swatches.
     expect(futures()).toBe(4);
-    expect(painted.length - 8).toBe(371 - 4);
+    expect(painted.length - 12).toBe(371 - 4);
   });
 
   it("puts today's tokens in the last painted cell of its weekday row", () => {

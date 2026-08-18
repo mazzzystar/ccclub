@@ -140,10 +140,10 @@ function activityPageHTML(handle: string) {
       --text: #e8e4de; --title: #f1ede7; --muted: #8a8480; --faint: #5a5550;
       --brand: #d4935e; --link: #7ab7c6;
       --cell-0: #242019;
-      --cell-1: #2d4f3d; --cell-2: #4a8a63;               /* green: light   */
-      --cell-3: #8f7d3a; --cell-4: #c2a04e;               /* amber: moderate */
-      --cell-5: #c98148; --cell-6: #e29a58;               /* orange: heavy  */
-      --cell-7: #ecc06c; --cell-8: #f7e3a1;               /* gold: extreme  */
+      /* Three GitHub-style dim-to-bright ramps: hue = tier, depth = position. */
+      --cell-1: #164430; --cell-2: #1a6b3e; --cell-3: #2aa155; --cell-4: #46d371;    /* green  */
+      --cell-5: #4d3d12; --cell-6: #8a6a16; --cell-7: #c79b1d; --cell-8: #f7c72e;    /* gold   */
+      --cell-9: #372560; --cell-10: #57389c; --cell-11: #7e57d9; --cell-12: #a97fff; /* purple */
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
@@ -204,6 +204,8 @@ function activityPageHTML(handle: string) {
     .c3 { background: var(--cell-3); } .c4 { background: var(--cell-4); }
     .c5 { background: var(--cell-5); } .c6 { background: var(--cell-6); }
     .c7 { background: var(--cell-7); } .c8 { background: var(--cell-8); }
+    .c9 { background: var(--cell-9); } .c10 { background: var(--cell-10); }
+    .c11 { background: var(--cell-11); } .c12 { background: var(--cell-12); }
     .cell.future { background: transparent; }
     .legend { display: flex; align-items: flex-start; gap: 14px; justify-content: flex-end; margin-top: 12px; font-size: 10px; color: var(--faint); }
     .legend .tier { text-align: center; }
@@ -338,10 +340,9 @@ function activityPageHTML(handle: string) {
           "</div></div>" +
           '<div class="legend">' +
             '<div class="tier"><div class="tier-cells"><div class="cell"></div></div><div class="tier-label">0</div></div>' +
-            '<div class="tier"><div class="tier-cells"><div class="cell c1"></div><div class="cell c2"></div></div><div class="tier-label">&lt;50M</div></div>' +
-            '<div class="tier"><div class="tier-cells"><div class="cell c3"></div><div class="cell c4"></div></div><div class="tier-label">50–500M</div></div>' +
-            '<div class="tier"><div class="tier-cells"><div class="cell c5"></div><div class="cell c6"></div></div><div class="tier-label">0.5–2B</div></div>' +
-            '<div class="tier"><div class="tier-cells"><div class="cell c7"></div><div class="cell c8"></div></div><div class="tier-label">2B+</div></div>' +
+            '<div class="tier"><div class="tier-cells"><div class="cell c1"></div><div class="cell c2"></div><div class="cell c3"></div><div class="cell c4"></div></div><div class="tier-label">&lt;100M</div></div>' +
+            '<div class="tier"><div class="tier-cells"><div class="cell c5"></div><div class="cell c6"></div><div class="cell c7"></div><div class="cell c8"></div></div><div class="tier-label">100M–1B</div></div>' +
+            '<div class="tier"><div class="tier-cells"><div class="cell c9"></div><div class="cell c10"></div><div class="cell c11"></div><div class="cell c12"></div></div><div class="tier-label">1B+</div></div>' +
           '</div>' +
         "</div>";
       document.title = data.displayName + " — ccclub activity";

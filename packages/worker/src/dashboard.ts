@@ -768,7 +768,7 @@ function dashboardHTML(
 
     var AGENT_ORDER = ["claude", "codex", "opencode", "amp", "grok", "pi"];
     var AGENT_LABELS = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode", amp: "Amp", pi: "pi-agent", grok: "Grok" };
-    var AGENT_ICONS = { claude: "/agent-icons/claude.svg", codex: "/agent-icons/codex.svg", opencode: "/agent-icons/opencode-light.svg", amp: "/agent-icons/amp.svg", grok: "/agent-icons/grok-light.svg" };
+    var AGENT_ICONS = { claude: "/agent-icons/claude.svg", codex: "/agent-icons/codex.svg", opencode: "/agent-icons/opencode-light.svg", amp: "/agent-icons/amp.svg", grok: "/agent-icons/grok-light.svg", pi: "/agent-icons/pi-light.svg" };
     function activeTime(row) {
       var value = row.lastActiveAt || row.lastSync;
       if (!value) return 0;
@@ -840,8 +840,6 @@ function dashboardHTML(
       var icon = "";
       if (source && AGENT_ICONS[source]) {
         icon = '<img class="active-agent-icon" src="' + AGENT_ICONS[source] + '" alt="">';
-      } else if (source === "pi") {
-        icon = '<span class="active-agent-fallback">π</span>';
       }
       return '<span class="active-badge" title="' + esc(label + " active") + '">' + icon + '<span>active</span></span>';
     }
@@ -850,8 +848,6 @@ function dashboardHTML(
       var icon = "";
       if (AGENT_ICONS[source]) {
         icon = '<img src="' + AGENT_ICONS[source] + '" alt="">';
-      } else if (source === "pi") {
-        icon = '<span class="fallback">π</span>';
       } else {
         icon = '<span class="fallback">' + esc((label || "?").charAt(0).toUpperCase()) + '</span>';
       }

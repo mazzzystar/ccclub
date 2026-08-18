@@ -98,6 +98,7 @@ const AGENT_ICONS: Partial<Record<AgentSource, string>> = {
   opencode: "/agent-icons/opencode-light.svg",
   amp: "/agent-icons/amp.svg",
   grok: "/agent-icons/grok-light.svg",
+  pi: "/agent-icons/pi-light.svg",
 };
 
 function agentIconHTML(source: AgentSource, size: number): string {
@@ -105,7 +106,7 @@ function agentIconHTML(source: AgentSource, size: number): string {
   if (icon) {
     return `<img src="${icon}" alt="${htmlEsc(AGENT_LABELS[source] ?? source)}" width="${size}" height="${size}" loading="lazy" />`;
   }
-  const letter = source === "pi" ? "π" : (AGENT_LABELS[source] ?? source).charAt(0);
+  const letter = (AGENT_LABELS[source] ?? source).charAt(0);
   return `<span class="demo-icon-fallback" style="width:${size}px;height:${size}px">${htmlEsc(letter)}</span>`;
 }
 
@@ -589,7 +590,7 @@ function landingHTML(lang: LandingLang, demoBoard: string | null = null) {
       box-shadow: 0 5px 18px rgba(0,0,0,0.12); margin-left: -12px; overflow: hidden;
     }
     .agent-logo img { width: 20px; height: 20px; display: block; }
-    .agent-logo.pi { background: #181615; color: #f4f1ed; font-size: 15px; font-weight: 700; }
+    .agent-logo.pi { background: #181615; }
     .supported-copy { text-align: left; min-width: 0; }
     .supported-copy strong {
       display: block; color: #181615; font-size: 13px; line-height: 1.2;
@@ -752,7 +753,7 @@ function landingHTML(lang: LandingLang, demoBoard: string | null = null) {
               <span class="agent-logo" title="OpenCode"><img src="/agent-icons/opencode.svg" alt="OpenCode" /></span>
               <span class="agent-logo" title="Amp"><img src="/agent-icons/amp.svg" alt="Amp" /></span>
               <span class="agent-logo" title="Grok"><img src="/agent-icons/grok.svg" alt="Grok" /></span>
-              <span class="agent-logo pi" title="pi-agent">π</span>
+              <span class="agent-logo pi" title="pi-agent"><img src="/agent-icons/pi-light.svg" alt="pi-agent" /></span>
             </div>
             <div class="supported-copy">
               <strong>${t.supportedStrong}</strong>

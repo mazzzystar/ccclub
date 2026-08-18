@@ -61,6 +61,16 @@ describe("resolveModelPricing", () => {
     expect(codex.pricing).toEqual(PRICING_SNAPSHOT.models["gpt-5.1-codex"]);
   });
 
+  it("keeps grok subfamilies from falling through to grok-4", () => {
+    const preview = resolveModelPricing("grok-4.6-preview", PRICING_SNAPSHOT);
+    expect(preview.match).toBe("family");
+    expect(preview.pricing).toEqual(PRICING_SNAPSHOT.models["grok-4.6"]);
+
+    const fast = resolveModelPricing("grok-4-1-fast-experimental", PRICING_SNAPSHOT);
+    expect(fast.match).toBe("family");
+    expect(fast.pricing).toEqual(PRICING_SNAPSHOT.models["grok-4-1-fast"]);
+  });
+
   it("prices unknown variants of known families", () => {
     const resolved = resolveModelPricing("claude-opus-5-experimental-20990101", PRICING_SNAPSHOT);
     expect(resolved.match).toBe("family");

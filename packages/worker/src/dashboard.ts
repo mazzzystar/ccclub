@@ -54,7 +54,7 @@ function ssrGlobalContentHTML(rankings: RankingEntry[]): string {
     })
     .join("");
   return `<div class="table-shell"><table><thead><tr><th>#</th><th>Member</th><th>Cost</th><th>Tokens</th><th>Turns</th></tr></thead><tbody>${rows}</tbody></table></div>
-<p class="meta" style="text-align:left;margin-top:16px">Last 7 days, UTC. Everyone here opted in with <code>ccclub profile --public</code>. Cost is an estimate at public API pricing across Claude Code, Codex, OpenCode, Amp, and pi-agent.</p>`;
+<p class="meta" style="text-align:left;margin-top:16px">Last 7 days, UTC. Everyone here opted in with <code>ccclub profile --public</code>. Cost is an estimate at public API pricing across Claude Code, Codex, OpenCode, Amp, pi-agent, and Grok.</p>`;
 }
 
 function ssrGlobalJsonLd(rankings: RankingEntry[]): string {
@@ -186,16 +186,17 @@ const AGENT_LABELS_OG: Record<AgentSource, string> = {
   opencode: "OpenCode",
   amp: "Amp",
   pi: "pi-agent",
+  grok: "Grok",
   // Wire-compat only: openclaw blocks are excluded from rankings server-side
   // and never render; the key exists because Record<AgentSource, …> needs it.
   openclaw: "OpenClaw",
 };
 
-const AGENT_ORDER_OG: AgentSource[] = ["claude", "codex", "opencode", "amp", "pi"];
+const AGENT_ORDER_OG: AgentSource[] = ["claude", "codex", "opencode", "amp", "pi", "grok"];
 
 function formatAgentSummary(agents: AgentSource[]): string {
   const ordered = AGENT_ORDER_OG.filter((a) => agents.includes(a));
-  return ordered.length > 0 ? ordered.map((a) => AGENT_LABELS_OG[a]).join(" · ") : "Claude Code · Codex · OpenCode · Amp · pi-agent";
+  return ordered.length > 0 ? ordered.map((a) => AGENT_LABELS_OG[a]).join(" · ") : "Claude Code · Codex · OpenCode · Amp · pi-agent · Grok";
 }
 
 function formatAgentCell(agents: AgentSource[]): string {
@@ -314,7 +315,7 @@ function dashboardHTML(
       ? `${htmlEsc(truncate(groupName, 40))} \u2014 ccclub`
       : "ccclub \u2014 Leaderboard";
   const ogDesc = isGlobal
-    ? "Live leaderboard of Claude Code, Codex, OpenCode, Amp, and pi-agent usage \u2014 developers who opted in, ranked by tokens and estimated cost."
+    ? "Live leaderboard of Claude Code, Codex, OpenCode, Amp, pi-agent, and Grok usage \u2014 developers who opted in, ranked by tokens and estimated cost."
     : groupName
       ? `${memberCount} member${memberCount !== 1 ? "s" : ""} competing on coding agent usage.`
       : "Coding agent leaderboard among friends. See how you're all doing.";
@@ -655,7 +656,7 @@ function dashboardHTML(
     </div>
     <h1 id="title">${isGlobal ? "Global Rankings" : ""}</h1>
     <div class="subtitle" id="date-range">${isGlobal ? "Coding-agent usage leaderboard · opt-in · updates live" : ""}</div>
-    <div class="agent-summary" id="agent-summary">${isGlobal ? "Claude Code · Codex · OpenCode · Amp · pi-agent" : ""}</div>
+    <div class="agent-summary" id="agent-summary">${isGlobal ? "Claude Code · Codex · OpenCode · Amp · Grok · pi-agent" : ""}</div>
     <div class="active-count" id="active-count"></div>
 
     <div class="periods">
@@ -765,9 +766,9 @@ function dashboardHTML(
       return '<div class="avatar-wrap"><div class="avatar" style="background:' + color + '">' + initial + '</div>' + bubble + '</div>';
     }
 
-    var AGENT_ORDER = ["claude", "codex", "opencode", "amp", "pi"];
-    var AGENT_LABELS = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode", amp: "Amp", pi: "pi-agent" };
-    var AGENT_ICONS = { claude: "/agent-icons/claude.svg", codex: "/agent-icons/codex.svg", opencode: "/agent-icons/opencode.svg", amp: "/agent-icons/amp.svg" };
+    var AGENT_ORDER = ["claude", "codex", "opencode", "amp", "pi", "grok"];
+    var AGENT_LABELS = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode", amp: "Amp", pi: "pi-agent", grok: "Grok" };
+    var AGENT_ICONS = { claude: "/agent-icons/claude.svg", codex: "/agent-icons/codex.svg", opencode: "/agent-icons/opencode.svg", amp: "/agent-icons/amp.svg", grok: "/agent-icons/grok.svg" };
     function activeTime(row) {
       var value = row.lastActiveAt || row.lastSync;
       if (!value) return 0;

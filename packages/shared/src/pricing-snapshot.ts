@@ -1,11 +1,11 @@
 // AUTO-GENERATED FILE — DO NOT EDIT BY HAND.
 // Regenerate with: pnpm --filter @ccclub/shared update-snapshot
-// Source: LiteLLM model_prices_and_context_window.json (2026-07-14T07:57:29.071Z)
+// Source: LiteLLM model_prices_and_context_window.json (2026-08-18T13:25:07.902Z)
 import type { PricingTable } from "./pricing.js";
 
 export const PRICING_SNAPSHOT: PricingTable = {
-  "version": "v3-298-32cdf857",
-  "updatedAt": "2026-07-14T07:57:29.071Z",
+  "version": "v3-339-5c2956f2",
+  "updatedAt": "2026-08-18T13:25:07.902Z",
   "source": "snapshot",
   "models": {
     "claude-3-5-haiku": {
@@ -211,6 +211,20 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "cacheCreation": 1.25,
       "cacheRead": 0.1
     },
+    "claude-mythos-5": {
+      "input": 10,
+      "output": 50,
+      "cacheCreation": 12.5,
+      "cacheRead": 1,
+      "cacheCreation1h": 20
+    },
+    "claude-mythos-preview": {
+      "input": 10,
+      "output": 50,
+      "cacheCreation": 12.5,
+      "cacheRead": 1,
+      "cacheCreation1h": 20
+    },
     "claude-opus-4": {
       "input": 15,
       "output": 75,
@@ -358,6 +372,21 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "cacheCreation": 18.75,
       "cacheRead": 1.5,
       "cacheCreation1h": 30
+    },
+    "claude-opus-5": {
+      "input": 5,
+      "output": 25,
+      "cacheCreation": 6.25,
+      "cacheRead": 0.5,
+      "cacheCreation1h": 10,
+      "fastMultiplier": 2
+    },
+    "claude-opus-5@default": {
+      "input": 5,
+      "output": 25,
+      "cacheCreation": 6.25,
+      "cacheRead": 0.5,
+      "cacheCreation1h": 10
     },
     "claude-sonnet-4": {
       "input": 3,
@@ -789,6 +818,12 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "cacheCreation": 0,
       "cacheRead": 0.0028
     },
+    "deepseek-v4-flash-0731": {
+      "input": 0.2,
+      "output": 0.4,
+      "cacheCreation": 0,
+      "cacheRead": 0.04
+    },
     "deepseek-v4-flash-thinking": {
       "input": 0.25,
       "output": 1.75,
@@ -956,6 +991,24 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "output": 9,
       "cacheCreation": 0,
       "cacheRead": 0.15
+    },
+    "gemini-3.5-flash-lite": {
+      "input": 0.3,
+      "output": 2.5,
+      "cacheCreation": 0,
+      "cacheRead": 0.03
+    },
+    "gemini-3.6-flash": {
+      "input": 1.5,
+      "output": 7.5,
+      "cacheCreation": 0,
+      "cacheRead": 0.15
+    },
+    "gemini-3.7-flash": {
+      "input": 0.75,
+      "output": 3.75,
+      "cacheCreation": 0,
+      "cacheRead": 0.075
     },
     "gpt-3.5-turbo": {
       "input": 0.5,
@@ -1191,18 +1244,6 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "cacheCreation": 0,
       "cacheRead": 0
     },
-    "gpt-4o-mini-realtime-preview": {
-      "input": 0.6,
-      "output": 2.4,
-      "cacheCreation": 0,
-      "cacheRead": 0.3
-    },
-    "gpt-4o-mini-realtime-preview-2024-12-17": {
-      "input": 0.6,
-      "output": 2.4,
-      "cacheCreation": 0,
-      "cacheRead": 0.3
-    },
     "gpt-4o-mini-search-preview": {
       "input": 0.15,
       "output": 0.6,
@@ -1214,30 +1255,6 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "output": 0.6,
       "cacheCreation": 0,
       "cacheRead": 0.075
-    },
-    "gpt-4o-realtime-preview": {
-      "input": 5,
-      "output": 20,
-      "cacheCreation": 0,
-      "cacheRead": 2.5
-    },
-    "gpt-4o-realtime-preview-2024-10-01": {
-      "input": 5.5,
-      "output": 22,
-      "cacheCreation": 0,
-      "cacheRead": 2.75
-    },
-    "gpt-4o-realtime-preview-2024-12-17": {
-      "input": 5,
-      "output": 20,
-      "cacheCreation": 0,
-      "cacheRead": 2.5
-    },
-    "gpt-4o-realtime-preview-2025-06-03": {
-      "input": 5,
-      "output": 20,
-      "cacheCreation": 0,
-      "cacheRead": 2.5
     },
     "gpt-4o-search-preview": {
       "input": 2.5,
@@ -1574,15 +1591,15 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "cacheReadLongContext": 1
     },
     "gpt-5.6-luna": {
-      "input": 1,
-      "output": 6,
-      "cacheCreation": 1.25,
-      "cacheRead": 0.1,
+      "input": 0.2,
+      "output": 1.2,
+      "cacheCreation": 0.25,
+      "cacheRead": 0.02,
       "longContextThreshold": 272000,
-      "inputLongContext": 2,
-      "outputLongContext": 9,
-      "cacheCreationLongContext": 2.5,
-      "cacheReadLongContext": 0.2
+      "inputLongContext": 0.4,
+      "outputLongContext": 1.8,
+      "cacheCreationLongContext": 0.5,
+      "cacheReadLongContext": 0.04
     },
     "gpt-5.6-sol": {
       "input": 5,
@@ -1596,15 +1613,15 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "cacheReadLongContext": 1
     },
     "gpt-5.6-terra": {
-      "input": 2.5,
-      "output": 15,
-      "cacheCreation": 3.125,
-      "cacheRead": 0.25,
+      "input": 2,
+      "output": 12,
+      "cacheCreation": 2.5,
+      "cacheRead": 0.2,
       "longContextThreshold": 272000,
-      "inputLongContext": 5,
-      "outputLongContext": 22.5,
-      "cacheCreationLongContext": 6.25,
-      "cacheReadLongContext": 0.5
+      "inputLongContext": 4,
+      "outputLongContext": 18,
+      "cacheCreationLongContext": 5,
+      "cacheReadLongContext": 0.4
     },
     "gpt-audio": {
       "input": 2.5,
@@ -1708,65 +1725,366 @@ export const PRICING_SNAPSHOT: PricingTable = {
       "cacheCreation": 0,
       "cacheRead": 0
     },
-    "gpt-realtime": {
-      "input": 4,
-      "output": 16,
-      "cacheCreation": 0,
-      "cacheRead": 0.4
-    },
-    "gpt-realtime-1.5": {
-      "input": 4,
-      "output": 16,
-      "cacheCreation": 0,
-      "cacheRead": 0.4
-    },
-    "gpt-realtime-1.5-2026-02-23": {
-      "input": 4,
-      "output": 16,
-      "cacheCreation": 0,
-      "cacheRead": 4
-    },
-    "gpt-realtime-2": {
-      "input": 4,
-      "output": 16,
-      "cacheCreation": 0,
-      "cacheRead": 0.4
-    },
-    "gpt-realtime-2.1": {
-      "input": 4,
-      "output": 24,
-      "cacheCreation": 0,
-      "cacheRead": 0.4
-    },
-    "gpt-realtime-2.1-mini": {
-      "input": 0.6,
-      "output": 2.4,
-      "cacheCreation": 0,
-      "cacheRead": 0.06
-    },
-    "gpt-realtime-2025-08-28": {
-      "input": 4,
-      "output": 16,
-      "cacheCreation": 0,
-      "cacheRead": 0.4
-    },
-    "gpt-realtime-mini": {
-      "input": 0.6,
-      "output": 2.4,
+    "grok-2": {
+      "input": 2,
+      "output": 10,
       "cacheCreation": 0,
       "cacheRead": 0
     },
-    "gpt-realtime-mini-2025-10-06": {
-      "input": 0.6,
-      "output": 2.4,
+    "grok-2-1212": {
+      "input": 2,
+      "output": 10,
       "cacheCreation": 0,
-      "cacheRead": 0.06
+      "cacheRead": 0
     },
-    "gpt-realtime-mini-2025-12-15": {
-      "input": 0.6,
-      "output": 2.4,
+    "grok-2-latest": {
+      "input": 2,
+      "output": 10,
       "cacheCreation": 0,
-      "cacheRead": 0.06
+      "cacheRead": 0
+    },
+    "grok-2-vision": {
+      "input": 2,
+      "output": 10,
+      "cacheCreation": 0,
+      "cacheRead": 0
+    },
+    "grok-2-vision-1212": {
+      "input": 2,
+      "output": 10,
+      "cacheCreation": 0,
+      "cacheRead": 0
+    },
+    "grok-2-vision-latest": {
+      "input": 2,
+      "output": 10,
+      "cacheCreation": 0,
+      "cacheRead": 0
+    },
+    "grok-3": {
+      "input": 3,
+      "output": 15,
+      "cacheCreation": 0,
+      "cacheRead": 0
+    },
+    "grok-3-beta": {
+      "input": 3,
+      "output": 15,
+      "cacheCreation": 0,
+      "cacheRead": 0.75
+    },
+    "grok-3-fast": {
+      "input": 5,
+      "output": 25,
+      "cacheCreation": 0,
+      "cacheRead": 0
+    },
+    "grok-3-fast-beta": {
+      "input": 5,
+      "output": 25,
+      "cacheCreation": 0,
+      "cacheRead": 1.25
+    },
+    "grok-3-fast-latest": {
+      "input": 5,
+      "output": 25,
+      "cacheCreation": 0,
+      "cacheRead": 1.25
+    },
+    "grok-3-latest": {
+      "input": 3,
+      "output": 15,
+      "cacheCreation": 0,
+      "cacheRead": 0.75
+    },
+    "grok-3-mini": {
+      "input": 0.25,
+      "output": 1.27,
+      "cacheCreation": 0,
+      "cacheRead": 0
+    },
+    "grok-3-mini-beta": {
+      "input": 0.3,
+      "output": 0.5,
+      "cacheCreation": 0,
+      "cacheRead": 0.075
+    },
+    "grok-3-mini-fast": {
+      "input": 0.6,
+      "output": 4,
+      "cacheCreation": 0,
+      "cacheRead": 0
+    },
+    "grok-3-mini-fast-beta": {
+      "input": 0.6,
+      "output": 4,
+      "cacheCreation": 0,
+      "cacheRead": 0.15
+    },
+    "grok-3-mini-fast-latest": {
+      "input": 0.6,
+      "output": 4,
+      "cacheCreation": 0,
+      "cacheRead": 0.15
+    },
+    "grok-3-mini-latest": {
+      "input": 0.3,
+      "output": 0.5,
+      "cacheCreation": 0,
+      "cacheRead": 0.075
+    },
+    "grok-4": {
+      "input": 3,
+      "output": 15,
+      "cacheCreation": 0,
+      "cacheRead": 0
+    },
+    "grok-4-0709": {
+      "input": 3,
+      "output": 15,
+      "cacheCreation": 0,
+      "cacheRead": 0,
+      "longContextThreshold": 128000,
+      "inputLongContext": 6,
+      "outputLongContext": 30
+    },
+    "grok-4-1-fast": {
+      "input": 0.2,
+      "output": 0.5,
+      "cacheCreation": 0,
+      "cacheRead": 0.05,
+      "longContextThreshold": 128000,
+      "inputLongContext": 0.4,
+      "outputLongContext": 1
+    },
+    "grok-4-1-fast-non-reasoning": {
+      "input": 0.2,
+      "output": 0.5,
+      "cacheCreation": 0,
+      "cacheRead": 0
+    },
+    "grok-4-1-fast-non-reasoning-latest": {
+      "input": 0.2,
+      "output": 0.5,
+      "cacheCreation": 0,
+      "cacheRead": 0.05,
+      "longContextThreshold": 128000,
+      "inputLongContext": 0.4,
+      "outputLongContext": 1
+    },
+    "grok-4-1-fast-reasoning": {
+      "input": 0.2,
+      "output": 0.5,
+      "cacheCreation": 0,
+      "cacheRead": 0
+    },
+    "grok-4-1-fast-reasoning-latest": {
+      "input": 0.2,
+      "output": 0.5,
+      "cacheCreation": 0,
+      "cacheRead": 0.05,
+      "longContextThreshold": 128000,
+      "inputLongContext": 0.4,
+      "outputLongContext": 1
+    },
+    "grok-4-fast-non-reasoning": {
+      "input": 0.2,
+      "output": 0.5,
+      "cacheCreation": 0,
+      "cacheRead": 0
+    },
+    "grok-4-fast-reasoning": {
+      "input": 0.2,
+      "output": 0.5,
+      "cacheCreation": 0,
+      "cacheRead": 0
+    },
+    "grok-4-latest": {
+      "input": 3,
+      "output": 15,
+      "cacheCreation": 0,
+      "cacheRead": 0,
+      "longContextThreshold": 128000,
+      "inputLongContext": 6,
+      "outputLongContext": 30
+    },
+    "grok-4.1-fast-non-reasoning": {
+      "input": 0.2,
+      "output": 0.5,
+      "cacheCreation": 0,
+      "cacheRead": 0.05
+    },
+    "grok-4.1-fast-reasoning": {
+      "input": 0.2,
+      "output": 0.5,
+      "cacheCreation": 0,
+      "cacheRead": 0.05
+    },
+    "grok-4.20-0309-non-reasoning": {
+      "input": 1.25,
+      "output": 2.5,
+      "cacheCreation": 0,
+      "cacheRead": 0.2,
+      "longContextThreshold": 200000,
+      "inputLongContext": 2.5,
+      "outputLongContext": 5,
+      "cacheReadLongContext": 0.4
+    },
+    "grok-4.20-0309-reasoning": {
+      "input": 1.25,
+      "output": 2.5,
+      "cacheCreation": 0,
+      "cacheRead": 0.2,
+      "longContextThreshold": 200000,
+      "inputLongContext": 2.5,
+      "outputLongContext": 5,
+      "cacheReadLongContext": 0.4
+    },
+    "grok-4.20-beta-0309-non-reasoning": {
+      "input": 1.25,
+      "output": 2.5,
+      "cacheCreation": 0,
+      "cacheRead": 0.2,
+      "longContextThreshold": 200000,
+      "inputLongContext": 2.5,
+      "outputLongContext": 5,
+      "cacheReadLongContext": 0.4
+    },
+    "grok-4.20-beta-0309-reasoning": {
+      "input": 1.25,
+      "output": 2.5,
+      "cacheCreation": 0,
+      "cacheRead": 0.2,
+      "longContextThreshold": 200000,
+      "inputLongContext": 2.5,
+      "outputLongContext": 5,
+      "cacheReadLongContext": 0.4
+    },
+    "grok-4.20-multi-agent-0309": {
+      "input": 1.25,
+      "output": 2.5,
+      "cacheCreation": 0,
+      "cacheRead": 0.2,
+      "longContextThreshold": 200000,
+      "inputLongContext": 2.5,
+      "outputLongContext": 5,
+      "cacheReadLongContext": 0.4
+    },
+    "grok-4.20-multi-agent-beta-0309": {
+      "input": 1.25,
+      "output": 2.5,
+      "cacheCreation": 0,
+      "cacheRead": 0.2,
+      "longContextThreshold": 200000,
+      "inputLongContext": 2.5,
+      "outputLongContext": 5,
+      "cacheReadLongContext": 0.4
+    },
+    "grok-4.20-non-reasoning": {
+      "input": 2,
+      "output": 6,
+      "cacheCreation": 0,
+      "cacheRead": 0.2
+    },
+    "grok-4.20-reasoning": {
+      "input": 2,
+      "output": 6,
+      "cacheCreation": 0,
+      "cacheRead": 0.2
+    },
+    "grok-4.3": {
+      "input": 1.25,
+      "output": 2.5,
+      "cacheCreation": 0,
+      "cacheRead": 0.2
+    },
+    "grok-4.3-latest": {
+      "input": 1.25,
+      "output": 2.5,
+      "cacheCreation": 0,
+      "cacheRead": 0.2,
+      "longContextThreshold": 200000,
+      "inputLongContext": 2.5,
+      "outputLongContext": 5,
+      "cacheReadLongContext": 0.4
+    },
+    "grok-4.5": {
+      "input": 2,
+      "output": 6,
+      "cacheCreation": 0,
+      "cacheRead": 0.3,
+      "longContextThreshold": 200000,
+      "inputLongContext": 4,
+      "outputLongContext": 12,
+      "cacheReadLongContext": 0.6
+    },
+    "grok-4.5-latest": {
+      "input": 2,
+      "output": 6,
+      "cacheCreation": 0,
+      "cacheRead": 0.3,
+      "longContextThreshold": 200000,
+      "inputLongContext": 4,
+      "outputLongContext": 12,
+      "cacheReadLongContext": 0.6
+    },
+    "grok-4.6": {
+      "input": 2,
+      "output": 6,
+      "cacheCreation": 0,
+      "cacheRead": 0.5,
+      "longContextThreshold": 200000,
+      "inputLongContext": 4,
+      "outputLongContext": 12,
+      "cacheReadLongContext": 1
+    },
+    "grok-beta": {
+      "input": 5,
+      "output": 15,
+      "cacheCreation": 0,
+      "cacheRead": 0
+    },
+    "grok-build-0.1": {
+      "input": 1,
+      "output": 2,
+      "cacheCreation": 0,
+      "cacheRead": 0.2,
+      "longContextThreshold": 200000,
+      "inputLongContext": 2,
+      "outputLongContext": 4,
+      "cacheReadLongContext": 0.4
+    },
+    "grok-code-fast": {
+      "input": 1,
+      "output": 2,
+      "cacheCreation": 0,
+      "cacheRead": 0.2,
+      "longContextThreshold": 200000,
+      "inputLongContext": 2,
+      "outputLongContext": 4,
+      "cacheReadLongContext": 0.4
+    },
+    "grok-code-fast-1": {
+      "input": 0.2,
+      "output": 1.5,
+      "cacheCreation": 0,
+      "cacheRead": 0
+    },
+    "grok-code-fast-1-0825": {
+      "input": 1,
+      "output": 2,
+      "cacheCreation": 0,
+      "cacheRead": 0.2,
+      "longContextThreshold": 200000,
+      "inputLongContext": 2,
+      "outputLongContext": 4,
+      "cacheReadLongContext": 0.4
+    },
+    "grok-vision-beta": {
+      "input": 5,
+      "output": 15,
+      "cacheCreation": 0,
+      "cacheRead": 0
     },
     "o1": {
       "input": 15,

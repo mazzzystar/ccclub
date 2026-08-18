@@ -102,6 +102,23 @@ const FAMILY_REPRESENTATIVES: Record<string, string> = {
   o4: "gpt-5",
   gemini: "gemini-2.5-pro",
   deepseek: "deepseek-chat",
+  // Longest grok stems first so grok-4.6 / grok-4-1-fast do not fall through
+  // to grok-4 ($3/$15) and overcount by an order of magnitude.
+  "grok-3-mini-fast": "grok-3-mini-fast",
+  "grok-4-1-fast": "grok-4-1-fast",
+  "grok-4.1-fast": "grok-4.1-fast-reasoning",
+  "grok-code-fast-1": "grok-code-fast-1",
+  "grok-3-mini": "grok-3-mini",
+  "grok-code-fast": "grok-code-fast",
+  "grok-4-fast": "grok-4-fast-reasoning",
+  "grok-4.20": "grok-4.20-reasoning",
+  "grok-4.6": "grok-4.6",
+  "grok-4.5": "grok-4.5",
+  "grok-4.3": "grok-4.3",
+  "grok-3-fast": "grok-3-fast",
+  "grok-4": "grok-4",
+  "grok-3": "grok-3",
+  "grok-2": "grok-2",
 };
 
 /**

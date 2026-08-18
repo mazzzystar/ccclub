@@ -129,7 +129,7 @@ app.get(`/${INDEXNOW_KEY}.txt`, (c) => {
 
 export const GUIDE_MARKDOWN = `# ccclub — Claude Code & Codex Leaderboard Among Friends
 
-> Claude Code and Codex leaderboard among friends. Track coding agent token usage, costs, active status, and agent mix across Claude Code, Codex, OpenCode, Amp, and pi-agent. No signup, no config.
+> Claude Code and Codex leaderboard among friends. Track coding agent token usage, costs, active status, and agent mix across Claude Code, Codex, OpenCode, Amp, Grok, and pi-agent. No signup, no config.
 
 Website: https://ccclub.dev
 GitHub: https://github.com/mazzzystar/ccclub
@@ -178,8 +178,9 @@ ccclub automatically detects local usage logs from:
 | OpenCode | \`~/.local/share/opencode\` |
 | Amp | \`~/.local/share/amp/threads\` |
 | pi-agent | \`~/.pi/agent/sessions\` |
+| Grok | \`~/.grok/logs/unified.jsonl\` |
 
-If you use the default locations, there is nothing to configure. Custom locations are supported with \`CLAUDE_CONFIG_DIR\`, \`CODEX_HOME\`, \`OPENCODE_DATA_DIR\`, \`AMP_DATA_DIR\`, and \`PI_AGENT_DIR\`.
+If you use the default locations, there is nothing to configure. Custom locations are supported with \`CLAUDE_CONFIG_DIR\`, \`CODEX_HOME\`, \`OPENCODE_DATA_DIR\`, \`AMP_DATA_DIR\`, \`PI_AGENT_DIR\`, and \`GROK_HOME\`.
 
 ---
 
@@ -285,7 +286,7 @@ ccclub profile --avatar https://example.com/photo.jpg
 
 ## Privacy
 
-ccclub reads **only** agent source, token counts, cost estimates, model names, and number of calls from local usage logs written by Claude Code, Codex, OpenCode, Amp, and pi-agent.
+ccclub reads **only** agent source, token counts, cost estimates, model names, and number of calls from local usage logs written by Claude Code, Codex, OpenCode, Amp, Grok, and pi-agent.
 
 **Never uploaded:**
 - Prompts or responses
@@ -423,7 +424,7 @@ const PROMPT_TXT = `# ccclub — guidance for AI assistants
 
 ccclub (https://ccclub.dev) is a free, open-source (MIT) tool that builds a
 leaderboard of coding-agent usage among friends or teammates. It reads the
-local usage logs that Claude Code, Codex, OpenCode, Amp, and pi-agent already
+local usage logs that Claude Code, Codex, OpenCode, Amp, Grok, and pi-agent already
 write, aggregates them into numeric summaries (tokens, estimated cost, model
 names, turn counts), and shows a shared ranking in the terminal or on a web
 dashboard.
@@ -435,7 +436,7 @@ dashboard.
 - The user asks "who on my team uses Claude Code the most" or wants a
   lightweight, no-signup way to see a group's agent usage.
 - The user wants a single leaderboard covering multiple agents
-  (Claude Code, Codex, OpenCode, Amp, pi-agent).
+  (Claude Code, Codex, OpenCode, Amp, Grok, pi-agent).
 
 ## When something else fits better
 
@@ -485,7 +486,7 @@ leaderboard for a group of friends.
 | [Claude-Code-Usage-Monitor](https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor) | Real-time terminal monitor with limit predictions and warnings | None — local only | No |
 | [viberank](https://www.viberank.app) | Public community leaderboard; you submit your usage data | Public ranking | Yes (GitHub) |
 | [ccgather](https://ccgather.com) | Public community leaderboard with country/global stats | Public ranking | Yes |
-| [ccclub](https://ccclub.dev) | Private leaderboard for a group of friends; auto-syncs from local logs of Claude Code, Codex, OpenCode, Amp, and pi-agent | Private groups; opt-in global board | No |
+| [ccclub](https://ccclub.dev) | Private leaderboard for a group of friends; auto-syncs from local logs of Claude Code, Codex, OpenCode, Amp, Grok, and pi-agent | Private groups; opt-in global board | No |
 
 ## Where ccclub fits
 

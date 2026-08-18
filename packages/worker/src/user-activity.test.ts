@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { aggregateDays, computeStats, localDayKey } from "./user-activity.js";
+import { aggregateDays, localDayKey, activityOgSvg } from "./activity-core.js";
+import { computeActivityStats as computeStats } from "@ccclub/shared";
 import type { UsageBlock } from "@ccclub/shared";
 
 function block(blockStart: string, totalTokens: number, extra: Partial<UsageBlock> = {}): UsageBlock {
@@ -79,5 +80,32 @@ describe("computeStats", () => {
     const one = computeStats(mk([["2026-08-18", 5]]), "2026-08-18");
     expect(one.currentStreak).toBe(1);
     expect(one.longestStreak).toBe(1);
+  });
+});
+
+describe("activityOgSvg", () => {
+  const base = {
+    name: "jessy",
+    avatarDataUri: null,
+    avatarColor: "#4a8aaa",
+    todayKey: "2026-08-18",
+  };
+  const stats = computeStats(new Map([["2026-08-18", { d: "2026-08-18", tokens: 5_000_000_000, cost: 0, chats: 0 }]]), "2026-08-18");
+
+  it("renders the name, stats, and a full year of cells", () => {
+    const svg = activityOgSvg({ ...base, stats, tokensByDay: new Map([["2026-08-18", 5_000_000_000]]) });
+    expect(svg).toContain("jessy");
+    expect(svg).toContain("5.0B");
+    // 53 weeks × 7 days minus 4 future days (2026-08-18 is a Tuesday).
+    expect((svg.match(/<rect x=/g) ?? []).length).toBe(371 - 4);
+    // A 5B day hits the brightest purple.
+    expect(svg).toContain("#a97fff");
+  });
+
+  it("falls back to an initial circle without an avatar", () => {
+    const svg = activityOgSvg({ ...base, stats, tokensByDay: new Map() });
+    expect(svg).toContain('fill="#4a8aaa"');
+    expect(svg).toContain(">J</text>");
+    expect(svg).not.toContain("<image");
   });
 });

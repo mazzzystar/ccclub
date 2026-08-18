@@ -1,40 +1,16 @@
 import { Hono } from "hono";
 import { html, raw } from "hono/html";
 import type { Env } from "./types.js";
-import { isRankedSource, computeActivityStats, ACTIVITY_LEVEL_THRESHOLDS } from "@ccclub/shared";
+import { isRankedSource, computeActivityStats, activityLevelFor, ACTIVITY_LEVEL_THRESHOLDS } from "@ccclub/shared";
 import type { UsageData, UsageBlock, GroupRecord, DayTotal } from "@ccclub/shared";
+import { cachedPngResponse, getColor, hashCode, latinOnly, ogCacheUrl, renderToPng } from "./og-utils.js";
+import { localDayKey, aggregateDays, fmtTokensShort, activityOgSvg } from "./activity-core.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
 export { computeActivityStats as computeStats };
 
 // ── Pure aggregation (exported for tests) ────────────────────
-
-/** Local calendar day of a timestamp under a fixed UTC-offset, in minutes. */
-export function localDayKey(ms: number, tzMinutes: number): string {
-  return new Date(ms + tzMinutes * 60_000).toISOString().slice(0, 10);
-}
-
-/**
- * Sum every ranked block into its viewer-local calendar day. Full history:
- * the heatmap only shows the last year, but streaks and totals shouldn't
- * forget the rest.
- */
-export function aggregateDays(blocks: UsageBlock[], tzMinutes: number): Map<string, DayTotal> {
-  const days = new Map<string, DayTotal>();
-  for (const block of blocks) {
-    if (!isRankedSource(block.source)) continue;
-    const ms = new Date(block.blockStart).getTime();
-    if (!Number.isFinite(ms)) continue;
-    const key = localDayKey(ms, tzMinutes);
-    const day = days.get(key) ?? { d: key, tokens: 0, cost: 0, chats: 0 };
-    day.tokens += block.totalTokens || 0;
-    day.cost += block.costUSD || 0;
-    day.chats += block.chatCount || 0;
-    days.set(key, day);
-  }
-  return days;
-}
 
 // ── API ──────────────────────────────────────────────────────
 
@@ -48,35 +24,47 @@ async function resolveHandle(kv: Env["KV"], handle: string): Promise<string | nu
   return USER_ID.test(handle) ? handle : null;
 }
 
-app.get("/api/user/:handle/activity", async (c) => {
-  const userId = await resolveHandle(c.env.KV, c.req.param("handle"));
-  if (!userId) return c.json({ error: "user not found" }, 404);
-  const tz = Math.max(-840, Math.min(840, parseInt(c.req.query("tz") || "0", 10) || 0));
+interface UserProfile {
+  userId: string;
+  displayName: string;
+  slug?: string;
+  avatar: string;
+  plan?: string;
+  url?: string;
+  usage: UsageData | null;
+}
 
+/** Resolve a handle and load display info + usage; null when unknown. */
+async function loadProfile(kv: Env["KV"], handle: string): Promise<UserProfile | null> {
+  const userId = await resolveHandle(kv, handle);
+  if (!userId) return null;
   const [usage, groupCodes] = await Promise.all([
-    c.env.KV.get<UsageData>(`usage:${userId}`, "json"),
-    c.env.KV.get<string[]>(`user_groups:${userId}`, "json"),
+    kv.get<UsageData>(`usage:${userId}`, "json"),
+    kv.get<string[]>(`user_groups:${userId}`, "json"),
   ]);
-
   // Display info lives on the first group's member record, like /rank/global.
-  let displayName = userId.slice(0, 8);
-  let slug: string | undefined;
-  let avatar = "";
-  let plan: string | undefined;
-  let url: string | undefined;
+  const profile: UserProfile = { userId, displayName: userId.slice(0, 8), avatar: "", usage };
   const firstCode = groupCodes?.[0];
   if (firstCode) {
-    const group = await c.env.KV.get<GroupRecord>(`group:${firstCode}`, "json");
+    const group = await kv.get<GroupRecord>(`group:${firstCode}`, "json");
     const member = group?.members.find((m) => m.userId === userId);
     if (member) {
-      displayName = member.displayName;
-      slug = member.slug;
-      avatar = member.avatar || "";
-      plan = member.plan;
-      url = member.url;
+      profile.displayName = member.displayName;
+      profile.slug = member.slug;
+      profile.avatar = member.avatar || "";
+      profile.plan = member.plan;
+      profile.url = member.url;
     }
   }
-  if (!usage && !firstCode) return c.json({ error: "user not found" }, 404);
+  if (!usage && !firstCode) return null;
+  return profile;
+}
+
+app.get("/api/user/:handle/activity", async (c) => {
+  const profile = await loadProfile(c.env.KV, c.req.param("handle"));
+  if (!profile) return c.json({ error: "user not found" }, 404);
+  const { userId, displayName, slug, avatar, plan, url, usage } = profile;
+  const tz = Math.max(-840, Math.min(840, parseInt(c.req.query("tz") || "0", 10) || 0));
 
   const days = aggregateDays(usage?.blocks ?? [], tz);
   const todayKey = localDayKey(Date.now(), tz);
@@ -106,20 +94,92 @@ app.get("/api/user/:handle/activity", async (c) => {
 
 // ── Page ─────────────────────────────────────────────────────
 
-app.get("/u/:handle", (c) => {
+app.get("/u/:handle", async (c) => {
   const handle = c.req.param("handle");
   if (handle.length > 64) return c.notFound();
-  return c.html(activityPageHTML(handle));
+  // SSR the head so link previews carry the person, not a generic shell.
+  const profile = await loadProfile(c.env.KV, handle);
+  let ogTitle = "Activity — ccclub";
+  let ogDesc = "Daily coding-agent token activity.";
+  if (profile) {
+    ogTitle = `${profile.displayName} — ccclub activity`;
+    const stats = computeActivityStats(aggregateDays(profile.usage?.blocks ?? [], 0), localDayKey(Date.now(), 0));
+    if (stats.activeDays > 0) {
+      ogDesc = `${fmtTokensShort(stats.totalTokens)} tokens · ${stats.activeDays} active days · best day ${fmtTokensShort(stats.peakDayTokens)} · ${stats.currentStreak}-day streak`;
+    }
+  }
+  return c.html(activityPageHTML(handle, ogTitle, ogDesc));
 });
 
-function activityPageHTML(handle: string) {
+// ── OG image: avatar + name + stats + the last year as a heatmap ─────
+
+/** Best-effort avatar embed; resvg renders PNG/JPEG/GIF data URIs. */
+async function fetchAvatarDataUri(url: string): Promise<string | null> {
+  if (!/^https:\/\//.test(url)) return null;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(2500) });
+    if (!res.ok) return null;
+    const type = (res.headers.get("content-type") || "").split(";")[0];
+    if (!/^image\/(png|jpeg|gif)$/.test(type)) return null;
+    const buf = await res.arrayBuffer();
+    if (buf.byteLength > 2_000_000) return null;
+    const bytes = new Uint8Array(buf);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+    return `data:${type};base64,${btoa(binary)}`;
+  } catch {
+    return null;
+  }
+}
+
+app.get("/u/:handle/og.png", async (c) => {
+  const profile = await loadProfile(c.env.KV, c.req.param("handle"));
+  if (!profile) return c.notFound();
+
+  const version = hashCode(`${profile.usage?.lastSync || "0"}:${profile.displayName}:${profile.avatar}:${profile.plan || ""}`);
+  const cacheUrl = ogCacheUrl(c.req.url, `u/v1/${profile.userId}/${version}.png`);
+
+  return cachedPngResponse(cacheUrl, async () => {
+    const days = aggregateDays(profile.usage?.blocks ?? [], 0);
+    const todayKey = localDayKey(Date.now(), 0);
+    const stats = computeActivityStats(days, todayKey);
+    const tokensByDay = new Map([...days.values()].map((d) => [d.d, d.tokens]));
+    // Inter only covers Latin — CJK names fall back to the ASCII slug.
+    const name = latinOnly(profile.displayName) || profile.slug || profile.userId.slice(0, 8);
+    const avatarDataUri = profile.avatar ? await fetchAvatarDataUri(profile.avatar) : null;
+    const svg = activityOgSvg({
+      name,
+      plan: profile.plan,
+      avatarDataUri,
+      avatarColor: getColor(profile.userId),
+      stats,
+      tokensByDay,
+      todayKey,
+    });
+    return renderToPng(svg);
+  }, { maxAge: 3600, staleWhileRevalidate: 86400, executionCtx: c.executionCtx });
+});
+
+function activityPageHTML(handle: string, ogTitle: string, ogDesc: string) {
+  const ogImage = `https://ccclub.dev/u/${encodeURIComponent(handle)}/og.png`;
   return html`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Activity — ccclub</title>
-  <meta name="description" content="Daily coding-agent token activity." />
+  <title>${ogTitle}</title>
+  <meta name="description" content="${ogDesc}" />
+  <meta property="og:type" content="profile" />
+  <meta property="og:title" content="${ogTitle}" />
+  <meta property="og:description" content="${ogDesc}" />
+  <meta property="og:site_name" content="ccclub" />
+  <meta property="og:image" content="${ogImage}" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${ogTitle}" />
+  <meta name="twitter:description" content="${ogDesc}" />
+  <meta name="twitter:image" content="${ogImage}" />
   <meta name="robots" content="noindex" />
   <meta name="theme-color" content="#1a1816" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
@@ -346,6 +406,11 @@ function activityPageHTML(handle: string) {
           '</div>' +
         "</div>";
       document.title = data.displayName + " — ccclub activity";
+
+      // On narrow screens the grid overflows; land on the recent end, not
+      // a year ago, and let the user scroll back in time.
+      var scroller = document.querySelector(".map-scroll");
+      if (scroller) scroller.scrollLeft = scroller.scrollWidth;
 
       // Canonical short URL: raw-userId links keep working, the bar shows the slug.
       if (data.slug && decodeURIComponent(location.pathname) !== "/u/" + data.slug) {

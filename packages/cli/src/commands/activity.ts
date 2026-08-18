@@ -7,7 +7,7 @@ import { aggregateToBlocks } from "../aggregator.js";
 import { loadPricing } from "../pricing.js";
 import { createScanCacheFactory } from "../scan-cache.js";
 import { theme } from "../theme.js";
-import { DEFAULT_SOURCES, isRankedSource, computeActivityStats } from "@ccclub/shared";
+import { DEFAULT_SOURCES, isRankedSource, computeActivityStats, activityLevelFor } from "@ccclub/shared";
 import type { DayTotal, UsageBlock } from "@ccclub/shared";
 
 // GitHub-style yearly heatmap of local coding-agent activity, computed from
@@ -42,22 +42,6 @@ export function buildDayTotals(
   return days;
 }
 
-/** Intensity 0–4 from quartiles of the non-zero days, GitHub-style. */
-export function levelThresholds(tokensByDay: Map<string, number>): number[] {
-  const nonZero = [...tokensByDay.values()].filter((v) => v > 0).sort((a, b) => a - b);
-  if (nonZero.length === 0) return [0, 0, 0];
-  // ceil-1, not floor: with floor, q(0.75) of a small sample is its maximum
-  // and the brightest level is unreachable.
-  const q = (p: number) => nonZero[Math.max(0, Math.ceil(p * nonZero.length) - 1)];
-  return [q(0.25), q(0.5), q(0.75)];
-}
-
-export function levelFor(tokens: number, thresholds: number[]): number {
-  if (tokens <= 0) return 0;
-  for (let i = 0; i < thresholds.length; i++) if (tokens <= thresholds[i]) return i + 1;
-  return 4;
-}
-
 export interface HeatmapPaint {
   cell(level: number): string;
   future(): string;
@@ -80,7 +64,6 @@ export function heatmapLines(
   todayKey: string,
   paint: HeatmapPaint = PLAIN_PAINT,
 ): string[] {
-  const thresholds = levelThresholds(tokensByDay);
   const todayMs = Date.parse(`${todayKey}T00:00:00Z`);
   const weekStart = todayMs - new Date(todayMs).getUTCDay() * DAY_MS; // this week's Sunday
   const firstWeek = weekStart - (WEEKS - 1) * 7 * DAY_MS;
@@ -114,13 +97,16 @@ export function heatmapLines(
         continue;
       }
       const key = new Date(ms).toISOString().slice(0, 10);
-      row += paint.cell(levelFor(tokensByDay.get(key) ?? 0, thresholds));
+      row += paint.cell(activityLevelFor(tokensByDay.get(key) ?? 0));
     }
     lines.push(row);
   }
   lines.push(
     " ".repeat(GUTTER) +
-      paint.label("Less ") + paint.cell(0) + paint.cell(1) + paint.cell(2) + paint.cell(3) + paint.cell(4) + paint.label(" More"),
+      paint.cell(1) + paint.cell(2) + paint.label("<50M  ") +
+      paint.cell(3) + paint.cell(4) + paint.label("<500M  ") +
+      paint.cell(5) + paint.cell(6) + paint.label("<2B  ") +
+      paint.cell(7) + paint.cell(8) + paint.label("2B+"),
   );
   return lines;
 }
@@ -137,10 +123,10 @@ const ANSI_PAINT: HeatmapPaint = {
   cell: (level) =>
     [
       chalk.hex("#3a3530")("·"),
-      chalk.hex("#7c4e2a")("■"),
-      chalk.hex("#a3612f")("■"),
-      chalk.hex("#c07d43")("■"),
-      chalk.hex("#d4935e")("■"),
+      chalk.hex("#2d4f3d")("■"), chalk.hex("#4a8a63")("■"), // green: light
+      chalk.hex("#8f7d3a")("■"), chalk.hex("#c2a04e")("■"), // amber: moderate
+      chalk.hex("#c98148")("■"), chalk.hex("#e29a58")("■"), // orange: heavy
+      chalk.hex("#ecc06c")("■"), chalk.hex("#f7e3a1")("■"), // gold: extreme
     ][level],
   future: () => " ",
   label: (text) => chalk.hex("#5a5550")(text),

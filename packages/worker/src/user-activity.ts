@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { html, raw } from "hono/html";
 import type { Env } from "./types.js";
-import { isRankedSource, computeActivityStats } from "@ccclub/shared";
+import { isRankedSource, computeActivityStats, ACTIVITY_LEVEL_THRESHOLDS } from "@ccclub/shared";
 import type { UsageData, UsageBlock, GroupRecord, DayTotal } from "@ccclub/shared";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -139,7 +139,11 @@ function activityPageHTML(handle: string) {
       --line: #332f2b; --line-soft: #282521;
       --text: #e8e4de; --title: #f1ede7; --muted: #8a8480; --faint: #5a5550;
       --brand: #d4935e; --link: #7ab7c6;
-      --cell-0: #242019; --cell-1: #4a3323; --cell-2: #7c4e2a; --cell-3: #b06f38; --cell-4: #d4935e;
+      --cell-0: #242019;
+      --cell-1: #2d4f3d; --cell-2: #4a8a63;               /* green: light   */
+      --cell-3: #8f7d3a; --cell-4: #c2a04e;               /* amber: moderate */
+      --cell-5: #c98148; --cell-6: #e29a58;               /* orange: heavy  */
+      --cell-7: #ecc06c; --cell-8: #f7e3a1;               /* gold: extreme  */
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
@@ -198,9 +202,14 @@ function activityPageHTML(handle: string) {
     }
     .c1 { background: var(--cell-1); } .c2 { background: var(--cell-2); }
     .c3 { background: var(--cell-3); } .c4 { background: var(--cell-4); }
+    .c5 { background: var(--cell-5); } .c6 { background: var(--cell-6); }
+    .c7 { background: var(--cell-7); } .c8 { background: var(--cell-8); }
     .cell.future { background: transparent; }
-    .legend { display: flex; align-items: center; gap: 4px; justify-content: flex-end; margin-top: 10px; font-size: 11px; color: var(--faint); }
-    .legend .cell { margin: 0 1px; }
+    .legend { display: flex; align-items: flex-start; gap: 14px; justify-content: flex-end; margin-top: 12px; font-size: 10px; color: var(--faint); }
+    .legend .tier { text-align: center; }
+    .legend .tier-cells { display: flex; justify-content: center; }
+    .legend .cell { margin: 0 1px; cursor: default; }
+    .legend .tier-label { margin-top: 2px; white-space: nowrap; }
 
     .tip {
       display: none; position: fixed; z-index: 10; pointer-events: none;
@@ -249,21 +258,21 @@ function activityPageHTML(handle: string) {
     }
     function dayMs(key) { return Date.parse(key + "T00:00:00Z"); }
 
-    function levelFor(tokens, thresholds) {
-      if (tokens <= 0) return 0;
-      for (var i = 0; i < thresholds.length; i++) if (tokens <= thresholds[i]) return i + 1;
-      return 4;
+    // Absolute log-spaced scale (mirrors @ccclub/shared): hue encodes the
+    // magnitude tier, so two people's pages differ at a glance.
+    var THRESHOLDS = ${raw(JSON.stringify(ACTIVITY_LEVEL_THRESHOLDS))};
+    function levelFor(tokens) {
+      var level = 0;
+      for (var i = 0; i < THRESHOLDS.length; i++) {
+        if (tokens >= THRESHOLDS[i]) level++;
+        else break;
+      }
+      return level;
     }
 
     function render(data) {
       var byDay = {};
-      var nonZero = [];
-      data.days.forEach(function(d) { byDay[d.d] = d; if (d.tokens > 0) nonZero.push(d.tokens); });
-      nonZero.sort(function(a, b) { return a - b; });
-      // ceil-1, not floor: with floor, q(0.75) of a small sample is its
-      // maximum and the brightest level is unreachable.
-      function q(p) { return nonZero.length ? nonZero[Math.max(0, Math.ceil(p * nonZero.length) - 1)] : 0; }
-      var thresholds = [q(0.25), q(0.5), q(0.75)];
+      data.days.forEach(function(d) { byDay[d.d] = d; });
 
       // 53 columns of weeks ending with the current week; rows Sun..Sat.
       var todayMs = dayMs(data.today);
@@ -295,7 +304,7 @@ function activityPageHTML(handle: string) {
           var key = new Date(ms).toISOString().slice(0, 10);
           var d = byDay[key];
           var tokens = d ? d.tokens : 0;
-          var lvl = levelFor(tokens, thresholds);
+          var lvl = levelFor(tokens);
           var tip = key + (tokens > 0 ? " · " + fmtTokens(tokens) + " tokens" + (d.chats ? " · " + d.chats + " chats" : "") : " · no activity");
           cells += '<div class="cell' + (lvl ? " c" + lvl : "") + '" data-tip="' + esc(tip) + '"></div>';
         }
@@ -327,7 +336,13 @@ function activityPageHTML(handle: string) {
           '<div class="map-scroll"><div class="map">' +
             '<div class="months">' + monthCells + "</div>" + rows +
           "</div></div>" +
-          '<div class="legend">Less <div class="cell"></div><div class="cell c1"></div><div class="cell c2"></div><div class="cell c3"></div><div class="cell c4"></div> More</div>' +
+          '<div class="legend">' +
+            '<div class="tier"><div class="tier-cells"><div class="cell"></div></div><div class="tier-label">0</div></div>' +
+            '<div class="tier"><div class="tier-cells"><div class="cell c1"></div><div class="cell c2"></div></div><div class="tier-label">&lt;50M</div></div>' +
+            '<div class="tier"><div class="tier-cells"><div class="cell c3"></div><div class="cell c4"></div></div><div class="tier-label">50–500M</div></div>' +
+            '<div class="tier"><div class="tier-cells"><div class="cell c5"></div><div class="cell c6"></div></div><div class="tier-label">0.5–2B</div></div>' +
+            '<div class="tier"><div class="tier-cells"><div class="cell c7"></div><div class="cell c8"></div></div><div class="tier-label">2B+</div></div>' +
+          '</div>' +
         "</div>";
       document.title = data.displayName + " — ccclub activity";
 

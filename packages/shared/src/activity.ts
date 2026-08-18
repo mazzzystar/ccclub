@@ -76,3 +76,35 @@ export function computeActivityStats(days: Map<string, DayTotal>, todayKey: stri
     longestStreak: longest,
   };
 }
+
+/**
+ * Absolute intensity scale for activity heatmaps, shared by the CLI and the
+ * web page so the same day renders the same level everywhere.
+ *
+ * Levels are log-spaced bands of daily total tokens, grouped into four hue
+ * tiers: green (light), amber (moderate), orange (heavy), gold (extreme).
+ * Hue encodes the order of magnitude — so two people's pages differ at a
+ * glance — and depth within a hue encodes position inside the band. A
+ * per-user relative scale would render a 1M/day and a 1B/day user
+ * identically, which is exactly the information a leaderboard cares about.
+ */
+export const ACTIVITY_LEVEL_THRESHOLDS = [
+  1,             // L1 dim green
+  10_000_000,    // L2 green
+  50_000_000,    // L3 olive
+  200_000_000,   // L4 amber
+  500_000_000,   // L5 deep orange
+  1_000_000_000, // L6 orange
+  2_000_000_000, // L7 gold
+  5_000_000_000, // L8 blazing gold
+] as const;
+
+/** 0 (no activity) through 8 (≥5B tokens). */
+export function activityLevelFor(tokens: number): number {
+  let level = 0;
+  for (const min of ACTIVITY_LEVEL_THRESHOLDS) {
+    if (tokens >= min) level++;
+    else break;
+  }
+  return level;
+}

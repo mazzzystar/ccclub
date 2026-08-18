@@ -1,13 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
   buildDayTotals,
-  levelThresholds,
-  levelFor,
   heatmapLines,
   formatTokensShort,
   type HeatmapPaint,
 } from "../commands/activity.js";
-import { computeActivityStats } from "@ccclub/shared";
+import { computeActivityStats, activityLevelFor, ACTIVITY_LEVEL_THRESHOLDS } from "@ccclub/shared";
 import type { UsageBlock } from "@ccclub/shared";
 
 function block(blockStart: string, totalTokens: number, extra: Partial<UsageBlock> = {}): UsageBlock {
@@ -46,24 +44,36 @@ describe("buildDayTotals", () => {
   });
 });
 
-describe("levels", () => {
-  it("bins by quartiles of the non-zero days", () => {
-    const tokens = new Map([["a", 10], ["b", 20], ["c", 30], ["d", 40]]);
-    const t = levelThresholds(tokens);
-    expect(levelFor(0, t)).toBe(0);
-    expect(levelFor(10, t)).toBe(1);
-    expect(levelFor(40, t)).toBe(4);
-    // Monotonic: bigger tokens never get a smaller level.
-    let prev = 0;
-    for (const v of [1, 10, 15, 20, 25, 30, 35, 40, 100]) {
-      const lvl = levelFor(v, t);
-      expect(lvl).toBeGreaterThanOrEqual(prev);
-      prev = lvl;
-    }
+describe("absolute activity levels", () => {
+  it("maps daily tokens onto the shared log-spaced scale", () => {
+    expect(activityLevelFor(0)).toBe(0);
+    expect(activityLevelFor(1)).toBe(1);             // any activity shows
+    expect(activityLevelFor(9_000_000)).toBe(1);     // dim green
+    expect(activityLevelFor(30_000_000)).toBe(2);    // green
+    expect(activityLevelFor(100_000_000)).toBe(3);   // olive
+    expect(activityLevelFor(300_000_000)).toBe(4);   // amber
+    expect(activityLevelFor(700_000_000)).toBe(5);   // deep orange
+    expect(activityLevelFor(1_500_000_000)).toBe(6); // orange
+    expect(activityLevelFor(3_000_000_000)).toBe(7); // gold
+    expect(activityLevelFor(20_000_000_000)).toBe(8);// blazing gold
   });
 
-  it("handles an all-zero map", () => {
-    expect(levelFor(0, levelThresholds(new Map()))).toBe(0);
+  it("is absolute: the same day renders the same level for every user", () => {
+    // The old per-user quartile scale rendered a 1M/day user and a 1B/day
+    // user identically — the exact information a leaderboard cares about.
+    expect(activityLevelFor(1_000_000)).toBeLessThan(activityLevelFor(1_000_000_000));
+  });
+
+  it("is monotonic across every threshold boundary", () => {
+    let prev = 0;
+    for (const min of ACTIVITY_LEVEL_THRESHOLDS) {
+      for (const v of [min - 1, min, min + 1]) {
+        const lvl = activityLevelFor(Math.max(0, v));
+        expect(lvl).toBeGreaterThanOrEqual(prev);
+        prev = lvl;
+      }
+    }
+    expect(prev).toBe(8);
   });
 });
 
@@ -93,14 +103,14 @@ describe("heatmapLines", () => {
     const { painted, paint, futures } = recordCells();
     heatmapLines(new Map(), TODAY, paint);
     // 53 weeks × 7 days = 371 cells; today is a Tuesday so 4 cells of the
-    // final week are future (Wed..Sat) — minus the 5 legend cells.
+    // final week are future (Wed..Sat) — minus the 8 legend swatches.
     expect(futures()).toBe(4);
-    expect(painted.length - 5).toBe(371 - 4);
+    expect(painted.length - 8).toBe(371 - 4);
   });
 
   it("puts today's tokens in the last painted cell of its weekday row", () => {
     const { paint } = recordCells();
-    const lines = heatmapLines(new Map([[TODAY, 100]]), TODAY, paint);
+    const lines = heatmapLines(new Map([[TODAY, 100_000_000]]), TODAY, paint);
     const tuesdayRow = lines[3]; // header, Sun, Mon, Tue
     const lastPainted = tuesdayRow.trimEnd().slice(-1);
     expect(lastPainted).not.toBe("0"); // active today → non-zero level

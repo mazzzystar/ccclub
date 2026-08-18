@@ -21,19 +21,27 @@ function generateId(): string {
 }
 
 /**
- * Claim a URL handle for /u/{slug}: the slugified display name, or on
- * collision the first free numeric suffix (jessy, jessy2 … jessy9). Bounded:
- * at most ~10 KV probes, never an unbounded scan. Assigned once per user and
- * never reassigned — renames must not move activity URLs. Returns undefined
- * in the (practically unreachable) case where every candidate is taken;
- * links then simply keep using the raw userId.
+ * Candidate handles for a base, in claim order. Two letters and up get the
+ * bare name then numeric suffixes (jessy, jessy2 … jessy9); a single letter
+ * is always digit-expanded (d0 … d9) so handles stay at least two chars.
+ * @internal exported for tests and the backfill script.
+ */
+export function slugCandidates(base: string): string[] {
+  if (base.length === 1) return Array.from({ length: 10 }, (_, i) => `${base}${i}`);
+  return [base, ...Array.from({ length: 8 }, (_, i) => `${base}${i + 2}`)];
+}
+
+/**
+ * Claim a URL handle for /u/{slug}. Bounded: at most ~20 KV probes, never an
+ * unbounded scan. Assigned once per user and never reassigned — renames must
+ * not move activity URLs. Returns undefined in the (practically unreachable)
+ * case where every candidate is taken; links then keep the raw userId.
  */
 async function assignSlug(kv: KVNamespace, displayName: string, userId: string): Promise<string | undefined> {
   const named = slugifyName(displayName);
   const bases = named ? [named, userId.slice(0, 8)] : [userId.slice(0, 8)];
   for (const base of bases) {
-    for (let n = 1; n <= 9; n++) {
-      const candidate = n === 1 ? base : `${base}${n}`;
+    for (const candidate of slugCandidates(base)) {
       if (isReservedSlug(candidate)) continue; // never shadow raw-userId URLs
       const taken = await kv.get(`slug:${candidate}`);
       if (!taken) {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { slugifyName, isReservedSlug } from "@ccclub/shared/slug";
+import { slugCandidates } from "./routes/auth.js";
 
 describe("slugifyName", () => {
   it("lowercases and joins word runs with hyphens", () => {
@@ -23,11 +24,17 @@ describe("slugifyName", () => {
     expect(slugifyName("anjing2829@sina.com")).toBe("anjing2829-sina-com");
   });
 
-  it("rejects anything under 3 characters", () => {
+  it("keeps short names and rejects only the unusable", () => {
+    expect(slugifyName("dk")).toBe("dk"); // two letters make a fine handle
+    expect(slugifyName("Bo")).toBe("bo");
+    expect(slugifyName("d")).toBe("d"); // single char — assignment digit-expands
     expect(slugifyName("🔥🔥🔥")).toBe("");
-    expect(slugifyName("Bo")).toBe("");
     expect(slugifyName("  ")).toBe("");
-    expect(slugifyName("abc")).toBe("abc"); // exactly 3 is fine
+  });
+
+  it("digit-expands single-character bases, numbers longer ones", () => {
+    expect(slugCandidates("d")).toEqual(["d0","d1","d2","d3","d4","d5","d6","d7","d8","d9"]);
+    expect(slugCandidates("dk")).toEqual(["dk","dk2","dk3","dk4","dk5","dk6","dk7","dk8","dk9"]);
   });
 
   it("bounds the length without a trailing hyphen", () => {

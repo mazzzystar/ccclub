@@ -9,14 +9,15 @@ import TinyPinyin from "tiny-pinyin";
 //      "xinxilou-token-fenshaodadui").
 //   2. Everything else is ASCII-folded (é → e) and stripped to [a-z0-9]
 //      runs joined by "-", capped at 30 chars.
-//   3. Under 3 chars the name isn't a usable handle — callers fall back to
-//      a userId prefix.
+//   3. Two characters make a fine handle ("dk"). A single character is kept
+//      too — assignment expands it with a digit (d0…d9). Only a name with
+//      nothing usable at all falls back to a userId prefix.
 // Assignment (server-side) tries the bare slug then jessy2…jessy9 — a
 // constant number of KV probes, never an unbounded scan.
 
 const HAN = /\p{Script=Han}/u;
 
-/** ASCII slug from a display name; "" when under 3 usable characters. */
+/** ASCII slug from a display name; "" only when nothing usable remains. */
 export function slugifyName(name: string): string {
   // Han runs become single pinyin words; everything else passes through.
   let ascii = "";
@@ -32,8 +33,7 @@ export function slugifyName(name: string): string {
   if (hanRun) ascii += ` ${hanRun}`;
 
   const folded = ascii.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  const slug = (folded.match(/[a-z0-9]+/g) ?? []).join("-").slice(0, 30).replace(/-+$/, "");
-  return slug.length >= 3 ? slug : "";
+  return (folded.match(/[a-z0-9]+/g) ?? []).join("-").slice(0, 30).replace(/-+$/, "");
 }
 
 /**

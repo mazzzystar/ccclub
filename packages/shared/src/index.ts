@@ -1,6 +1,5 @@
 export * from "./types.js";
 export * from "./activity.js";
-export * from "./slug.js";
 export * from "./constants.js";
 export * from "./pricing.js";
 export * from "./pricing-snapshot.js";

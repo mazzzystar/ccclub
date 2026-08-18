@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { slugifyName, isReservedSlug } from "@ccclub/shared";
+import { slugifyName, isReservedSlug } from "@ccclub/shared/slug";
 
 describe("slugifyName", () => {
   it("lowercases and joins word runs with hyphens", () => {
@@ -8,16 +8,26 @@ describe("slugifyName", () => {
     expect(slugifyName("RJM")).toBe("rjm");
   });
 
-  it("keeps CJK names usable", () => {
-    expect(slugifyName("新西楼token焚烧大队")).toBe("新西楼token焚烧大队");
-    expect(slugifyName("清墨(salex)")).toBe("清墨-salex");
-    expect(slugifyName("抗生素不能乱打")).toBe("抗生素不能乱打");
+  it("converts Chinese to pinyin, one word per han run", () => {
+    expect(slugifyName("清墨(salex)")).toBe("qingmo-salex");
+    expect(slugifyName("新西楼token焚烧大队")).toBe("xinxilou-token-fenshaodadui");
+    expect(slugifyName("抗生素不能乱打")).toBe("kangshengsubunengluanda");
   });
 
-  it("drops punctuation and emoji, returns empty when nothing remains", () => {
+  it("folds accents to ASCII", () => {
+    expect(slugifyName("Café Müller")).toBe("cafe-muller");
+  });
+
+  it("drops punctuation and emoji", () => {
     expect(slugifyName("mazzy★star!")).toBe("mazzy-star");
+    expect(slugifyName("anjing2829@sina.com")).toBe("anjing2829-sina-com");
+  });
+
+  it("rejects anything under 3 characters", () => {
     expect(slugifyName("🔥🔥🔥")).toBe("");
+    expect(slugifyName("Bo")).toBe("");
     expect(slugifyName("  ")).toBe("");
+    expect(slugifyName("abc")).toBe("abc"); // exactly 3 is fine
   });
 
   it("bounds the length without a trailing hyphen", () => {
@@ -28,12 +38,12 @@ describe("slugifyName", () => {
 });
 
 describe("isReservedSlug", () => {
-  it("reserves anything shaped like a raw userId", () => {
+  it("reserves exactly the real-userId shape (16 hex)", () => {
     expect(isReservedSlug("2ce7c224cc0e4be8")).toBe(true);
-    expect(isReservedSlug("deadbeef")).toBe(true);
-    // Real names that merely contain hex letters are fine.
+    // Shorter hex runs can't be full userIds — usable as slugs, including
+    // the userId-prefix fallback.
+    expect(isReservedSlug("2ce7c224")).toBe(false);
+    expect(isReservedSlug("deadbeef")).toBe(false);
     expect(isReservedSlug("jessy")).toBe(false);
-    expect(isReservedSlug("abcdef01xyz")).toBe(false);
-    expect(isReservedSlug("dead")).toBe(false); // too short to be a userId
   });
 });

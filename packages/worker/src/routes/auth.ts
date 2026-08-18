@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "../types.js";
-import { slugifyName, isReservedSlug } from "@ccclub/shared";
+import { slugifyName, isReservedSlug } from "@ccclub/shared/slug";
 import type {
   InitRequest,
   InitResponse,
@@ -22,23 +22,28 @@ function generateId(): string {
 
 /**
  * Claim a URL handle for /u/{slug}: the slugified display name, or on
- * collision the first free numeric suffix (jessy, jessy2, …). Assigned once
- * per user and never reassigned — renames must not move activity URLs.
+ * collision the first free numeric suffix (jessy, jessy2 … jessy9). Bounded:
+ * at most ~10 KV probes, never an unbounded scan. Assigned once per user and
+ * never reassigned — renames must not move activity URLs. Returns undefined
+ * in the (practically unreachable) case where every candidate is taken;
+ * links then simply keep using the raw userId.
  */
-async function assignSlug(kv: KVNamespace, displayName: string, userId: string): Promise<string> {
-  const base = slugifyName(displayName) || userId.slice(0, 8);
-  for (let n = 1; n < 100; n++) {
-    const candidate = n === 1 ? base : `${base}${n}`;
-    if (isReservedSlug(candidate)) continue; // never shadow raw-userId URLs
-    const taken = await kv.get(`slug:${candidate}`);
-    if (!taken) {
-      await kv.put(`slug:${candidate}`, userId);
-      return candidate;
+async function assignSlug(kv: KVNamespace, displayName: string, userId: string): Promise<string | undefined> {
+  const named = slugifyName(displayName);
+  const bases = named ? [named, userId.slice(0, 8)] : [userId.slice(0, 8)];
+  for (const base of bases) {
+    for (let n = 1; n <= 9; n++) {
+      const candidate = n === 1 ? base : `${base}${n}`;
+      if (isReservedSlug(candidate)) continue; // never shadow raw-userId URLs
+      const taken = await kv.get(`slug:${candidate}`);
+      if (!taken) {
+        await kv.put(`slug:${candidate}`, userId);
+        return candidate;
+      }
+      if (taken === userId) return candidate; // already ours (idempotent retry)
     }
-    if (taken === userId) return candidate; // already ours (idempotent retry)
   }
-  // Pathological collision storm — fall back to the always-free userId form.
-  return userId.slice(0, 8);
+  return undefined;
 }
 
 function generateInviteCode(): string {

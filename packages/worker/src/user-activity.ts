@@ -40,9 +40,17 @@ export function aggregateDays(blocks: UsageBlock[], tzMinutes: number): Map<stri
 
 const USER_ID = /^[0-9a-f]{8,32}$/i;
 
-app.get("/api/user/:userId/activity", async (c) => {
-  const userId = c.req.param("userId");
-  if (!USER_ID.test(userId)) return c.json({ error: "invalid user id" }, 400);
+/** /u/ handles are slugs first; a raw hex userId keeps resolving forever. */
+async function resolveHandle(kv: Env["KV"], handle: string): Promise<string | null> {
+  if (handle.length > 64) return null;
+  const bySlug = await kv.get(`slug:${handle.toLowerCase()}`);
+  if (bySlug) return bySlug;
+  return USER_ID.test(handle) ? handle : null;
+}
+
+app.get("/api/user/:handle/activity", async (c) => {
+  const userId = await resolveHandle(c.env.KV, c.req.param("handle"));
+  if (!userId) return c.json({ error: "user not found" }, 404);
   const tz = Math.max(-840, Math.min(840, parseInt(c.req.query("tz") || "0", 10) || 0));
 
   const [usage, groupCodes] = await Promise.all([
@@ -52,6 +60,7 @@ app.get("/api/user/:userId/activity", async (c) => {
 
   // Display info lives on the first group's member record, like /rank/global.
   let displayName = userId.slice(0, 8);
+  let slug: string | undefined;
   let avatar = "";
   let plan: string | undefined;
   let url: string | undefined;
@@ -61,6 +70,7 @@ app.get("/api/user/:userId/activity", async (c) => {
     const member = group?.members.find((m) => m.userId === userId);
     if (member) {
       displayName = member.displayName;
+      slug = member.slug;
       avatar = member.avatar || "";
       plan = member.plan;
       url = member.url;
@@ -78,6 +88,7 @@ app.get("/api/user/:userId/activity", async (c) => {
 
   return c.json({
     userId,
+    slug: slug || null,
     displayName,
     avatar,
     plan: plan || null,
@@ -95,13 +106,13 @@ app.get("/api/user/:userId/activity", async (c) => {
 
 // ── Page ─────────────────────────────────────────────────────
 
-app.get("/u/:userId", (c) => {
-  const userId = c.req.param("userId");
-  if (!USER_ID.test(userId)) return c.notFound();
-  return c.html(activityPageHTML(userId));
+app.get("/u/:handle", (c) => {
+  const handle = c.req.param("handle");
+  if (handle.length > 64) return c.notFound();
+  return c.html(activityPageHTML(handle));
 });
 
-function activityPageHTML(userId: string) {
+function activityPageHTML(handle: string) {
   return html`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -191,6 +202,12 @@ function activityPageHTML(userId: string) {
     .legend { display: flex; align-items: center; gap: 4px; justify-content: flex-end; margin-top: 10px; font-size: 11px; color: var(--faint); }
     .legend .cell { margin: 0 1px; }
 
+    .tip {
+      display: none; position: fixed; z-index: 10; pointer-events: none;
+      background: #2e2a26; color: var(--text); border: 1px solid var(--line);
+      border-radius: 7px; padding: 4px 10px; font-size: 12px; white-space: nowrap;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+    }
     .loading, .error-box { text-align: center; color: var(--muted); padding: 60px 0; }
     .footer { text-align: center; color: var(--faint); font-size: 12px; margin-top: 32px; }
     .footer a { color: var(--muted); text-decoration: none; }
@@ -207,7 +224,7 @@ function activityPageHTML(userId: string) {
   </div>
 
   <script>
-    var USER_ID = ${raw(JSON.stringify(userId))};
+    var HANDLE = ${raw(JSON.stringify(handle))};
     var AVATAR_COLORS = [
       "#c45c5c","#d4845a","#d4a03e","#8aaa5a","#5aad7d",
       "#4a9b8a","#4a8aaa","#5a7aaa","#7a6aaa","#9a5aaa",
@@ -280,7 +297,7 @@ function activityPageHTML(userId: string) {
           var tokens = d ? d.tokens : 0;
           var lvl = levelFor(tokens, thresholds);
           var tip = key + (tokens > 0 ? " · " + fmtTokens(tokens) + " tokens" + (d.chats ? " · " + d.chats + " chats" : "") : " · no activity");
-          cells += '<div class="cell' + (lvl ? " c" + lvl : "") + '" title="' + esc(tip) + '"></div>';
+          cells += '<div class="cell' + (lvl ? " c" + lvl : "") + '" data-tip="' + esc(tip) + '"></div>';
         }
         rows += '<div class="grid-row"><div class="dow">' + DOW_LABELS[dow] + "</div>" + cells + "</div>";
       }
@@ -313,10 +330,33 @@ function activityPageHTML(userId: string) {
           '<div class="legend">Less <div class="cell"></div><div class="cell c1"></div><div class="cell c2"></div><div class="cell c3"></div><div class="cell c4"></div> More</div>' +
         "</div>";
       document.title = data.displayName + " — ccclub activity";
+
+      // Canonical short URL: raw-userId links keep working, the bar shows the slug.
+      if (data.slug && decodeURIComponent(location.pathname) !== "/u/" + data.slug) {
+        history.replaceState(null, "", "/u/" + encodeURIComponent(data.slug));
+      }
+
+      // Real tooltip — title attributes are slow and unreliable on tight grids.
+      var tip = document.createElement("div");
+      tip.className = "tip";
+      document.body.appendChild(tip);
+      var map = document.querySelector(".map");
+      map.addEventListener("mouseover", function(e) {
+        var t = e.target;
+        if (!(t instanceof Element) || !t.hasAttribute("data-tip")) return;
+        tip.textContent = t.getAttribute("data-tip");
+        var r = t.getBoundingClientRect();
+        tip.style.display = "block";
+        var left = r.left + r.width / 2 - tip.offsetWidth / 2;
+        left = Math.max(6, Math.min(left, window.innerWidth - tip.offsetWidth - 6));
+        tip.style.left = left + "px";
+        tip.style.top = (r.top - tip.offsetHeight - 8) + "px";
+      });
+      map.addEventListener("mouseout", function() { tip.style.display = "none"; });
     }
 
     var tz = -new Date().getTimezoneOffset();
-    fetch("/api/user/" + USER_ID + "/activity?tz=" + tz)
+    fetch("/api/user/" + encodeURIComponent(HANDLE) + "/activity?tz=" + tz)
       .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(render)
       .catch(function() {

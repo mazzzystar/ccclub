@@ -118,6 +118,8 @@ export function getNonCacheTokens(
 export interface UserRecord {
   userId: string;
   displayName: string;
+  /** Stable URL handle for /u/{slug}; assigned once, survives renames. */
+  slug?: string;
   avatar: string;                    // URL or "" (empty = default)
   visibility: "public" | "private";  // default "private"
   plan?: string;                     // "pro" | "max100" | "max200" | "api"
@@ -137,6 +139,7 @@ export interface GroupRecord {
 export interface GroupMember {
   userId: string;
   displayName: string;
+  slug?: string;
   avatar: string;
   plan?: string;
   url?: string;
@@ -164,6 +167,7 @@ export interface RankingEntry {
   rank: number;
   userId: string;
   displayName: string;
+  slug?: string;
   avatar: string;
   plan?: string;
   url?: string;

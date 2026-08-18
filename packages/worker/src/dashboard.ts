@@ -49,7 +49,7 @@ function ssrGlobalContentHTML(rankings: RankingEntry[]): string {
       const rankClass = i === 0 ? "rank gold" : i === 1 ? "rank silver" : i === 2 ? "rank bronze" : "rank";
       // Names go to the member's ccclub activity page; a member's own URL is
       // shown there rather than hijacking the name click.
-      const name = `<a href="/u/${htmlEsc(r.userId)}" class="name-link">${htmlEsc(r.displayName)}</a>`;
+      const name = `<a href="/u/${encodeURIComponent(r.slug || r.userId)}" class="name-link">${htmlEsc(r.displayName)}</a>`;
       return `<tr><td class="${rankClass}">${i + 1}</td><td><span class="name-text">${name}</span></td><td class="cost">$${r.costUSD.toFixed(2)}</td><td class="tokens">${formatCompactNumber(r.totalTokens)}</td><td class="calls">${formatCompactNumber(r.chatCount || 0)}</td></tr>`;
     })
     .join("");
@@ -544,8 +544,8 @@ function dashboardHTML(
       color: var(--success); font-weight: 650; font-variant-numeric: tabular-nums;
     }
     .active-score-sep { color: var(--faint); }
-    .name-link { color: var(--link); text-decoration: none; }
-    .name-link:hover { text-decoration: underline; }
+    .name-link { color: inherit; text-decoration: none; }
+    .name-link:hover { color: #ffffff; }
     .bar {
       height: 3px; background: var(--brand); border-radius: 2px; margin-top: 6px;
       opacity: 0.55; transition: width 0.3s;
@@ -978,7 +978,7 @@ function dashboardHTML(
             h += '<tr class="' + rowClass + '">' +
               '<td class="' + rankClass + '">' + r.rank + '</td>' +
               '<td><div class="name-cell">' + avatarHTML(r.userId, r.displayName, r.avatar, isActive) +
-                '<div><div class="name-text">' + '<a href="/u/' + esc(r.userId) + '" class="name-link">' + esc(r.displayName) + '</a>' + activeBadgeHTML(r, isActive) + '</div>' +
+                '<div><div class="name-text">' + '<a href="/u/' + encodeURIComponent(r.slug || r.userId) + '" class="name-link">' + esc(r.displayName) + '</a>' + activeBadgeHTML(r, isActive) + '</div>' +
                 agentLine + '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +
               '<td class="cost">$' + r.costUSD.toFixed(2) + '</td>' +
               '<td class="tokens">' + formatTokens(displayedTokens) + '</td>';
@@ -1102,7 +1102,7 @@ function dashboardHTML(
         var points = buckets.map(function(v, i) {
           return { t: startMs + (i + 0.5) * bucketMs, v: v };
         });
-        return { name: user.displayName, userId: user.userId || "", total: total, points: points };
+        return { name: user.displayName, handle: user.slug || user.userId || "", total: total, points: points };
       });
 
       if (globalMax === 0) globalMax = 1;
@@ -1165,7 +1165,7 @@ function dashboardHTML(
       var legend = '<div class="chart-legend">';
       userSeries.forEach(function(us, idx) {
         var color = CHART_COLORS[idx % CHART_COLORS.length];
-        var legendName = us.userId ? '<a href="/u/' + esc(us.userId) + '" class="name-link">' + esc(us.name) + '</a>' : esc(us.name);
+        var legendName = us.handle ? '<a href="/u/' + encodeURIComponent(us.handle) + '" class="name-link">' + esc(us.name) + '</a>' : esc(us.name);
         legend += '<div class="chart-legend-item" data-idx="' + idx + '"><span class="chart-legend-dot" style="background:' + color + '"></span>' +
           legendName + ' $' + us.total.toFixed(2) + '</div>';
       });

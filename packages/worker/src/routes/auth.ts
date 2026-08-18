@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "../types.js";
+import { slugifyName, isReservedSlug } from "@ccclub/shared";
 import type {
   InitRequest,
   InitResponse,
@@ -17,6 +18,27 @@ const app = new Hono<{ Bindings: Env }>();
 
 function generateId(): string {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+}
+
+/**
+ * Claim a URL handle for /u/{slug}: the slugified display name, or on
+ * collision the first free numeric suffix (jessy, jessy2, …). Assigned once
+ * per user and never reassigned — renames must not move activity URLs.
+ */
+async function assignSlug(kv: KVNamespace, displayName: string, userId: string): Promise<string> {
+  const base = slugifyName(displayName) || userId.slice(0, 8);
+  for (let n = 1; n < 100; n++) {
+    const candidate = n === 1 ? base : `${base}${n}`;
+    if (isReservedSlug(candidate)) continue; // never shadow raw-userId URLs
+    const taken = await kv.get(`slug:${candidate}`);
+    if (!taken) {
+      await kv.put(`slug:${candidate}`, userId);
+      return candidate;
+    }
+    if (taken === userId) return candidate; // already ours (idempotent retry)
+  }
+  // Pathological collision storm — fall back to the always-free userId form.
+  return userId.slice(0, 8);
 }
 
 function generateInviteCode(): string {
@@ -70,7 +92,8 @@ app.post("/init", async (c) => {
   const groupName = `${displayName}'s club`;
 
   // Create user
-  const userRecord: UserRecord = { userId, displayName, avatar: "", visibility: "private", createdAt: now };
+  const slug = await assignSlug(c.env.KV, displayName, userId);
+  const userRecord: UserRecord = { userId, displayName, slug, avatar: "", visibility: "private", createdAt: now };
   await c.env.KV.put(`token:${token}`, JSON.stringify(userRecord));
 
   // Create group with user as first member
@@ -79,7 +102,7 @@ app.post("/init", async (c) => {
     code: inviteCode,
     createdBy: userId,
     createdAt: now,
-    members: [{ userId, displayName, avatar: "", joinedAt: now }],
+    members: [{ userId, displayName, slug, avatar: "", joinedAt: now }],
   };
   await c.env.KV.put(`group:${inviteCode}`, JSON.stringify(groupRecord));
 
@@ -116,7 +139,7 @@ app.post("/join", async (c) => {
 
   if (!user) {
     const userId = generateId();
-    user = { userId, displayName, avatar: "", visibility: "private", createdAt: now };
+    user = { userId, displayName, slug: await assignSlug(c.env.KV, displayName, userId), avatar: "", visibility: "private", createdAt: now };
     await c.env.KV.put(`token:${token}`, JSON.stringify(user));
   }
   if (!user) {
@@ -126,7 +149,11 @@ app.post("/join", async (c) => {
 
   // Add to group if not already member
   if (!group.members.some((m) => m.userId === userRecord.userId)) {
-    group.members.push({ userId: userRecord.userId, displayName: userRecord.displayName, avatar: userRecord.avatar || "", joinedAt: now });
+    if (!userRecord.slug) {
+      userRecord.slug = await assignSlug(c.env.KV, userRecord.displayName, userRecord.userId);
+      await c.env.KV.put(`token:${token}`, JSON.stringify(userRecord));
+    }
+    group.members.push({ userId: userRecord.userId, displayName: userRecord.displayName, slug: userRecord.slug, avatar: userRecord.avatar || "", joinedAt: now });
     await c.env.KV.put(`group:${code}`, JSON.stringify(group));
   }
 
@@ -168,7 +195,7 @@ app.post("/group/create", async (c) => {
     code: inviteCode,
     createdBy: user.userId,
     createdAt: now,
-    members: [{ userId: user.userId, displayName: user.displayName, avatar: user.avatar || "", joinedAt: now }],
+    members: [{ userId: user.userId, displayName: user.displayName, slug: user.slug, avatar: user.avatar || "", joinedAt: now }],
   };
   await c.env.KV.put(`group:${inviteCode}`, JSON.stringify(groupRecord));
 

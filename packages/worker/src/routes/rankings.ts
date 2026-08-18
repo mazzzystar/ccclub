@@ -143,10 +143,11 @@ export async function computeGlobalRankings(env: Env, period: RankingPeriod, tz:
   );
 
   // Resolve display info and check if any user has a plan
-  const userInfos: Array<{ displayName: string; avatar: string; plan?: string; url?: string }> = [];
+  const userInfos: Array<{ displayName: string; slug?: string; avatar: string; plan?: string; url?: string }> = [];
   for (let idx = 0; idx < publicUsers.length; idx++) {
     const userId = publicUsers[idx];
     let displayName = userId.slice(0, 8);
+    let slug: string | undefined;
     let avatar = "";
     let plan: string | undefined;
     let url: string | undefined;
@@ -156,12 +157,13 @@ export async function computeGlobalRankings(env: Env, period: RankingPeriod, tz:
       const member = group?.members.find((m) => m.userId === userId);
       if (member) {
         displayName = member.displayName;
+        slug = member.slug;
         avatar = member.avatar || "";
         plan = member.plan;
         url = member.url;
       }
     }
-    userInfos.push({ displayName, avatar, plan, url });
+    userInfos.push({ displayName, slug, avatar, plan, url });
   }
   const hasPlan = userInfos.some((u) => u.plan);
 
@@ -223,6 +225,7 @@ export async function computeGlobalRankings(env: Env, period: RankingPeriod, tz:
         rank: 0,
         userId,
         displayName: info.displayName,
+        slug: info.slug,
         avatar: info.avatar,
         totalTokens,
         nonCacheTokens,
@@ -363,6 +366,7 @@ app.get("/rank/:code", async (c) => {
       rank: 0,
       userId: member.userId,
       displayName: member.displayName,
+      slug: member.slug,
       avatar: member.avatar || "",
       totalTokens,
       nonCacheTokens,
@@ -456,7 +460,7 @@ app.get("/activity/:code", async (c) => {
   // Get members + resolve display names
   const MAX_USERS = 10;
   let memberIds: string[] = [];
-  const memberMap = new Map<string, { displayName: string; avatar: string; url?: string }>();
+  const memberMap = new Map<string, { displayName: string; slug?: string; avatar: string; url?: string }>();
 
   if (isGlobal) {
     const publicUsers = (await c.env.KV.get<string[]>("public_users", "json")) || [];
@@ -482,7 +486,7 @@ app.get("/activity/:code", async (c) => {
         const grp = groupMap.get(fc);
         const mem = grp?.members.find((m) => m.userId === uid);
         if (mem) {
-          memberMap.set(uid, { displayName: mem.displayName, avatar: mem.avatar || "", url: mem.url });
+          memberMap.set(uid, { displayName: mem.displayName, slug: mem.slug, avatar: mem.avatar || "", url: mem.url });
           continue;
         }
       }
@@ -493,7 +497,7 @@ app.get("/activity/:code", async (c) => {
     if (!group) return c.json({ error: "group not found" }, 404);
     for (const m of group.members) {
       memberIds.push(m.userId);
-      memberMap.set(m.userId, { displayName: m.displayName, avatar: m.avatar || "", url: m.url });
+      memberMap.set(m.userId, { displayName: m.displayName, slug: m.slug, avatar: m.avatar || "", url: m.url });
     }
   }
 
@@ -507,6 +511,7 @@ app.get("/activity/:code", async (c) => {
   const series: Array<{
     userId: string;
     displayName: string;
+    slug?: string;
     avatar: string;
     url?: string;
     totalCost: number;
@@ -545,7 +550,7 @@ app.get("/activity/:code", async (c) => {
       chats: bl.chats,
     }));
 
-    series.push({ userId, displayName: info.displayName, avatar: info.avatar, url: info.url, totalCost, blocks });
+    series.push({ userId, slug: info.slug, displayName: info.displayName, avatar: info.avatar, url: info.url, totalCost, blocks });
   }
 
   // Sort by total cost descending, limit to top N

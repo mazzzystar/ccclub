@@ -9,11 +9,15 @@ import type {
   RankingPeriod,
   RankResponse,
 } from "@ccclub/shared";
+import { localDayKey } from "../activity-core.js";
+import { currentWeekDays, resolveWeekWinners, tallyDay, weekWindowUtc } from "../week-winners.js";
+import type { WeekTally } from "../week-winners.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
 const VALID_PERIODS: RankingPeriod[] = ["daily", "yesterday", "weekly", "monthly", "all-time"];
-const RANK_CACHE_VERSION = "v5";
+// v6 adds weekWinners to the payload.
+const RANK_CACHE_VERSION = "v6";
 
 type AgentTotals = { costUSD: number; totalTokens: number; nonCacheTokens: number; chatCount: number; entryCount: number };
 
@@ -125,6 +129,12 @@ export async function computeGlobalRankings(env: Env, period: RankingPeriod, tz:
   const monthEndMs = monthEnd.getTime();
   const isMonthly = period === "monthly";
 
+  // The week bar is period-independent, so it rides along on whichever
+  // traversal the selected tab already pays for.
+  const nowMs = Date.now();
+  const week = weekWindowUtc(nowMs, tz);
+  const weekTally: WeekTally = new Map();
+
   // Fetch all usage data and user groups in parallel
   const [usageResults, groupsResults] = await Promise.all([
     Promise.all(publicUsers.map((id) => env.KV.get<UsageData>(`usage:${id}`, "json"))),
@@ -193,16 +203,20 @@ export async function computeGlobalRankings(env: Env, period: RankingPeriod, tz:
 
     for (const block of usage.blocks) {
       if (!isRankedSource(block.source)) continue;
+      const blockSource = block.source ?? "claude";
       if (hasUsage(block)) {
         const activityTime = getBlockActivityTime(block);
         if (activityTime > lastActiveTime) {
           lastActiveTime = activityTime;
-          lastActiveSource = block.source ?? "claude";
+          lastActiveSource = blockSource;
         }
       }
       const blockTime = new Date(block.blockStart).getTime();
+      if (hasUsage(block) && blockTime >= week.startMs && blockTime < week.endMs) {
+        tallyDay(weekTally, localDayKey(blockTime, tz), blockSource, userId, getNonCacheTokens(block));
+      }
       if (blockTime >= startMs && blockTime < endMs) {
-        const source = block.source ?? "claude";
+        const source = blockSource;
         totalTokens += block.totalTokens;
         nonCacheTokens += getNonCacheTokens(block);
         inputTokens += block.inputTokens;
@@ -261,6 +275,7 @@ export async function computeGlobalRankings(env: Env, period: RankingPeriod, tz:
     start: start.toISOString(),
     end: end.toISOString(),
     rankings: entries,
+    weekWinners: resolveWeekWinners(weekTally, currentWeekDays(nowMs, tz)),
   };
 }
 
@@ -304,6 +319,11 @@ app.get("/rank/:code", async (c) => {
   const monthEndMs = monthEnd.getTime();
   const isMonthly = period === "monthly";
 
+  // Same free ride as the global board: the week bar reuses this traversal.
+  const nowMs = Date.now();
+  const week = weekWindowUtc(nowMs, tz);
+  const weekTally: WeekTally = new Map();
+
   // Fetch usage for all members in parallel
   const usageResults = await Promise.all(
     group.members.map((m) => c.env.KV.get<UsageData>(`usage:${m.userId}`, "json")),
@@ -334,16 +354,20 @@ app.get("/rank/:code", async (c) => {
     if (usage) {
       for (const block of usage.blocks) {
         if (!isRankedSource(block.source)) continue;
+        const blockSource = block.source ?? "claude";
         if (hasUsage(block)) {
           const activityTime = getBlockActivityTime(block);
           if (activityTime > lastActiveTime) {
             lastActiveTime = activityTime;
-            lastActiveSource = block.source ?? "claude";
+            lastActiveSource = blockSource;
           }
         }
         const blockTime = new Date(block.blockStart).getTime();
+        if (hasUsage(block) && blockTime >= week.startMs && blockTime < week.endMs) {
+          tallyDay(weekTally, localDayKey(blockTime, tz), blockSource, member.userId, getNonCacheTokens(block));
+        }
         if (blockTime >= startMs && blockTime < endMs) {
-          const source = block.source ?? "claude";
+          const source = blockSource;
           totalTokens += block.totalTokens;
           nonCacheTokens += getNonCacheTokens(block);
           inputTokens += block.inputTokens;
@@ -401,6 +425,7 @@ app.get("/rank/:code", async (c) => {
     start: start.toISOString(),
     end: end.toISOString(),
     rankings: entries,
+    weekWinners: resolveWeekWinners(weekTally, currentWeekDays(nowMs, tz)),
   };
 
   // Store in cache (10 min TTL as safety net); non-blocking

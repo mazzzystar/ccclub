@@ -276,6 +276,17 @@ export interface LeaveResponse {
   groupName: string;
 }
 
+/**
+ * The agent most members of a group used on one day, by head count. Reported
+ * for each elapsed day of the current week; `winners` is empty when nobody
+ * coded, and holds several sources only on an exact tie.
+ */
+export interface DayWinner {
+  day: string;
+  winners: AgentSource[];
+  counts: Array<{ source: AgentSource; users: number }>;
+}
+
 // API: GET /api/rank/:code
 export interface RankResponse {
   group: { name: string; code: string; memberCount: number };
@@ -283,4 +294,6 @@ export interface RankResponse {
   start: string;
   end: string;
   rankings: RankingEntry[];
+  /** Monday-through-today of the viewer's local week; absent on old caches. */
+  weekWinners?: DayWinner[];
 }

@@ -545,6 +545,27 @@ function dashboardHTML(
       color: var(--success); font-weight: 650; font-variant-numeric: tabular-nums;
     }
     .active-score-sep { color: var(--faint); }
+    .week-winners {
+      display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+      margin-top: 9px; min-height: 22px;
+    }
+    /* A group with no coding this week shows nothing rather than a bare frame. */
+    .week-winners:empty { display: none; }
+    .ww-label { color: var(--faint); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .ww-track { display: inline-flex; align-items: center; gap: 5px; }
+    .ww-slot {
+      width: 22px; height: 22px; border-radius: 7px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 1px;
+      background: var(--surface-soft); border: 1px solid var(--line-soft);
+      cursor: default;
+    }
+    .ww-slot img { width: 13px; height: 13px; display: block; object-fit: contain; }
+    .ww-slot.tie img { width: 10px; height: 10px; }
+    .ww-slot.quiet { background: transparent; border-style: dashed; }
+    .ww-slot.pending { background: transparent; border-color: var(--line-soft); opacity: 0.45; }
+    .ww-slot.today { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(212,147,94,0.14); }
+    .ww-tally { color: var(--muted); font-size: 12px; }
+    .ww-tally b { color: var(--text); font-weight: 650; }
     .name-link { color: inherit; text-decoration: none; }
     .name-link:hover { color: #ffffff; }
     .bar {
@@ -658,6 +679,7 @@ function dashboardHTML(
     <div class="subtitle" id="date-range">${isGlobal ? "Coding-agent usage leaderboard · opt-in · updates live" : ""}</div>
     <div class="agent-summary" id="agent-summary">${isGlobal ? "Claude Code · Codex · OpenCode · Amp · Grok · Pi" : ""}</div>
     <div class="active-count" id="active-count"></div>
+    <div class="week-winners" id="week-winners"></div>
 
     <div class="periods">
       <button class="active" data-period="daily">Today</button>
@@ -857,6 +879,61 @@ function dashboardHTML(
         (countFirst ? countHTML + icon + labelHTML : icon + labelHTML + countHTML) +
         '</span>';
     }
+    var WEEK_DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    var MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    function weekDayLabel(day) {
+      var d = new Date(day + "T00:00:00Z");
+      if (isNaN(d.getTime())) return day;
+      return WEEK_DAY_NAMES[d.getUTCDay()] + " " + MONTH_NAMES[d.getUTCMonth()] + " " + d.getUTCDate();
+    }
+    function weekSlotIconHTML(source) {
+      if (AGENT_ICONS[source]) {
+        return '<img src="' + AGENT_ICONS[source] + '" alt="' + esc(AGENT_LABELS[source] || source) + '">';
+      }
+      return '<span class="fallback">' + esc((AGENT_LABELS[source] || source || "?").charAt(0)) + '</span>';
+    }
+    // One slot per weekday, Monday first. Elapsed days carry the winning
+    // agent; the rest stay empty so the row reads as a week in progress.
+    function weekWinnersHTML(days) {
+      if (!days || days.length === 0) return "";
+      var wins = {};
+      var slots = "";
+      for (var i = 0; i < 7; i++) {
+        var day = days[i];
+        if (!day) {
+          slots += '<span class="ww-slot pending"></span>';
+          continue;
+        }
+        var winners = day.winners || [];
+        var cls = "ww-slot";
+        if (i === days.length - 1) cls += " today";
+        if (winners.length === 0) cls += " quiet";
+        if (winners.length > 1) cls += " tie";
+
+        var detail = (day.counts || []).map(function(c) {
+          return (AGENT_LABELS[c.source] || c.source) + " " + c.users;
+        }).join(", ");
+        var title = weekDayLabel(day.day) + " · " + (detail || "no coding");
+
+        slots += '<span class="' + cls + '" title="' + esc(title) + '">' +
+          winners.map(weekSlotIconHTML).join("") + '</span>';
+        winners.forEach(function(source) { wins[source] = (wins[source] || 0) + 1; });
+      }
+
+      // Nobody coded all week: skip the row instead of showing seven blanks.
+      if (Object.keys(wins).length === 0) return "";
+
+      var standings = Object.keys(wins)
+        .sort(function(a, b) { return wins[b] - wins[a] || AGENT_ORDER.indexOf(a) - AGENT_ORDER.indexOf(b); })
+        .map(function(source) {
+          return esc(AGENT_LABELS[source] || source) + ' <b>' + wins[source] + '</b>';
+        })
+        .join(' · ');
+
+      return '<span class="ww-label">This week</span>' +
+        '<span class="ww-track">' + slots + '</span>' +
+        (standings ? '<span class="ww-tally">' + standings + '</span>' : "");
+    }
     function claudeCodexActiveSplitHTML(claudeCount, codexCount) {
       return '<span class="active-split">' +
         '<span class="active-source-score" title="Claude Code active">' +
@@ -942,6 +1019,8 @@ function dashboardHTML(
           activeEl.innerHTML = activeCount > 0
             ? '<span>' + activeCount + ' active</span>' + activeSplitHTML(data.rankings, now)
             : "";
+
+          document.getElementById("week-winners").innerHTML = weekWinnersHTML(data.weekWinners);
 
           if (data.rankings.length === 0) {
             document.getElementById("content").innerHTML =

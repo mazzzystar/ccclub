@@ -60,6 +60,26 @@ export function weekWindowUtc(nowMs: number, tzMinutes: number): { startMs: numb
 }
 
 /**
+ * The displayed week plus the seven days before it. Only the extra history is
+ * used, to judge whether this group has any contest worth showing — it never
+ * reaches the row itself.
+ */
+export function lookbackWindowUtc(nowMs: number, tzMinutes: number): { startMs: number; endMs: number } {
+  const week = weekWindowUtc(nowMs, tzMinutes);
+  return { startMs: week.startMs - 7 * DAY_MS, endMs: week.endMs };
+}
+
+/** The seven days of the previous week, oldest first. */
+export function previousWeekDays(nowMs: number, tzMinutes: number): string[] {
+  const monday = Date.parse(`${currentWeekDays(nowMs, tzMinutes)[0]}T00:00:00Z`);
+  const days: string[] = [];
+  for (let back = 7; back >= 1; back--) {
+    days.push(new Date(monday - back * DAY_MS).toISOString().slice(0, 10));
+  }
+  return days;
+}
+
+/**
  * Elapsed days of the current week, Monday through today. The UI pads the row
  * out to seven, so days that have not happened yet stay empty slots rather
  * than being reported as "nobody coded".
@@ -139,6 +159,43 @@ export function castMemberVotes(tally: WeekTally, week: MemberWeek): void {
       standing.tokens += best.usage.tokens;
     }
   }
+}
+
+/** Days of evidence required before calling a group single-agent. */
+const UNCONTESTED_MIN_DAYS = 7;
+/** Share of votes above which the runner-up is noise rather than a rival. */
+const UNCONTESTED_SHARE = 0.9;
+
+/**
+ * True when this group has no race to show: the same agent took every decided
+ * day and almost nobody voted otherwise.
+ *
+ * A winning streak alone is not enough. A group can run 18:13 for Claude Code
+ * every single day — same winner, but a real contest, and the closest thing
+ * the row has to a story. What makes the row worth hiding is that hardly
+ * anyone uses a second agent, so the vote share decides, not the streak.
+ *
+ * Judged over two weeks so a group is not declared single-agent on a couple
+ * of quiet days, and so the row stays visible for new groups.
+ */
+export function isUncontested(days: DayWinner[]): boolean {
+  const decided = days.filter((day) => day.winners.length > 0);
+  if (decided.length < UNCONTESTED_MIN_DAYS) return false;
+  // A tie is by definition a contest.
+  if (decided.some((day) => day.winners.length > 1)) return false;
+
+  const champion = decided[0].winners[0];
+  if (!decided.every((day) => day.winners[0] === champion)) return false;
+
+  let championVotes = 0;
+  let totalVotes = 0;
+  for (const day of decided) {
+    for (const count of day.counts) {
+      totalVotes += count.users;
+      if (count.source === champion) championVotes += count.users;
+    }
+  }
+  return totalVotes > 0 && championVotes / totalVotes >= UNCONTESTED_SHARE;
 }
 
 /**

@@ -10,16 +10,24 @@ import type {
   RankResponse,
 } from "@ccclub/shared";
 import { localDayKey } from "../activity-core.js";
-import { castMemberVotes, currentWeekDays, noteMemberBlock, resolveWeekWinners, weekWindowUtc } from "../week-winners.js";
+import {
+  castMemberVotes,
+  currentWeekDays,
+  isUncontested,
+  lookbackWindowUtc,
+  noteMemberBlock,
+  previousWeekDays,
+  resolveWeekWinners,
+} from "../week-winners.js";
 import type { MemberWeek, WeekTally } from "../week-winners.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
 const VALID_PERIODS: RankingPeriod[] = ["daily", "yesterday", "weekly", "monthly", "all-time"];
-// v8: a member's vote follows their cost share, matching their row's agent
-// split. The key must move with the meaning, or cached entries keep serving
-// the old numbers under the new label until they expire.
-const RANK_CACHE_VERSION = "v8";
+// v9: single-agent groups no longer carry a week row at all. The key must
+// move with the meaning, or cached entries keep serving the old numbers
+// under the new label until they expire.
+const RANK_CACHE_VERSION = "v9";
 
 type AgentTotals = { costUSD: number; totalTokens: number; nonCacheTokens: number; chatCount: number; entryCount: number };
 
@@ -315,7 +323,7 @@ app.get("/rank/:code", async (c) => {
   // traversal the selected tab already pays for. Groups only — the global
   // board stays a plain leaderboard.
   const nowMs = Date.now();
-  const week = weekWindowUtc(nowMs, tz);
+  const week = lookbackWindowUtc(nowMs, tz);
   const weekTally: WeekTally = new Map();
 
   // Fetch usage for all members in parallel
@@ -418,14 +426,21 @@ app.get("/rank/:code", async (c) => {
   entries.sort((a, b) => b.costUSD - a.costUSD);
   entries.forEach((e, i) => (e.rank = i + 1));
 
+  // Two weeks of winners decide whether this group has a race at all; only
+  // the current week is ever sent.
+  const thisWeek = currentWeekDays(nowMs, tz);
+  const lookback = resolveWeekWinners(weekTally, [...previousWeekDays(nowMs, tz), ...thisWeek]);
+
   const result: RankResponse = {
     group: { name: group.name, code: group.code, memberCount: group.members.length },
     period,
     start: start.toISOString(),
     end: end.toISOString(),
     rankings: entries,
-    weekWinners: resolveWeekWinners(weekTally, currentWeekDays(nowMs, tz)),
   };
+  if (!isUncontested(lookback)) {
+    result.weekWinners = lookback.slice(-thisWeek.length);
+  }
 
   // Store in cache (10 min TTL as safety net); non-blocking
   c.executionCtx.waitUntil(

@@ -564,8 +564,6 @@ function dashboardHTML(
     .ww-slot.quiet { background: transparent; border-style: dashed; }
     .ww-slot.pending { background: transparent; border-color: var(--line-soft); opacity: 0.45; }
     .ww-slot.today { border-color: var(--success); box-shadow: 0 0 0 2px rgba(99,180,134,0.15); }
-    .ww-tally { color: var(--muted); font-size: 12px; }
-    .ww-tally b { color: var(--text); font-weight: 650; }
     .name-link { color: inherit; text-decoration: none; }
     .name-link:hover { color: #ffffff; }
     .bar {
@@ -896,7 +894,7 @@ function dashboardHTML(
     // agent; the rest stay empty so the row reads as a week in progress.
     function weekWinnersHTML(days) {
       if (!days || days.length === 0) return "";
-      var wins = {};
+      var wins = 0;
       var slots = "";
       for (var i = 0; i < 7; i++) {
         var day = days[i];
@@ -917,22 +915,14 @@ function dashboardHTML(
 
         slots += '<span class="' + cls + '" title="' + esc(title) + '">' +
           winners.map(weekSlotIconHTML).join("") + '</span>';
-        winners.forEach(function(source) { wins[source] = (wins[source] || 0) + 1; });
+        if (winners.length > 0) wins++;
       }
 
       // Nobody coded all week: skip the row instead of showing seven blanks.
-      if (Object.keys(wins).length === 0) return "";
+      if (wins === 0) return "";
 
-      var standings = Object.keys(wins)
-        .sort(function(a, b) { return wins[b] - wins[a] || AGENT_ORDER.indexOf(a) - AGENT_ORDER.indexOf(b); })
-        .map(function(source) {
-          return esc(AGENT_LABELS[source] || source) + ' <b>' + wins[source] + '</b>';
-        })
-        .join(' · ');
-
-      return '<span class="ww-label">This week</span>' +
-        '<span class="ww-track">' + slots + '</span>' +
-        (standings ? '<span class="ww-tally">' + standings + '</span>' : "");
+      return '<span class="ww-label">Week Winner</span>' +
+        '<span class="ww-track">' + slots + '</span>';
     }
     function claudeCodexActiveSplitHTML(claudeCount, codexCount) {
       return '<span class="active-split">' +

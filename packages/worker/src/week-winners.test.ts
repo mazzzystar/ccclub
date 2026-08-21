@@ -10,11 +10,11 @@ import type { MemberWeek, WeekTally } from "./week-winners.js";
 
 const UTC8 = 480;
 
-/** Records one member's week as [day, source, tokens] rows and casts their votes. */
-function member(tally: WeekTally, rows: Array<[string, string, number]>): void {
+/** Records one member's week as [day, source, cost, tokens] rows and votes. */
+function member(tally: WeekTally, rows: Array<[string, string, number, number?]>): void {
   const week: MemberWeek = new Map();
-  for (const [day, source, tokens] of rows) {
-    noteMemberBlock(week, day, source as never, tokens);
+  for (const [day, source, cost, tokens] of rows) {
+    noteMemberBlock(week, day, source as never, cost, tokens ?? cost * 1000);
   }
   castMemberVotes(tally, week);
 }
@@ -132,12 +132,43 @@ describe("one vote per member per day", () => {
     expect(tue.winners).toEqual(["codex"]);
   });
 
+  it("does not hand a cache-heavy agent's member to whoever caches least", () => {
+    const tally: WeekTally = new Map();
+    // Real shape of a mixed day: Claude Code bills 2.4x more and moves 4.5x
+    // the tokens, but serves ~99% of context from cache, so a metric that
+    // strips cache would score it *below* Codex and flip the member's vote.
+    member(tally, [
+      ["2026-08-17", "claude", 589, 776_628_941],
+      ["2026-08-17", "codex", 245, 173_293_277],
+    ]);
+    expect(winnersOf(tally, "2026-08-17").winners).toEqual(["claude"]);
+  });
+
+  it("falls back to raw volume only when a day priced to nothing", () => {
+    const tally: WeekTally = new Map();
+    member(tally, [
+      ["2026-08-17", "claude", 0, 10_000],
+      ["2026-08-17", "codex", 0, 90_000],
+    ]);
+    expect(winnersOf(tally, "2026-08-17").winners).toEqual(["codex"]);
+  });
+
+  it("lets cost outrank volume when both are known", () => {
+    const tally: WeekTally = new Map();
+    // Fewer tokens but far more spend still means that was the day's work.
+    member(tally, [
+      ["2026-08-17", "claude", 40, 1_000],
+      ["2026-08-17", "codex", 1, 500_000],
+    ]);
+    expect(winnersOf(tally, "2026-08-17").winners).toEqual(["claude"]);
+  });
+
   it("still elects an agent on a day whose blocks carry no billable tokens", () => {
     const tally: WeekTally = new Map();
     member(tally, [
-      ["2026-08-17", "codex", 0],
-      ["2026-08-17", "codex", 0],
-      ["2026-08-17", "claude", 0],
+      ["2026-08-17", "codex", 0, 0],
+      ["2026-08-17", "codex", 0, 0],
+      ["2026-08-17", "claude", 0, 0],
     ]);
     expect(winnersOf(tally, "2026-08-17").winners).toEqual(["codex"]);
   });

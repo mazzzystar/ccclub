@@ -7,15 +7,23 @@
 // both totals approach the head count and the margin becomes noise. A single
 // vote for the member's main agent measures preference instead of exposure.
 //
-// Tokens never decide the day directly, so one member running a huge job
-// cannot speak for everybody — they only break a tie between equal votes.
+// Volume never decides the day directly, so one member running a huge job
+// cannot speak for everybody — it only breaks a tie between equal votes.
+//
+// A member's main agent is measured the same way their own row's "Claude Code
+// (71%), Codex (29%)" split is: by cost, falling back to total tokens when a
+// day has no cost. Non-cache tokens looked like the natural choice and are
+// not: Claude Code serves ~99% of its context from cache, so stripping cache
+// hides almost all of its volume and hands nearly every mixed member to
+// whichever agent caches least. The bar must agree with the row beneath it.
 import type { AgentSource, DayWinner } from "@ccclub/shared";
 
 export type { DayWinner };
 
 interface SourceStanding {
   votes: number;
-  /** Non-cache tokens contributed by this source's voters — tie-break only. */
+  /** Weight behind this source's voters — tie-break only. */
+  cost: number;
   tokens: number;
 }
 
@@ -23,6 +31,7 @@ interface SourceStanding {
 export type WeekTally = Map<string, Map<AgentSource, SourceStanding>>;
 
 interface MemberSourceDay {
+  cost: number;
   tokens: number;
   blocks: number;
 }
@@ -71,6 +80,7 @@ export function noteMemberBlock(
   week: MemberWeek,
   day: string,
   source: AgentSource,
+  cost: number,
   tokens: number,
 ): void {
   let bySource = week.get(day);
@@ -80,9 +90,10 @@ export function noteMemberBlock(
   }
   const current = bySource.get(source);
   if (current == null) {
-    bySource.set(source, { tokens, blocks: 1 });
+    bySource.set(source, { cost, tokens, blocks: 1 });
     return;
   }
+  current.cost += cost;
   current.tokens += tokens;
   current.blocks += 1;
 }
@@ -94,17 +105,23 @@ export function noteMemberBlock(
  */
 export function castMemberVotes(tally: WeekTally, week: MemberWeek): void {
   for (const [day, bySource] of week) {
-    let best: { source: AgentSource; tokens: number } | null = null;
-    let bestBlocks = 0;
+    // Mirrors buildAgentBreakdown: cost ranks the day unless it priced to
+    // nothing, in which case raw volume stands in.
+    const priced = Array.from(bySource.values()).some((usage) => usage.cost > 0);
+    const weightOf = (usage: MemberSourceDay) => (priced ? usage.cost : usage.tokens);
+
+    let best: { source: AgentSource; usage: MemberSourceDay } | null = null;
     for (const [source, usage] of bySource) {
-      const better = best == null ||
-        usage.tokens > best.tokens ||
-        (usage.tokens === best.tokens && usage.blocks > bestBlocks) ||
-        (usage.tokens === best.tokens && usage.blocks === bestBlocks && source < best.source);
-      if (better) {
-        best = { source, tokens: usage.tokens };
-        bestBlocks = usage.blocks;
+      if (best == null) {
+        best = { source, usage };
+        continue;
       }
+      const weight = weightOf(usage);
+      const bestWeight = weightOf(best.usage);
+      const better = weight > bestWeight ||
+        (weight === bestWeight && usage.blocks > best.usage.blocks) ||
+        (weight === bestWeight && usage.blocks === best.usage.blocks && source < best.source);
+      if (better) best = { source, usage };
     }
     if (best == null) continue;
 
@@ -115,10 +132,11 @@ export function castMemberVotes(tally: WeekTally, week: MemberWeek): void {
     }
     const standing = standings.get(best.source);
     if (standing == null) {
-      standings.set(best.source, { votes: 1, tokens: best.tokens });
+      standings.set(best.source, { votes: 1, cost: best.usage.cost, tokens: best.usage.tokens });
     } else {
       standing.votes += 1;
-      standing.tokens += best.tokens;
+      standing.cost += best.usage.cost;
+      standing.tokens += best.usage.tokens;
     }
   }
 }
@@ -135,15 +153,16 @@ export function resolveWeekWinners(tally: WeekTally, days: string[]): DayWinner[
     }
 
     const ranked = Array.from(standings.entries())
-      .map(([source, standing]) => ({ source, users: standing.votes, tokens: standing.tokens }))
+      .map(([source, s]) => ({ source, users: s.votes, cost: s.cost, tokens: s.tokens }))
       .filter((row) => row.users > 0)
-      .sort((a, b) => b.users - a.users || b.tokens - a.tokens || a.source.localeCompare(b.source));
+      .sort((a, b) =>
+        b.users - a.users || b.cost - a.cost || b.tokens - a.tokens || a.source.localeCompare(b.source));
 
     if (ranked.length === 0) return { day, winners: [], counts: [] };
 
     const top = ranked[0];
     const winners = ranked
-      .filter((row) => row.users === top.users && row.tokens === top.tokens)
+      .filter((row) => row.users === top.users && row.cost === top.cost && row.tokens === top.tokens)
       .map((row) => row.source);
 
     return {

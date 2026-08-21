@@ -16,10 +16,10 @@ import type { MemberWeek, WeekTally } from "../week-winners.js";
 const app = new Hono<{ Bindings: Env }>();
 
 const VALID_PERIODS: RankingPeriod[] = ["daily", "yesterday", "weekly", "monthly", "all-time"];
-// v7: weekWinners counts are per-member votes, not per-agent head counts.
-// The key must move with the meaning, or cached v6 entries keep serving the
-// old numbers under the new label until they expire.
-const RANK_CACHE_VERSION = "v7";
+// v8: a member's vote follows their cost share, matching their row's agent
+// split. The key must move with the meaning, or cached entries keep serving
+// the old numbers under the new label until they expire.
+const RANK_CACHE_VERSION = "v8";
 
 type AgentTotals = { costUSD: number; totalTokens: number; nonCacheTokens: number; chatCount: number; entryCount: number };
 
@@ -360,7 +360,7 @@ app.get("/rank/:code", async (c) => {
         }
         const blockTime = new Date(block.blockStart).getTime();
         if (hasUsage(block) && blockTime >= week.startMs && blockTime < week.endMs) {
-          noteMemberBlock(memberWeek, localDayKey(blockTime, tz), blockSource, getNonCacheTokens(block));
+          noteMemberBlock(memberWeek, localDayKey(blockTime, tz), blockSource, block.costUSD, block.totalTokens);
         }
         if (blockTime >= startMs && blockTime < endMs) {
           const source = blockSource;

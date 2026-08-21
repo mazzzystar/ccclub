@@ -16,8 +16,10 @@ import type { MemberWeek, WeekTally } from "../week-winners.js";
 const app = new Hono<{ Bindings: Env }>();
 
 const VALID_PERIODS: RankingPeriod[] = ["daily", "yesterday", "weekly", "monthly", "all-time"];
-// v6 adds weekWinners to the payload.
-const RANK_CACHE_VERSION = "v6";
+// v7: weekWinners counts are per-member votes, not per-agent head counts.
+// The key must move with the meaning, or cached v6 entries keep serving the
+// old numbers under the new label until they expire.
+const RANK_CACHE_VERSION = "v7";
 
 type AgentTotals = { costUSD: number; totalTokens: number; nonCacheTokens: number; chatCount: number; entryCount: number };
 

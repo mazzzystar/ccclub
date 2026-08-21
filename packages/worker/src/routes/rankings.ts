@@ -9,10 +9,10 @@ import type {
   RankingPeriod,
   RankResponse,
 } from "@ccclub/shared";
-import { localDayKey } from "../activity-core.js";
 import {
   castMemberVotes,
   currentWeekDays,
+  dayIndexOf,
   isUncontested,
   lookbackWindowUtc,
   noteMemberBlock,
@@ -368,7 +368,7 @@ app.get("/rank/:code", async (c) => {
         }
         const blockTime = new Date(block.blockStart).getTime();
         if (hasUsage(block) && blockTime >= week.startMs && blockTime < week.endMs) {
-          noteMemberBlock(memberWeek, localDayKey(blockTime, tz), blockSource, block.costUSD, block.totalTokens);
+          noteMemberBlock(memberWeek, dayIndexOf(blockTime, tz), blockSource, block.costUSD, block.totalTokens);
         }
         if (blockTime >= startMs && blockTime < endMs) {
           const source = blockSource;

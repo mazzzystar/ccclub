@@ -20,6 +20,8 @@ import type { AgentSource, DayWinner } from "@ccclub/shared";
 
 export type { DayWinner };
 
+const DAY_MS = 86_400_000;
+
 interface SourceStanding {
   votes: number;
   /** Weight behind this source's voters — tie-break only. */
@@ -27,8 +29,8 @@ interface SourceStanding {
   tokens: number;
 }
 
-/** day -> source -> standing. One shared tally for the whole group. */
-export type WeekTally = Map<string, Map<AgentSource, SourceStanding>>;
+/** local day index -> source -> standing. One shared tally for the group. */
+export type WeekTally = Map<number, Map<AgentSource, SourceStanding>>;
 
 interface MemberSourceDay {
   cost: number;
@@ -36,26 +38,47 @@ interface MemberSourceDay {
   blocks: number;
 }
 
-/** day -> source -> one member's own usage, before their vote is resolved. */
-export type MemberWeek = Map<string, Map<AgentSource, MemberSourceDay>>;
+/** local day index -> source -> one member's usage, before their vote. */
+export type MemberWeek = Map<number, Map<AgentSource, MemberSourceDay>>;
 
-const DAY_MS = 86_400_000;
+/**
+ * Days since the epoch in the viewer's local time. Blocks are keyed by this
+ * integer rather than a "YYYY-MM-DD" string: formatting one date per block
+ * costs more than the rest of the tally put together on a busy group, and
+ * only the fourteen surviving keys ever need to be readable.
+ */
+export function dayIndexOf(ms: number, tzMinutes: number): number {
+  return Math.floor((ms + tzMinutes * 60_000) / DAY_MS);
+}
 
-/** Local midnight of `ms`, as a local-shifted timestamp (not real UTC). */
-function localMidnight(ms: number, tzMinutes: number): number {
-  const local = new Date(ms + tzMinutes * 60_000);
-  return Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate());
+function dayIndexToKey(index: number): string {
+  return new Date(index * DAY_MS).toISOString().slice(0, 10);
 }
 
 /**
- * Real-UTC window covering the current ISO week (Monday 00:00 local through
- * next Monday 00:00 local). Used to skip blocks before any per-day work.
+ * Elapsed days of the current week, Monday through today. The UI pads the row
+ * out to seven, so days that have not happened yet stay empty slots rather
+ * than being reported as "nobody coded".
  */
+export function currentWeekDays(nowMs: number, tzMinutes: number): number[] {
+  const today = dayIndexOf(nowMs, tzMinutes);
+  const sinceMonday = (new Date(today * DAY_MS).getUTCDay() + 6) % 7;
+  const days: number[] = [];
+  for (let back = sinceMonday; back >= 0; back--) days.push(today - back);
+  return days;
+}
+
+/** The seven days before this week, oldest first. Never displayed. */
+export function previousWeekDays(nowMs: number, tzMinutes: number): number[] {
+  const monday = currentWeekDays(nowMs, tzMinutes)[0];
+  const days: number[] = [];
+  for (let back = 7; back >= 1; back--) days.push(monday - back);
+  return days;
+}
+
+/** Real-UTC window covering the current week, to skip blocks cheaply. */
 export function weekWindowUtc(nowMs: number, tzMinutes: number): { startMs: number; endMs: number } {
-  const midnight = localMidnight(nowMs, tzMinutes);
-  const dayOfWeek = new Date(midnight).getUTCDay(); // 0 = Sunday
-  const sinceMonday = (dayOfWeek + 6) % 7;
-  const startMs = midnight - sinceMonday * DAY_MS - tzMinutes * 60_000;
+  const startMs = currentWeekDays(nowMs, tzMinutes)[0] * DAY_MS - tzMinutes * 60_000;
   return { startMs, endMs: startMs + 7 * DAY_MS };
 }
 
@@ -69,36 +92,10 @@ export function lookbackWindowUtc(nowMs: number, tzMinutes: number): { startMs: 
   return { startMs: week.startMs - 7 * DAY_MS, endMs: week.endMs };
 }
 
-/** The seven days of the previous week, oldest first. */
-export function previousWeekDays(nowMs: number, tzMinutes: number): string[] {
-  const monday = Date.parse(`${currentWeekDays(nowMs, tzMinutes)[0]}T00:00:00Z`);
-  const days: string[] = [];
-  for (let back = 7; back >= 1; back--) {
-    days.push(new Date(monday - back * DAY_MS).toISOString().slice(0, 10));
-  }
-  return days;
-}
-
-/**
- * Elapsed days of the current week, Monday through today. The UI pads the row
- * out to seven, so days that have not happened yet stay empty slots rather
- * than being reported as "nobody coded".
- */
-export function currentWeekDays(nowMs: number, tzMinutes: number): string[] {
-  const midnight = localMidnight(nowMs, tzMinutes);
-  const dayOfWeek = new Date(midnight).getUTCDay();
-  const sinceMonday = (dayOfWeek + 6) % 7;
-  const days: string[] = [];
-  for (let back = sinceMonday; back >= 0; back--) {
-    days.push(new Date(midnight - back * DAY_MS).toISOString().slice(0, 10));
-  }
-  return days;
-}
-
 /** Adds one block to the member-local scratch tally the vote is derived from. */
 export function noteMemberBlock(
   week: MemberWeek,
-  day: string,
+  day: number,
   source: AgentSource,
   cost: number,
   tokens: number,
@@ -120,7 +117,7 @@ export function noteMemberBlock(
 
 /**
  * Turns one member's week into at most one vote per day and folds it into the
- * group tally. Blocks decide a token tie so a day of cache-only work still
+ * group tally. Blocks decide a cost tie so a day of cache-only work still
  * elects the agent that member actually sat in.
  */
 export function castMemberVotes(tally: WeekTally, week: MemberWeek): void {
@@ -202,9 +199,10 @@ export function isUncontested(days: DayWinner[]): boolean {
  * Resolve one winner per elapsed day. Days nobody coded still appear, with an
  * empty `winners` — the row should show the gap, not silently shorten.
  */
-export function resolveWeekWinners(tally: WeekTally, days: string[]): DayWinner[] {
-  return days.map((day) => {
-    const standings = tally.get(day);
+export function resolveWeekWinners(tally: WeekTally, days: number[]): DayWinner[] {
+  return days.map((index) => {
+    const day = dayIndexToKey(index);
+    const standings = tally.get(index);
     if (standings == null || standings.size === 0) {
       return { day, winners: [], counts: [] };
     }

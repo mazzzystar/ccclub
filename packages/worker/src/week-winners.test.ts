@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   castMemberVotes,
   currentWeekDays,
+  dayIndexOf,
   isUncontested,
   lookbackWindowUtc,
   noteMemberBlock,
@@ -13,38 +14,43 @@ import type { MemberWeek, WeekTally } from "./week-winners.js";
 
 const UTC8 = 480;
 
+/** "2026-08-17" -> the local day index the tally keys blocks by. */
+const idx = (day: string, tz = 0) => dayIndexOf(Date.parse(`${day}T12:00:00Z`) - tz * 60_000, tz);
+/** Day indices back to readable dates, for asserting on whole rows. */
+const keys = (days: number[]) => days.map((d) => new Date(d * 86_400_000).toISOString().slice(0, 10));
+
 /** Records one member's week as [day, source, cost, tokens] rows and votes. */
 function member(tally: WeekTally, rows: Array<[string, string, number, number?]>): void {
   const week: MemberWeek = new Map();
   for (const [day, source, cost, tokens] of rows) {
-    noteMemberBlock(week, day, source as never, cost, tokens ?? cost * 1000);
+    noteMemberBlock(week, idx(day), source as never, cost, tokens ?? cost * 1000);
   }
   castMemberVotes(tally, week);
 }
 
 function winnersOf(tally: WeekTally, day: string) {
-  return resolveWeekWinners(tally, [day])[0];
+  return resolveWeekWinners(tally, [idx(day)])[0];
 }
 
 describe("currentWeekDays", () => {
   it("runs Monday through today and grows one slot per day", () => {
     // 2026-08-19 is a Wednesday.
     const wed = Date.parse("2026-08-19T10:00:00Z");
-    expect(currentWeekDays(wed, 0)).toEqual(["2026-08-17", "2026-08-18", "2026-08-19"]);
-    expect(currentWeekDays(Date.parse("2026-08-17T00:30:00Z"), 0)).toEqual(["2026-08-17"]);
+    expect(keys(currentWeekDays(wed, 0))).toEqual(["2026-08-17", "2026-08-18", "2026-08-19"]);
+    expect(keys(currentWeekDays(Date.parse("2026-08-17T00:30:00Z"), 0))).toEqual(["2026-08-17"]);
   });
 
   it("treats Sunday as the last day of the week, not the first", () => {
     const sun = Date.parse("2026-08-23T12:00:00Z");
     expect(currentWeekDays(sun, 0)).toHaveLength(7);
-    expect(currentWeekDays(sun, 0)[6]).toBe("2026-08-23");
+    expect(keys(currentWeekDays(sun, 0))[6]).toBe("2026-08-23");
   });
 
   it("uses the viewer's local calendar, not UTC", () => {
     // 16:00 UTC Sunday is already Monday 00:00 in UTC+8 — a fresh week there.
     const ms = Date.parse("2026-08-23T16:00:00Z");
     expect(currentWeekDays(ms, 0)).toHaveLength(7);
-    expect(currentWeekDays(ms, UTC8)).toEqual(["2026-08-24"]);
+    expect(keys(currentWeekDays(ms, UTC8))).toEqual(["2026-08-24"]);
   });
 });
 
@@ -64,7 +70,7 @@ describe("weekWindowUtc", () => {
   it("covers every day currentWeekDays reports", () => {
     const sun = Date.parse("2026-08-23T23:00:00Z");
     const { startMs, endMs } = weekWindowUtc(sun, 0);
-    for (const day of currentWeekDays(sun, 0)) {
+    for (const day of keys(currentWeekDays(sun, 0))) {
       const noon = Date.parse(`${day}T12:00:00Z`);
       expect(noon).toBeGreaterThanOrEqual(startMs);
       expect(noon).toBeLessThan(endMs);
@@ -130,7 +136,7 @@ describe("one vote per member per day", () => {
   it("votes per day, so a member can back different agents across the week", () => {
     const tally: WeekTally = new Map();
     member(tally, [["2026-08-17", "claude", 900], ["2026-08-18", "codex", 900]]);
-    const [mon, tue] = resolveWeekWinners(tally, ["2026-08-17", "2026-08-18"]);
+    const [mon, tue] = resolveWeekWinners(tally, [idx("2026-08-17"), idx("2026-08-18")]);
     expect(mon.winners).toEqual(["claude"]);
     expect(tue.winners).toEqual(["codex"]);
   });
@@ -190,7 +196,7 @@ describe("isUncontested", () => {
       for (let i = 0; i < loyal; i++) member(tally, [[day, champion, 10]]);
       for (let i = 0; i < others; i++) member(tally, [[day, rival, 10]]);
     }
-    return resolveWeekWinners(tally, DAYS);
+    return resolveWeekWinners(tally, DAYS.map((d) => idx(d)));
   }
 
   it("hides a group where everyone uses the same agent", () => {
@@ -228,14 +234,14 @@ describe("isUncontested", () => {
     const tally: WeekTally = new Map();
     const short = DAYS.slice(0, 3);
     for (const day of short) member(tally, [[day, "claude", 10]]);
-    expect(isUncontested(resolveWeekWinners(tally, short))).toBe(false);
+    expect(isUncontested(resolveWeekWinners(tally, short.map((d) => idx(d))))).toBe(false);
   });
 
   it("ignores quiet days when counting evidence", () => {
     const tally: WeekTally = new Map();
     for (const day of DAYS) member(tally, [[day, "claude", 10]]);
     // Two extra days nobody coded must not count toward the streak.
-    const withGaps = resolveWeekWinners(tally, [...DAYS, "2026-08-18", "2026-08-19"]);
+    const withGaps = resolveWeekWinners(tally, [...DAYS, "2026-08-18", "2026-08-19"].map((d) => idx(d)));
     expect(withGaps.filter((d) => d.winners.length === 0)).toHaveLength(2);
     expect(isUncontested(withGaps)).toBe(true);
   });
@@ -244,18 +250,18 @@ describe("isUncontested", () => {
 describe("previousWeekDays", () => {
   it("returns the seven days before Monday, oldest first", () => {
     const wed = Date.parse("2026-08-19T10:00:00Z");
-    const prev = previousWeekDays(wed, 0);
+    const prev = keys(previousWeekDays(wed, 0));
     expect(prev).toHaveLength(7);
     expect(prev[0]).toBe("2026-08-10");
     expect(prev[6]).toBe("2026-08-16");
     // Never overlaps the displayed week.
-    expect(prev).not.toContain(currentWeekDays(wed, 0)[0]);
+    expect(prev).not.toContain(keys(currentWeekDays(wed, 0))[0]);
   });
 
   it("is fully covered by the lookback window", () => {
     const wed = Date.parse("2026-08-19T10:00:00Z");
     const { startMs, endMs } = lookbackWindowUtc(wed, UTC8);
-    for (const day of [...previousWeekDays(wed, UTC8), ...currentWeekDays(wed, UTC8)]) {
+    for (const day of keys([...previousWeekDays(wed, UTC8), ...currentWeekDays(wed, UTC8)])) {
       const noon = Date.parse(`${day}T12:00:00Z`) - UTC8 * 60_000;
       expect(noon).toBeGreaterThanOrEqual(startMs);
       expect(noon).toBeLessThan(endMs);
@@ -282,7 +288,7 @@ describe("resolveWeekWinners", () => {
   it("keeps quiet days as explicit gaps in the row", () => {
     const tally: WeekTally = new Map();
     member(tally, [["2026-08-19", "claude", 100]]);
-    const days = resolveWeekWinners(tally, ["2026-08-17", "2026-08-18", "2026-08-19"]);
+    const days = resolveWeekWinners(tally, ["2026-08-17", "2026-08-18", "2026-08-19"].map((d) => idx(d)));
     expect(days.map((d) => d.winners)).toEqual([[], [], ["claude"]]);
     expect(days[0].counts).toEqual([]);
   });

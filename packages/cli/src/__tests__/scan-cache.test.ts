@@ -163,6 +163,80 @@ describe("scan cache factory", () => {
     expect(reopened.get("/sessions/b.jsonl", STAT_B)).toBe("fact-b");
   });
 
+  it("imports predecessor shards through the converter instead of rescanning", async () => {
+    const dir = await makeTempDir();
+    const factory = createScanCacheFactory(dir);
+
+    const old = await factory<string>("codex", "parser=5");
+    old.set("/a.jsonl", STAT_A, "raw-a");
+    old.set("/b.jsonl", STAT_B, "raw-b");
+    await old.save();
+
+    const importFrom = { metaToken: "parser=5", convert: (d: unknown) => `packed:${d}` };
+    const upgraded = await factory<string>("codex", "parser=6", importFrom);
+    expect(upgraded.get("/a.jsonl", STAT_A)).toBe("packed:raw-a");
+    expect(upgraded.get("/b.jsonl", STAT_B)).toBe("packed:raw-b");
+    await upgraded.save();
+
+    // The migration persisted: a plain v6 open now hits without the bridge.
+    const settled = await factory<string>("codex", "parser=6");
+    expect(settled.get("/a.jsonl", STAT_A)).toBe("packed:raw-a");
+    expect(settled.get("/b.jsonl", STAT_B)).toBe("packed:raw-b");
+  });
+
+  it("drops only the records the import converter rejects", async () => {
+    const dir = await makeTempDir();
+    const factory = createScanCacheFactory(dir);
+
+    const old = await factory<string>("codex", "parser=5");
+    old.set("/good.jsonl", STAT_A, "fine");
+    old.set("/bad.jsonl", STAT_A, "broken");
+    await old.save();
+
+    const importFrom = {
+      metaToken: "parser=5",
+      convert: (d: unknown) => (d === "broken" ? null : `packed:${d}`),
+    };
+    const upgraded = await factory<string>("codex", "parser=6", importFrom);
+    expect(upgraded.get("/good.jsonl", STAT_A)).toBe("packed:fine");
+    expect(upgraded.get("/bad.jsonl", STAT_A)).toBeUndefined();
+  });
+
+  it("imports a v2 monolith written by the importable predecessor", async () => {
+    const dir = await makeTempDir();
+    const legacy = {
+      version: 2,
+      metaToken: "parser=5",
+      files: { "/a.jsonl": { mtimeMs: STAT_A.mtimeMs, size: STAT_A.size, data: "raw-a" } },
+    };
+    await writeFile(join(dir, "codex.json"), JSON.stringify(legacy));
+    const factory = createScanCacheFactory(dir);
+
+    const importFrom = { metaToken: "parser=5", convert: (d: unknown) => `packed:${d}` };
+    const cache = await factory<string>("codex", "parser=6", importFrom);
+    expect(cache.get("/a.jsonl", STAT_A)).toBe("packed:raw-a");
+    await cache.save();
+    await expect(stat(join(dir, "codex.json"))).rejects.toThrow();
+  });
+
+  it("sweeps write-temps left behind by dead processes", async () => {
+    const dir = await makeTempDir();
+    const factory = createScanCacheFactory(dir);
+
+    const first = await factory<string>("pi", "v1");
+    first.set("/a.jsonl", STAT_A, "parsed");
+    await first.save();
+    await writeFile(join(dir, "pi", "abc123.json.999.tmp"), "{orphaned");
+
+    const second = await factory<string>("pi", "v1");
+    expect(second.get("/a.jsonl", STAT_A)).toBe("parsed");
+    await second.save();
+
+    const names = await readdir(join(dir, "pi"));
+    expect(names.some((name) => name.endsWith(".tmp"))).toBe(false);
+    expect(second.get("/a.jsonl", STAT_A)).toBe("parsed");
+  });
+
   it("ignores a legacy cache whose meta token no longer matches", async () => {
     const dir = await makeTempDir();
     const legacy = {

@@ -83,6 +83,154 @@ interface CodexFileScan {
   fallbackUserTurns: IndexedUsageTurn[];
 }
 
+// ── Packed cache shape ─────────────────────────────────────────
+// Entries are ~90% of the scan cache's bytes, and almost all of that is
+// repetition: every fact restates its object keys, the file's one session id,
+// and a requestId derived from its own numbers. The cached form stores the
+// distinct values as parallel columns instead — measured ~4.5x smaller — and
+// unpack rebuilds the exact original objects. Timestamps stay ISO strings:
+// converting 870k of them through toISOString on every load costs more than
+// the bytes save. Any entry violating a packing invariant travels verbatim
+// in `irregular`, so pack(unpack(x)) is lossless by construction.
+
+interface PackedEntryColumns {
+  sessionId: string;
+  models: string[];
+  timestamp: string[];
+  modelIndex: number[];
+  input: number[];
+  output: number[];
+  cacheRead: number[];
+  reasoning: number[];
+  total: number[];
+  recordIndex: number[];
+  rawTokenIndex: number[];
+  irregular: Array<{ at: number; entry: IndexedUsageFact }>;
+}
+
+export interface PackedCodexScan extends Omit<CodexFileScan, "entries"> {
+  packedEntries: PackedEntryColumns;
+}
+
+function deriveRequestId(fact: UsageFact): string {
+  return [
+    fact.timestamp,
+    fact.model,
+    fact.inputTokens,
+    fact.cacheReadTokens,
+    fact.outputTokens,
+    fact.reasoningTokens,
+    fact.totalTokens,
+  ].join(":");
+}
+
+export function packCodexScan(scan: CodexFileScan): PackedCodexScan {
+  const cols: PackedEntryColumns = {
+    sessionId: scan.entries[0]?.fact.sessionId ?? "",
+    models: [],
+    timestamp: [],
+    modelIndex: [],
+    input: [],
+    output: [],
+    cacheRead: [],
+    reasoning: [],
+    total: [],
+    recordIndex: [],
+    rawTokenIndex: [],
+    irregular: [],
+  };
+  const modelIndexByName = new Map<string, number>();
+
+  scan.entries.forEach((entry, at) => {
+    const fact = entry.fact;
+    const regular =
+      fact.source === "codex" &&
+      fact.sessionId === cols.sessionId &&
+      fact.cacheCreationTokens === 0 &&
+      fact.cacheCreation1hTokens === undefined &&
+      fact.reportedCostUSD === undefined &&
+      typeof fact.reasoningTokens === "number" &&
+      fact.requestId === deriveRequestId(fact);
+    if (!regular) {
+      cols.irregular.push({ at, entry });
+      return;
+    }
+    let model = modelIndexByName.get(fact.model);
+    if (model == null) {
+      model = cols.models.length;
+      cols.models.push(fact.model);
+      modelIndexByName.set(fact.model, model);
+    }
+    cols.timestamp.push(fact.timestamp);
+    cols.modelIndex.push(model);
+    cols.input.push(fact.inputTokens);
+    cols.output.push(fact.outputTokens);
+    cols.cacheRead.push(fact.cacheReadTokens);
+    cols.reasoning.push(fact.reasoningTokens as number);
+    cols.total.push(fact.totalTokens);
+    cols.recordIndex.push(entry.recordIndex);
+    cols.rawTokenIndex.push(entry.rawTokenIndex);
+  });
+
+  const { entries: _entries, ...rest } = scan;
+  return { ...rest, packedEntries: cols };
+}
+
+export function unpackCodexScan(packed: PackedCodexScan): CodexFileScan {
+  const cols = packed.packedEntries;
+  const count = cols.timestamp.length + cols.irregular.length;
+  const entries: IndexedUsageFact[] = new Array(count);
+  for (const { at, entry } of cols.irregular) entries[at] = entry;
+
+  let column = 0;
+  for (let at = 0; at < count; at++) {
+    if (entries[at] != null) continue;
+    const fact: UsageFact = {
+      source: "codex",
+      timestamp: cols.timestamp[column],
+      sessionId: cols.sessionId,
+      requestId: "",
+      model: cols.models[cols.modelIndex[column]],
+      inputTokens: cols.input[column],
+      outputTokens: cols.output[column],
+      cacheCreationTokens: 0,
+      cacheReadTokens: cols.cacheRead[column],
+      reasoningTokens: cols.reasoning[column],
+      totalTokens: cols.total[column],
+    };
+    fact.requestId = deriveRequestId(fact);
+    entries[at] = {
+      fact,
+      recordIndex: cols.recordIndex[column],
+      rawTokenIndex: cols.rawTokenIndex[column],
+    };
+    column++;
+  }
+
+  const { packedEntries: _packed, ...rest } = packed;
+  return { ...rest, entries };
+}
+
+/** Recognizes a v5 cached scan well enough to import it without a rescan. */
+export function importLegacyCodexScan(data: unknown): PackedCodexScan | null {
+  const scan = data as CodexFileScan | null;
+  if (
+    scan == null ||
+    typeof scan !== "object" ||
+    !Array.isArray(scan.entries) ||
+    !Array.isArray(scan.tokenTimes) ||
+    !Array.isArray(scan.tokenFingerprints)
+  ) {
+    return null;
+  }
+  try {
+    return packCodexScan(scan);
+  } catch {
+    // A malformed record costs one reparse, never the whole cache.
+    return null;
+  }
+}
+
 interface LoadedCodexScan {
   usageFile: CodexUsageFile;
   scan: CodexFileScan;
@@ -95,7 +243,10 @@ interface ReplayBoundary {
 
 // Part of the per-file scan-cache key. Bump whenever parsing, replay indexing,
 // or dedup semantics change so an older cached shape is never reused.
-const CODEX_SCAN_VERSION = 5;
+// v6 parses exactly like v5 but stores entries as columns (see packCodexScan);
+// v5 caches are imported in place rather than discarded.
+const CODEX_SCAN_VERSION = 6;
+const IMPORTABLE_SCAN_VERSION = 5;
 const OWN_TASK_START_WINDOW_MS = 5_000;
 const UNRESOLVED_TOKEN_TIME = Number.MAX_SAFE_INTEGER;
 const codexFastServiceTierRegex = /(?:^|\n)\s*service_tier\s*=\s*["']?(?:fast|priority)["']?/iu;
@@ -593,21 +744,23 @@ export async function collectCodexUsage(context: CollectorContext): Promise<Sour
     getCodexPricingTier(),
   ]);
   const files = await getCodexUsageFiles(usageSources);
-  const cache = await context.openScanCache?.<CodexFileScan>(
+  const cache = await context.openScanCache?.<PackedCodexScan>(
     source,
     `parser=${CODEX_SCAN_VERSION}`,
+    { metaToken: `parser=${IMPORTABLE_SCAN_VERSION}`, convert: importLegacyCodexScan },
   );
 
   const loaded: LoadedCodexScan[] = [];
   for (const usageFile of files) {
     const stat = await statFile(usageFile.file);
-    let scan = stat != null ? cache?.get(usageFile.file, stat) : undefined;
+    const packed = stat != null ? cache?.get(usageFile.file, stat) : undefined;
+    let scan = packed != null ? unpackCodexScan(packed) : undefined;
     if (scan == null) {
       scan = await scanCodexFile(
         usageFile.file,
         sessionIdForFile(usageFile.source.dir, usageFile.file),
       );
-      if (stat != null) cache?.set(usageFile.file, stat, scan);
+      if (stat != null) cache?.set(usageFile.file, stat, packCodexScan(scan));
     }
     loaded.push({ usageFile, scan });
   }

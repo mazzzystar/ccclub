@@ -33,11 +33,28 @@ export interface SourceFileCache<T> {
 }
 
 /**
+ * Lossless upgrade path from one cached shape to its successor. When the disk
+ * holds `metaToken`'s data instead of the requested token, every record is
+ * offered to `convert`; a non-null result is used as a warm entry and written
+ * back in the new shape at save. Returning null drops just that record, so a
+ * malformed survivor costs one reparse instead of the whole cache.
+ */
+export interface ScanCacheImport<T> {
+  metaToken: string;
+  convert: (data: unknown) => T | null;
+}
+
+/**
  * Opens the cache for one source. `metaToken` captures every input that
  * influences parse results besides file content (pricing table version,
- * Codex service tier, …) — when it changes, the whole cache is discarded.
+ * Codex service tier, …) — when it changes, the whole cache is discarded,
+ * unless the collector supplies an `importFrom` bridge for the old token.
  */
-export type ScanCacheFactory = <T>(source: string, metaToken: string) => Promise<SourceFileCache<T>>;
+export type ScanCacheFactory = <T>(
+  source: string,
+  metaToken: string,
+  importFrom?: ScanCacheImport<T>,
+) => Promise<SourceFileCache<T>>;
 
 interface ShardShape {
   file: string;
@@ -60,16 +77,29 @@ function shardName(file: string): string {
   return createHash("sha256").update(file).digest("hex").slice(0, 20) + ".json";
 }
 
-async function readShards(sourceDir: string): Promise<{ records: Map<string, ShardShape>; diskNames: Set<string> }> {
+async function readShards(sourceDir: string): Promise<{
+  records: Map<string, ShardShape>;
+  diskNames: Set<string>;
+  staleTempNames: string[];
+}> {
   const records = new Map<string, ShardShape>();
   const diskNames = new Set<string>();
+  const staleTempNames: string[] = [];
   let names: string[];
   try {
     names = await readdir(sourceDir);
   } catch {
-    return { records, diskNames };
+    return { records, diskNames, staleTempNames };
   }
-  const shardFiles = names.filter((name) => name !== "meta.json" && name.endsWith(".json"));
+  const shardFiles: string[] = [];
+  for (const name of names) {
+    if (name === "meta.json") continue;
+    if (name.endsWith(".json")) shardFiles.push(name);
+    // A .tmp here is a write a dead process never renamed; left alone they
+    // accumulate forever. A live concurrent writer can lose one to this
+    // sweep, which only costs that file a reparse on its next run.
+    else if (name.endsWith(".tmp")) staleTempNames.push(name);
+  }
   await Promise.all(shardFiles.map(async (name) => {
     diskNames.add(name);
     try {
@@ -82,7 +112,7 @@ async function readShards(sourceDir: string): Promise<{ records: Map<string, Sha
       // rewritten or pruned at save.
     }
   }));
-  return { records, diskNames };
+  return { records, diskNames, staleTempNames };
 }
 
 async function readMetaToken(sourceDir: string): Promise<string | null> {
@@ -100,17 +130,22 @@ async function readMetaToken(sourceDir: string): Promise<string | null> {
 }
 
 /** One-time import of the pre-v3 single-file cache so upgrades keep history warm. */
-async function readLegacyFiles(legacyPath: string, metaToken: string): Promise<LegacyCacheShape["files"] | null> {
+async function readLegacyFiles(
+  legacyPath: string,
+  acceptTokens: Map<string, (data: unknown) => unknown | null>,
+): Promise<LegacyCacheShape["files"] | null> {
   try {
     const raw = JSON.parse(await readFile(legacyPath, "utf-8")) as LegacyCacheShape;
-    if (
-      raw != null &&
-      raw.version === LEGACY_FORMAT_VERSION &&
-      raw.metaToken === metaToken &&
-      raw.files != null &&
-      typeof raw.files === "object"
-    ) {
-      return raw.files;
+    const convert = raw != null && raw.version === LEGACY_FORMAT_VERSION
+      ? acceptTokens.get(raw.metaToken)
+      : undefined;
+    if (convert != null && raw.files != null && typeof raw.files === "object") {
+      const files: LegacyCacheShape["files"] = {};
+      for (const [file, rec] of Object.entries(raw.files)) {
+        const data = convert(rec.data);
+        if (data != null) files[file] = { mtimeMs: rec.mtimeMs, size: rec.size, data };
+      }
+      return files;
     }
   } catch {
     // Unreadable (including caches that outgrew the string ceiling) — parse cold.
@@ -126,21 +161,42 @@ async function writeShard(sourceDir: string, name: string, payload: unknown): Pr
 }
 
 export function createScanCacheFactory(dir = getScanCacheDir()): ScanCacheFactory {
-  return async <T>(source: string, metaToken: string): Promise<SourceFileCache<T>> => {
+  return async <T>(
+    source: string,
+    metaToken: string,
+    importFrom?: ScanCacheImport<T>,
+  ): Promise<SourceFileCache<T>> => {
     const sourceDir = join(dir, source);
     const legacyPath = join(dir, `${source}.json`);
+    // Tokens this open can make use of: the current one as-is, and the
+    // importable predecessor through its converter.
+    const acceptTokens = new Map<string, (data: unknown) => unknown | null>([
+      [metaToken, (data) => data],
+    ]);
+    if (importFrom != null) acceptTokens.set(importFrom.metaToken, importFrom.convert);
 
     const diskToken = await readMetaToken(sourceDir);
     const metaUsable = diskToken === metaToken;
     let previous = new Map<string, ShardShape>();
     let diskNames = new Set<string>();
+    let staleTempNames: string[] = [];
     let migrating = false;
 
     if (metaUsable) {
-      ({ records: previous, diskNames } = await readShards(sourceDir));
+      ({ records: previous, diskNames, staleTempNames } = await readShards(sourceDir));
+    } else if (diskToken != null && importFrom != null && diskToken === importFrom.metaToken) {
+      // Predecessor shards: convert each record in place of a cold rescan.
+      ({ records: previous, diskNames, staleTempNames } = await readShards(sourceDir));
+      const converted = new Map<string, ShardShape>();
+      for (const [file, rec] of previous) {
+        const data = importFrom.convert(rec.data);
+        if (data != null) converted.set(file, { ...rec, data });
+      }
+      previous = converted;
+      migrating = true;
     } else if (diskToken == null) {
       // No v3 cache yet — import the legacy single-file layout when possible.
-      const legacy = await readLegacyFiles(legacyPath, metaToken);
+      const legacy = await readLegacyFiles(legacyPath, acceptTokens);
       if (legacy != null) {
         for (const [file, rec] of Object.entries(legacy)) {
           previous.set(file, { file, mtimeMs: rec.mtimeMs, size: rec.size, data: rec.data });
@@ -148,9 +204,9 @@ export function createScanCacheFactory(dir = getScanCacheDir()): ScanCacheFactor
         migrating = true;
       }
     } else {
-      // Token changed: stale shards are pruned at save, after the fresh
-      // entries have been written.
-      ({ diskNames } = await readShards(sourceDir));
+      // Token changed with no bridge: stale shards are pruned at save, after
+      // the fresh entries have been written.
+      ({ diskNames, staleTempNames } = await readShards(sourceDir));
       previous = new Map();
     }
 
@@ -170,6 +226,13 @@ export function createScanCacheFactory(dir = getScanCacheDir()): ScanCacheFactor
       },
       async save() {
         try {
+          // Sweep write-temps orphaned by dead processes even on a hot run.
+          await Promise.all(staleTempNames.map(async (name) => {
+            try {
+              await unlink(join(sourceDir, name));
+            } catch { /* already gone */ }
+          }));
+
           // A fully hot scan touched every previous file and parsed nothing —
           // leave the shards byte-for-byte alone.
           if (metaUsable && !migrating && dirtyFiles.size === 0 && next.size === previous.size) {

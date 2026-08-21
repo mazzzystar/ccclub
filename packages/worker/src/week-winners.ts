@@ -1,19 +1,34 @@
-// Daily "winning agent" for the current week: which coding agent the most
-// distinct members of a group used on each elapsed day. Pure logic, kept out
-// of the route so it can be tested without KV or wasm.
+// Daily "winning agent" for a group's current week, decided by an election:
+// every member who coded that day casts exactly one vote, for whichever agent
+// they worked with most that day. Most votes wins.
 //
-// Head-count, not tokens: one whale running a million-token job should not
-// decide the day for everybody else. Tokens only break a head-count tie.
+// One vote per member, not per agent-touched: in a group where nearly everyone
+// runs both Claude Code and Codex, counting every agent someone touched makes
+// both totals approach the head count and the margin becomes noise. A single
+// vote for the member's main agent measures preference instead of exposure.
+//
+// Tokens never decide the day directly, so one member running a huge job
+// cannot speak for everybody — they only break a tie between equal votes.
 import type { AgentSource, DayWinner } from "@ccclub/shared";
 
 export type { DayWinner };
 
-interface DayBucket {
-  users: Set<string>;
+interface SourceStanding {
+  votes: number;
+  /** Non-cache tokens contributed by this source's voters — tie-break only. */
   tokens: number;
 }
 
-export type WeekTally = Map<string, Map<AgentSource, DayBucket>>;
+/** day -> source -> standing. One shared tally for the whole group. */
+export type WeekTally = Map<string, Map<AgentSource, SourceStanding>>;
+
+interface MemberSourceDay {
+  tokens: number;
+  blocks: number;
+}
+
+/** day -> source -> one member's own usage, before their vote is resolved. */
+export type MemberWeek = Map<string, Map<AgentSource, MemberSourceDay>>;
 
 const DAY_MS = 86_400_000;
 
@@ -31,15 +46,14 @@ export function weekWindowUtc(nowMs: number, tzMinutes: number): { startMs: numb
   const midnight = localMidnight(nowMs, tzMinutes);
   const dayOfWeek = new Date(midnight).getUTCDay(); // 0 = Sunday
   const sinceMonday = (dayOfWeek + 6) % 7;
-  const startLocal = midnight - sinceMonday * DAY_MS;
-  const startMs = startLocal - tzMinutes * 60_000;
+  const startMs = midnight - sinceMonday * DAY_MS - tzMinutes * 60_000;
   return { startMs, endMs: startMs + 7 * DAY_MS };
 }
 
 /**
- * Elapsed days of the current week, Monday through today. The UI pads the
- * row out to seven, so days that have not happened yet stay empty slots
- * rather than being reported as "nobody coded".
+ * Elapsed days of the current week, Monday through today. The UI pads the row
+ * out to seven, so days that have not happened yet stay empty slots rather
+ * than being reported as "nobody coded".
  */
 export function currentWeekDays(nowMs: number, tzMinutes: number): string[] {
   const midnight = localMidnight(nowMs, tzMinutes);
@@ -52,26 +66,61 @@ export function currentWeekDays(nowMs: number, tzMinutes: number): string[] {
   return days;
 }
 
-/** Records that `userId` used `source` on `day`. Repeat blocks are idempotent. */
-export function tallyDay(
-  tally: WeekTally,
+/** Adds one block to the member-local scratch tally the vote is derived from. */
+export function noteMemberBlock(
+  week: MemberWeek,
   day: string,
   source: AgentSource,
-  userId: string,
   tokens: number,
 ): void {
-  let bySource = tally.get(day);
+  let bySource = week.get(day);
   if (bySource == null) {
     bySource = new Map();
-    tally.set(day, bySource);
+    week.set(day, bySource);
   }
-  let bucket = bySource.get(source);
-  if (bucket == null) {
-    bucket = { users: new Set(), tokens: 0 };
-    bySource.set(source, bucket);
+  const current = bySource.get(source);
+  if (current == null) {
+    bySource.set(source, { tokens, blocks: 1 });
+    return;
   }
-  bucket.users.add(userId);
-  bucket.tokens += tokens;
+  current.tokens += tokens;
+  current.blocks += 1;
+}
+
+/**
+ * Turns one member's week into at most one vote per day and folds it into the
+ * group tally. Blocks decide a token tie so a day of cache-only work still
+ * elects the agent that member actually sat in.
+ */
+export function castMemberVotes(tally: WeekTally, week: MemberWeek): void {
+  for (const [day, bySource] of week) {
+    let best: { source: AgentSource; tokens: number } | null = null;
+    let bestBlocks = 0;
+    for (const [source, usage] of bySource) {
+      const better = best == null ||
+        usage.tokens > best.tokens ||
+        (usage.tokens === best.tokens && usage.blocks > bestBlocks) ||
+        (usage.tokens === best.tokens && usage.blocks === bestBlocks && source < best.source);
+      if (better) {
+        best = { source, tokens: usage.tokens };
+        bestBlocks = usage.blocks;
+      }
+    }
+    if (best == null) continue;
+
+    let standings = tally.get(day);
+    if (standings == null) {
+      standings = new Map();
+      tally.set(day, standings);
+    }
+    const standing = standings.get(best.source);
+    if (standing == null) {
+      standings.set(best.source, { votes: 1, tokens: best.tokens });
+    } else {
+      standing.votes += 1;
+      standing.tokens += best.tokens;
+    }
+  }
 }
 
 /**
@@ -80,13 +129,13 @@ export function tallyDay(
  */
 export function resolveWeekWinners(tally: WeekTally, days: string[]): DayWinner[] {
   return days.map((day) => {
-    const bySource = tally.get(day);
-    if (bySource == null || bySource.size === 0) {
+    const standings = tally.get(day);
+    if (standings == null || standings.size === 0) {
       return { day, winners: [], counts: [] };
     }
 
-    const ranked = Array.from(bySource.entries())
-      .map(([source, bucket]) => ({ source, users: bucket.users.size, tokens: bucket.tokens }))
+    const ranked = Array.from(standings.entries())
+      .map(([source, standing]) => ({ source, users: standing.votes, tokens: standing.tokens }))
       .filter((row) => row.users > 0)
       .sort((a, b) => b.users - a.users || b.tokens - a.tokens || a.source.localeCompare(b.source));
 

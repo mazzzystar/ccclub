@@ -1,15 +1,26 @@
 import { describe, it, expect } from "vitest";
-import { currentWeekDays, resolveWeekWinners, tallyDay, weekWindowUtc } from "./week-winners.js";
-import type { WeekTally } from "./week-winners.js";
+import {
+  castMemberVotes,
+  currentWeekDays,
+  noteMemberBlock,
+  resolveWeekWinners,
+  weekWindowUtc,
+} from "./week-winners.js";
+import type { MemberWeek, WeekTally } from "./week-winners.js";
 
 const UTC8 = 480;
 
-function tally(rows: Array<[string, string, string, number?]>): WeekTally {
-  const map: WeekTally = new Map();
-  for (const [day, source, userId, tokens] of rows) {
-    tallyDay(map, day, source as never, userId, tokens ?? 0);
+/** Records one member's week as [day, source, tokens] rows and casts their votes. */
+function member(tally: WeekTally, rows: Array<[string, string, number]>): void {
+  const week: MemberWeek = new Map();
+  for (const [day, source, tokens] of rows) {
+    noteMemberBlock(week, day, source as never, tokens);
   }
-  return map;
+  castMemberVotes(tally, week);
+}
+
+function winnersOf(tally: WeekTally, day: string) {
+  return resolveWeekWinners(tally, [day])[0];
 }
 
 describe("currentWeekDays", () => {
@@ -17,9 +28,7 @@ describe("currentWeekDays", () => {
     // 2026-08-19 is a Wednesday.
     const wed = Date.parse("2026-08-19T10:00:00Z");
     expect(currentWeekDays(wed, 0)).toEqual(["2026-08-17", "2026-08-18", "2026-08-19"]);
-
-    const mon = Date.parse("2026-08-17T00:30:00Z");
-    expect(currentWeekDays(mon, 0)).toEqual(["2026-08-17"]);
+    expect(currentWeekDays(Date.parse("2026-08-17T00:30:00Z"), 0)).toEqual(["2026-08-17"]);
   });
 
   it("treats Sunday as the last day of the week, not the first", () => {
@@ -38,15 +47,13 @@ describe("currentWeekDays", () => {
 
 describe("weekWindowUtc", () => {
   it("spans exactly seven local days starting Monday midnight", () => {
-    const wed = Date.parse("2026-08-19T10:00:00Z");
-    const { startMs, endMs } = weekWindowUtc(wed, 0);
+    const { startMs, endMs } = weekWindowUtc(Date.parse("2026-08-19T10:00:00Z"), 0);
     expect(new Date(startMs).toISOString()).toBe("2026-08-17T00:00:00.000Z");
     expect(endMs - startMs).toBe(7 * 86_400_000);
   });
 
   it("shifts the boundary by the viewer's offset", () => {
-    const wed = Date.parse("2026-08-19T10:00:00Z");
-    const { startMs } = weekWindowUtc(wed, UTC8);
+    const { startMs } = weekWindowUtc(Date.parse("2026-08-19T10:00:00Z"), UTC8);
     // Monday 00:00 in UTC+8 is Sunday 16:00 UTC.
     expect(new Date(startMs).toISOString()).toBe("2026-08-16T16:00:00.000Z");
   });
@@ -62,14 +69,45 @@ describe("weekWindowUtc", () => {
   });
 });
 
-describe("resolveWeekWinners", () => {
-  it("picks the source the most distinct members used", () => {
-    const map = tally([
-      ["2026-08-17", "claude", "u1"],
-      ["2026-08-17", "claude", "u2"],
-      ["2026-08-17", "codex", "u3"],
+describe("one vote per member per day", () => {
+  it("gives a member's whole day to the agent they used most", () => {
+    const tally: WeekTally = new Map();
+    // Split day, Codex heavier — the member's single vote goes to Codex.
+    member(tally, [["2026-08-17", "claude", 3_000], ["2026-08-17", "codex", 9_000]]);
+    const day = winnersOf(tally, "2026-08-17");
+    expect(day.winners).toEqual(["codex"]);
+    expect(day.counts).toEqual([{ source: "codex", users: 1 }]);
+  });
+
+  it("never lets one member vote twice, however many agents they touch", () => {
+    const tally: WeekTally = new Map();
+    member(tally, [
+      ["2026-08-17", "claude", 5_000],
+      ["2026-08-17", "codex", 100],
+      ["2026-08-17", "grok", 50],
     ]);
-    const [day] = resolveWeekWinners(map, ["2026-08-17"]);
+    const day = winnersOf(tally, "2026-08-17");
+    expect(day.counts.reduce((sum, c) => sum + c.users, 0)).toBe(1);
+    expect(day.winners).toEqual(["claude"]);
+  });
+
+  it("counts a member once no matter how many blocks they synced", () => {
+    const tally: WeekTally = new Map();
+    member(tally, [
+      ["2026-08-17", "claude", 10],
+      ["2026-08-17", "claude", 10],
+      ["2026-08-17", "claude", 10],
+    ]);
+    expect(winnersOf(tally, "2026-08-17").counts).toEqual([{ source: "claude", users: 1 }]);
+  });
+
+  it("elects the majority's main agent, not the loudest member", () => {
+    const tally: WeekTally = new Map();
+    // A whale on Codex against two lighter Claude users.
+    member(tally, [["2026-08-17", "codex", 900_000_000]]);
+    member(tally, [["2026-08-17", "claude", 20]]);
+    member(tally, [["2026-08-17", "claude", 20]]);
+    const day = winnersOf(tally, "2026-08-17");
     expect(day.winners).toEqual(["claude"]);
     expect(day.counts).toEqual([
       { source: "claude", users: 2 },
@@ -77,48 +115,66 @@ describe("resolveWeekWinners", () => {
     ]);
   });
 
-  it("counts each member once no matter how many blocks they synced", () => {
-    const map = tally([
-      ["2026-08-17", "claude", "u1"],
-      ["2026-08-17", "claude", "u1"],
-      ["2026-08-17", "claude", "u1"],
-      ["2026-08-17", "codex", "u2"],
-      ["2026-08-17", "codex", "u3"],
-    ]);
-    expect(resolveWeekWinners(map, ["2026-08-17"])[0].winners).toEqual(["codex"]);
+  it("keeps a member's vote where their work was, not where their dabbling was", () => {
+    const tally: WeekTally = new Map();
+    // Everyone touches Codex briefly but works in Claude: Claude should win.
+    for (let i = 0; i < 3; i++) {
+      member(tally, [["2026-08-17", "claude", 50_000], ["2026-08-17", "codex", 500]]);
+    }
+    expect(winnersOf(tally, "2026-08-17").counts).toEqual([{ source: "claude", users: 3 }]);
   });
 
-  it("does not let one heavy user outvote a larger head count", () => {
-    const map = tally([
-      ["2026-08-17", "codex", "whale", 999_999_999],
-      ["2026-08-17", "claude", "u1", 10],
-      ["2026-08-17", "claude", "u2", 10],
-    ]);
-    expect(resolveWeekWinners(map, ["2026-08-17"])[0].winners).toEqual(["claude"]);
+  it("votes per day, so a member can back different agents across the week", () => {
+    const tally: WeekTally = new Map();
+    member(tally, [["2026-08-17", "claude", 900], ["2026-08-18", "codex", 900]]);
+    const [mon, tue] = resolveWeekWinners(tally, ["2026-08-17", "2026-08-18"]);
+    expect(mon.winners).toEqual(["claude"]);
+    expect(tue.winners).toEqual(["codex"]);
   });
 
-  it("breaks an equal head count with that day's token volume", () => {
-    const map = tally([
-      ["2026-08-17", "claude", "u1", 100],
-      ["2026-08-17", "codex", "u2", 500],
+  it("still elects an agent on a day whose blocks carry no billable tokens", () => {
+    const tally: WeekTally = new Map();
+    member(tally, [
+      ["2026-08-17", "codex", 0],
+      ["2026-08-17", "codex", 0],
+      ["2026-08-17", "claude", 0],
     ]);
-    expect(resolveWeekWinners(map, ["2026-08-17"])[0].winners).toEqual(["codex"]);
+    expect(winnersOf(tally, "2026-08-17").winners).toEqual(["codex"]);
+  });
+});
+
+describe("resolveWeekWinners", () => {
+  it("breaks an equal vote count with the voters' token volume", () => {
+    const tally: WeekTally = new Map();
+    member(tally, [["2026-08-17", "claude", 100]]);
+    member(tally, [["2026-08-17", "codex", 500]]);
+    expect(winnersOf(tally, "2026-08-17").winners).toEqual(["codex"]);
   });
 
-  it("reports every tied source when users and tokens both match", () => {
-    const map = tally([
-      ["2026-08-17", "claude", "u1", 100],
-      ["2026-08-17", "codex", "u2", 100],
-      ["2026-08-17", "grok", "u3", 5],
-    ]);
-    const [day] = resolveWeekWinners(map, ["2026-08-17"]);
-    expect(day.winners).toEqual(["claude", "codex"]);
+  it("reports every tied agent when votes and tokens both match", () => {
+    const tally: WeekTally = new Map();
+    member(tally, [["2026-08-17", "claude", 100]]);
+    member(tally, [["2026-08-17", "codex", 100]]);
+    member(tally, [["2026-08-17", "grok", 5]]);
+    expect(winnersOf(tally, "2026-08-17").winners).toEqual(["claude", "codex"]);
   });
 
   it("keeps quiet days as explicit gaps in the row", () => {
-    const map = tally([["2026-08-19", "claude", "u1"]]);
-    const days = resolveWeekWinners(map, ["2026-08-17", "2026-08-18", "2026-08-19"]);
+    const tally: WeekTally = new Map();
+    member(tally, [["2026-08-19", "claude", 100]]);
+    const days = resolveWeekWinners(tally, ["2026-08-17", "2026-08-18", "2026-08-19"]);
     expect(days.map((d) => d.winners)).toEqual([[], [], ["claude"]]);
     expect(days[0].counts).toEqual([]);
+  });
+
+  it("orders the tooltip breakdown by votes", () => {
+    const tally: WeekTally = new Map();
+    member(tally, [["2026-08-17", "grok", 10]]);
+    member(tally, [["2026-08-17", "claude", 10]]);
+    member(tally, [["2026-08-17", "claude", 10]]);
+    expect(winnersOf(tally, "2026-08-17").counts).toEqual([
+      { source: "claude", users: 2 },
+      { source: "grok", users: 1 },
+    ]);
   });
 });

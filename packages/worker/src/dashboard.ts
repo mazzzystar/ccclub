@@ -563,7 +563,7 @@ function dashboardHTML(
     .ww-slot.tie img { width: 10px; height: 10px; }
     .ww-slot.quiet { background: transparent; border-style: dashed; }
     .ww-slot.pending { background: transparent; border-color: var(--line-soft); opacity: 0.45; }
-    .ww-slot.today { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(212,147,94,0.14); }
+    .ww-slot.today { border-color: var(--success); box-shadow: 0 0 0 2px rgba(99,180,134,0.15); }
     .ww-tally { color: var(--muted); font-size: 12px; }
     .ww-tally b { color: var(--text); font-weight: 650; }
     .name-link { color: inherit; text-decoration: none; }
@@ -678,8 +678,8 @@ function dashboardHTML(
     <h1 id="title">${isGlobal ? "Global Rankings" : ""}</h1>
     <div class="subtitle" id="date-range">${isGlobal ? "Coding-agent usage leaderboard · opt-in · updates live" : ""}</div>
     <div class="agent-summary" id="agent-summary">${isGlobal ? "Claude Code · Codex · OpenCode · Amp · Grok · Pi" : ""}</div>
-    <div class="active-count" id="active-count"></div>
     <div class="week-winners" id="week-winners"></div>
+    <div class="active-count" id="active-count"></div>
 
     <div class="periods">
       <button class="active" data-period="daily">Today</button>

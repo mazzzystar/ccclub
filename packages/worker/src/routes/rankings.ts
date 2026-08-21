@@ -10,8 +10,8 @@ import type {
   RankResponse,
 } from "@ccclub/shared";
 import { localDayKey } from "../activity-core.js";
-import { currentWeekDays, resolveWeekWinners, tallyDay, weekWindowUtc } from "../week-winners.js";
-import type { WeekTally } from "../week-winners.js";
+import { castMemberVotes, currentWeekDays, noteMemberBlock, resolveWeekWinners, weekWindowUtc } from "../week-winners.js";
+import type { MemberWeek, WeekTally } from "../week-winners.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -129,12 +129,6 @@ export async function computeGlobalRankings(env: Env, period: RankingPeriod, tz:
   const monthEndMs = monthEnd.getTime();
   const isMonthly = period === "monthly";
 
-  // The week bar is period-independent, so it rides along on whichever
-  // traversal the selected tab already pays for.
-  const nowMs = Date.now();
-  const week = weekWindowUtc(nowMs, tz);
-  const weekTally: WeekTally = new Map();
-
   // Fetch all usage data and user groups in parallel
   const [usageResults, groupsResults] = await Promise.all([
     Promise.all(publicUsers.map((id) => env.KV.get<UsageData>(`usage:${id}`, "json"))),
@@ -212,9 +206,6 @@ export async function computeGlobalRankings(env: Env, period: RankingPeriod, tz:
         }
       }
       const blockTime = new Date(block.blockStart).getTime();
-      if (hasUsage(block) && blockTime >= week.startMs && blockTime < week.endMs) {
-        tallyDay(weekTally, localDayKey(blockTime, tz), blockSource, userId, getNonCacheTokens(block));
-      }
       if (blockTime >= startMs && blockTime < endMs) {
         const source = blockSource;
         totalTokens += block.totalTokens;
@@ -275,7 +266,6 @@ export async function computeGlobalRankings(env: Env, period: RankingPeriod, tz:
     start: start.toISOString(),
     end: end.toISOString(),
     rankings: entries,
-    weekWinners: resolveWeekWinners(weekTally, currentWeekDays(nowMs, tz)),
   };
 }
 
@@ -319,7 +309,9 @@ app.get("/rank/:code", async (c) => {
   const monthEndMs = monthEnd.getTime();
   const isMonthly = period === "monthly";
 
-  // Same free ride as the global board: the week bar reuses this traversal.
+  // The week bar is period-independent, so it rides along on whichever
+  // traversal the selected tab already pays for. Groups only — the global
+  // board stays a plain leaderboard.
   const nowMs = Date.now();
   const week = weekWindowUtc(nowMs, tz);
   const weekTally: WeekTally = new Map();
@@ -351,6 +343,8 @@ app.get("/rank/:code", async (c) => {
     const agents = new Set<AgentSource>();
     const agentTotals = new Map<AgentSource, AgentTotals>();
 
+    const memberWeek: MemberWeek = new Map();
+
     if (usage) {
       for (const block of usage.blocks) {
         if (!isRankedSource(block.source)) continue;
@@ -364,7 +358,7 @@ app.get("/rank/:code", async (c) => {
         }
         const blockTime = new Date(block.blockStart).getTime();
         if (hasUsage(block) && blockTime >= week.startMs && blockTime < week.endMs) {
-          tallyDay(weekTally, localDayKey(blockTime, tz), blockSource, member.userId, getNonCacheTokens(block));
+          noteMemberBlock(memberWeek, localDayKey(blockTime, tz), blockSource, getNonCacheTokens(block));
         }
         if (blockTime >= startMs && blockTime < endMs) {
           const source = blockSource;
@@ -385,6 +379,9 @@ app.get("/rank/:code", async (c) => {
         }
       }
     }
+
+    // This member's week is complete: turn it into one vote per day they coded.
+    castMemberVotes(weekTally, memberWeek);
 
     const entry: RankingEntry = {
       rank: 0,

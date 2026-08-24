@@ -15,6 +15,12 @@ export type ProjectListChange =
   | { ok: true; projects: MemberProject[]; removed?: MemberProject }
   | { ok: false; error: string };
 
+/** Confirm that the profile response reflects the exact replacement sent. */
+export function projectListsMatch(expected: MemberProject[], returned: unknown): boolean {
+  const normalized = returned === undefined ? [] : returned;
+  return Array.isArray(normalized) && JSON.stringify(normalized) === JSON.stringify(expected);
+}
+
 /**
  * Add or update one project. Names are matched case-insensitively: adding a
  * name that is already listed re-points it instead of listing it twice, and
@@ -106,7 +112,8 @@ async function fetchProjects(config: { apiUrl: string; token: string }): Promise
   return profile.projects || [];
 }
 
-async function saveProjects(
+/** @internal exported for response-contract tests. */
+export async function saveProjects(
   config: { apiUrl: string; token: string },
   projects: MemberProject[],
 ): Promise<MemberProject[]> {
@@ -124,6 +131,9 @@ async function saveProjects(
     throw new Error((err as { error?: string }).error || "failed to update projects");
   }
   const profile = (await res.json()) as ProfileResponse;
+  if (!projectListsMatch(projects, profile.projects)) {
+    throw new Error("server did not save projects; its ccclub API may be out of date");
+  }
   return profile.projects || [];
 }
 

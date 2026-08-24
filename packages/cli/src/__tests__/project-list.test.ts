@@ -1,7 +1,9 @@
-import { describe, it, expect } from "vitest";
-import { withProjectAdded, withProjectRemoved } from "../commands/project.js";
+import { afterEach, describe, it, expect, vi } from "vitest";
+import { projectListsMatch, saveProjects, withProjectAdded, withProjectRemoved } from "../commands/project.js";
 
 const ccclub = { name: "ccclub", url: "https://github.com/mazzzystar/ccclub" };
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("withProjectAdded", () => {
   it("appends a project with an optional URL", () => {
@@ -65,5 +67,35 @@ describe("withProjectRemoved", () => {
   it("reports a name that is not listed", () => {
     const result = withProjectRemoved([ccclub], "nope");
     expect(result).toMatchObject({ ok: false, error: expect.stringContaining('No project named "nope"') });
+  });
+});
+
+describe("projectListsMatch", () => {
+  it("requires the server to echo the requested replacement", () => {
+    expect(projectListsMatch([ccclub], [ccclub])).toBe(true);
+    expect(projectListsMatch([ccclub], undefined)).toBe(false);
+    expect(projectListsMatch([ccclub], [])).toBe(false);
+    expect(projectListsMatch([ccclub], { projects: [ccclub] })).toBe(false);
+  });
+
+  it("treats an omitted empty list as a successful clear", () => {
+    expect(projectListsMatch([], undefined)).toBe(true);
+    expect(projectListsMatch([], [])).toBe(true);
+  });
+
+  it("makes a successful HTTP response fail when the server ignored the write", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      displayName: "Test",
+      avatar: "",
+      visibility: "private",
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })));
+
+    await expect(saveProjects(
+      { apiUrl: "https://example.test", token: "test-token" },
+      [ccclub],
+    )).rejects.toThrow("server did not save projects");
   });
 });

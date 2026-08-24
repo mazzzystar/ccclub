@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GroupRecord, MemberProject, RankResponse, UsageBlock, UsageData } from "@ccclub/shared";
 import type { Env } from "../types.js";
-import { rankRoutes } from "./rankings.js";
+import { agentSharePercent, rankRoutes } from "./rankings.js";
 
 function nowBlock(): UsageBlock {
   const start = new Date();
@@ -91,5 +91,16 @@ describe("GET /rank/global", () => {
     expect(response.status).toBe(200);
     const data = await response.json() as RankResponse;
     expect(data.rankings[0].projects).toEqual(projects);
+  });
+});
+
+describe("agentSharePercent", () => {
+  it("preserves non-zero agent shares below one percent", () => {
+    expect(agentSharePercent(54.0407, 75_452.4498)).toBe(0.07);
+  });
+
+  it("returns zero only when the numerator or denominator is zero", () => {
+    expect(agentSharePercent(0, 100)).toBe(0);
+    expect(agentSharePercent(10, 0)).toBe(0);
   });
 });

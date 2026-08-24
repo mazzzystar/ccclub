@@ -4,7 +4,7 @@ import type { Env } from "./types.js";
 import { isRankedSource, computeActivityStats, activityLevelFor, ACTIVITY_LEVEL_THRESHOLDS } from "@ccclub/shared";
 import type { UsageData, UsageBlock, GroupRecord, DayTotal } from "@ccclub/shared";
 import { cachedPngResponse, getColor, hashCode, latinOnly, ogCacheUrl, renderToPng } from "./og-utils.js";
-import { localDayKey, aggregateDays, fmtTokensShort, activityOgSvg } from "./activity-core.js";
+import { localDayKey, aggregateDays, fmtTokensShort, activityOgSvg, cumulativeSeries, gridTicks } from "./activity-core.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -198,7 +198,7 @@ function activityPageHTML(handle: string, ogTitle: string, ogDesc: string) {
       --bg: #1a1816; --surface: #201e1c; --surface-soft: #24211f;
       --line: #332f2b; --line-soft: #282521;
       --text: #e8e4de; --title: #f1ede7; --muted: #8a8480; --faint: #5a5550;
-      --brand: #d4935e; --link: #7ab7c6;
+      --brand: #d4935e; --link: #7ab7c6; --success: #63b486;
       --cell-0: #242019;
       /* Three GitHub-style dim-to-bright ramps: hue = tier, depth = position. */
       --cell-1: #164430; --cell-2: #1a6b3e; --cell-3: #2aa155; --cell-4: #46d371;    /* green  */
@@ -249,7 +249,33 @@ function activityPageHTML(handle: string, ogTitle: string, ogDesc: string) {
     }
 
     .card { border: 1px solid var(--line-soft); border-radius: 14px; background: var(--surface); padding: 20px; }
+    .card + .card { margin-top: 20px; }
     .card h2 { font-size: 15px; color: var(--title); margin-bottom: 14px; }
+    .mini-label { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+
+    /* Cumulative curve. Its colors live here rather than on the SVG so the
+       chart follows the palette; presentation attributes can't read var(). */
+    .curve { display: block; width: 100%; height: auto; margin-top: 4px; }
+    .curve-grid { stroke: var(--line-soft); }
+    .curve-area { fill: url(#curveFade); }
+    .curve-fade-top { stop-color: var(--success); stop-opacity: 0.30; }
+    .curve-fade-bottom { stop-color: var(--success); stop-opacity: 0; }
+    .curve-line { fill: none; stroke: var(--success); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+    .curve-tick { fill: var(--muted); font-size: 11px; }
+    .curve-total { fill: var(--text); font-size: 12px; font-weight: 600; }
+    .curve-dot { fill: var(--success); stroke: var(--surface); stroke-width: 2; }
+    .curve-cross { stroke: var(--line); }
+    /* Name and URL travel together as one centered credit; on a narrow card
+       the pair wraps to two lines rather than squeezing the name out. */
+    .curve-caption {
+      display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline;
+      gap: 3px 12px; margin-top: 8px; font-size: 12px;
+    }
+    .curve-caption .who { color: var(--text); font-weight: 500; }
+    .curve-caption .where {
+      color: var(--muted);
+      min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
     .map-scroll { overflow-x: auto; padding-bottom: 4px; }
     .map { display: inline-block; }
     .months { display: flex; margin-left: 30px; font-size: 11px; color: var(--faint); height: 16px; }
@@ -332,6 +358,126 @@ function activityPageHTML(handle: string, ogTitle: string, ogDesc: string) {
       return level;
     }
 
+    // ── Cumulative token curve ───────────────────────────────
+    // Points for the curve, plus the width we last drew them at. Null means
+    // there is nothing worth charting and the section was never emitted.
+    var CURVE = null;
+    var CURVE_W = 0;
+
+    // Serialized straight out of activity-core.ts, where they are unit-tested:
+    // the page can't import a module, and this maths deserves tests.
+    var cumulativeSeries = ${raw(String(cumulativeSeries))};
+    var gridTicks = ${raw(String(gridTicks))};
+
+    function monthLabel(key) {
+      return new Date(dayMs(key)).toLocaleString("en", { month: "short", year: "numeric", timeZone: "UTC" });
+    }
+
+    /** Build (or rebuild, after a resize) the chart inside its container. */
+    function drawCurve() {
+      var host = document.getElementById("curve");
+      if (!host || !CURVE) return;
+      var pts = CURVE;
+      var W = Math.max(320, Math.round(host.clientWidth || 640));
+      if (Math.abs(W - CURVE_W) < 2) return;
+      CURVE_W = W;
+      try {
+        // Gutters: tick labels left, the end label right, dates underneath.
+        var H = 200, x0 = 52, x1 = W - 58, y0 = 16, y1 = H - 24;
+        var n = pts.length;
+        var last = pts[n - 1].v;
+        var top = last * 1.08;
+        var xAt = function(i) { return x0 + (x1 - x0) * i / (n - 1); };
+        var yAt = function(v) { return y1 - (y1 - y0) * v / top; };
+
+        var grid = "";
+        var ticks = gridTicks(top);
+        for (var g = 0; g < ticks.length; g++) {
+          var gy = Math.round(yAt(ticks[g])) + 0.5;
+          grid += '<line class="curve-grid" x1="' + x0 + '" y1="' + gy + '" x2="' + x1 + '" y2="' + gy + '"/>' +
+                  '<text class="curve-tick" x="' + (x0 - 8) + '" y="' + (gy + 4) + '" text-anchor="end">' + fmtTokens(ticks[g]) + "</text>";
+        }
+
+        var xy = [];
+        for (var i = 0; i < n; i++) xy.push(xAt(i).toFixed(1) + "," + yAt(pts[i].v).toFixed(1));
+        var area = "M" + x0 + "," + y1 + " L" + xy.join(" L") + " L" + x1 + "," + y1 + " Z";
+
+        // 3–5 dates, deduped: a span inside one month shouldn't repeat itself.
+        var k = Math.min(5, Math.max(3, Math.round((x1 - x0) / 150)));
+        var dates = "";
+        var seen = "";
+        for (var t = 0; t < k; t++) {
+          var idx = Math.round((n - 1) * t / (k - 1));
+          var label = monthLabel(pts[idx].d);
+          if (label === seen) continue;
+          seen = label;
+          var anchor = t === 0 ? "start" : t === k - 1 ? "end" : "middle";
+          dates += '<text class="curve-tick" x="' + xAt(idx).toFixed(1) + '" y="' + (H - 5) + '" text-anchor="' + anchor + '">' + esc(label) + "</text>";
+        }
+
+        var ex = xAt(n - 1), ey = yAt(last);
+        host.innerHTML =
+          '<svg class="curve" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Cumulative tokens: ' + fmtTokens(last) + '">' +
+            '<defs><linearGradient id="curveFade" x1="0" y1="0" x2="0" y2="1">' +
+              '<stop class="curve-fade-top" offset="0"/><stop class="curve-fade-bottom" offset="1"/>' +
+            "</linearGradient></defs>" +
+            '<rect width="' + W + '" height="' + H + '" fill="transparent"/>' +
+            grid + dates +
+            '<path class="curve-area" d="' + area + '"/>' +
+            '<polyline class="curve-line" points="' + xy.join(" ") + '"/>' +
+            '<line class="curve-cross" x1="0" y1="' + y0 + '" x2="0" y2="' + y1 + '" style="display:none"/>' +
+            '<circle class="curve-dot curve-hit" cx="0" cy="0" r="3.5" style="display:none"/>' +
+            '<circle class="curve-dot" cx="' + ex.toFixed(1) + '" cy="' + ey.toFixed(1) + '" r="3.5"/>' +
+            '<text class="curve-total" x="' + (ex + 9).toFixed(1) + '" y="' + (ey + 4).toFixed(1) + '">' + fmtTokens(last) + "</text>" +
+          "</svg>";
+
+        // Nearest-day crosshair. Pointer-only by design; touch just gets the line.
+        var svg = host.firstChild;
+        var cross = svg.querySelector(".curve-cross");
+        var hit = svg.querySelector(".curve-hit");
+        var tip = tooltip();
+        svg.addEventListener("mousemove", function(e) {
+          var r = svg.getBoundingClientRect();
+          if (!r.width) return;
+          var scale = r.width / W;
+          var i = Math.round(((e.clientX - r.left) / scale - x0) / (x1 - x0) * (n - 1));
+          i = Math.max(0, Math.min(n - 1, i));
+          var px = xAt(i), py = yAt(pts[i].v);
+          cross.setAttribute("x1", px);
+          cross.setAttribute("x2", px);
+          cross.style.display = "";
+          hit.setAttribute("cx", px);
+          hit.setAttribute("cy", py);
+          hit.style.display = "";
+          tip.textContent = pts[i].d + " · " + fmtTokens(pts[i].v) + " tokens";
+          tip.style.display = "block";
+          var left = e.clientX - tip.offsetWidth / 2;
+          tip.style.left = Math.max(6, Math.min(left, window.innerWidth - tip.offsetWidth - 6)) + "px";
+          tip.style.top = (r.top + py * scale - tip.offsetHeight - 12) + "px";
+        });
+        svg.addEventListener("mouseleave", function() {
+          cross.style.display = "none";
+          hit.style.display = "none";
+          tip.style.display = "none";
+        });
+      } catch (err) {
+        // A chart that can't be drawn takes its own section down with it.
+        CURVE = null;
+        if (host.parentNode && host.parentNode.parentNode) host.parentNode.parentNode.removeChild(host.parentNode);
+      }
+    }
+
+    // Shared with the heatmap: title attributes are slow and unreliable here.
+    var tipEl = null;
+    function tooltip() {
+      if (!tipEl) {
+        tipEl = document.createElement("div");
+        tipEl.className = "tip";
+        document.body.appendChild(tipEl);
+      }
+      return tipEl;
+    }
+
     function render(data) {
       var byDay = {};
       data.days.forEach(function(d) { byDay[d.d] = d; });
@@ -382,6 +528,35 @@ function activityPageHTML(handle: string, ogTitle: string, ogDesc: string) {
       if (data.plan === "api") sub.push('<span class="plan-badge">API</span>');
       if (data.url) sub.push('<a class="ext-link" href="' + esc(data.url) + '" target="_blank" rel="noopener">' + esc(data.url.replace(/^https:\\/\\//, "")) + "</a>");
 
+      // The trajectory chart. Anything odd in the day list just costs us the
+      // section — it must never take the rest of the page down.
+      var curve = "";
+      try {
+        // The API sends the last ~year of days while the stats cover all time,
+        // so seed the sum with whatever fell off the window: the curve has to
+        // land on the same number as the Total tokens stat above it.
+        var windowTokens = 0;
+        data.days.forEach(function(day) { windowTokens += day.tokens || 0; });
+        CURVE = cumulativeSeries(data.days, data.today, (s.totalTokens || 0) - windowTokens);
+        if (CURVE.length) {
+          curve =
+            '<div class="card">' +
+              '<div class="mini-label">Cumulative tokens</div>' +
+              '<div id="curve"></div>' +
+              // Plain text, not a link: this row exists so a screenshot of the
+              // chart still says whose it is and where it lives.
+              '<div class="curve-caption">' +
+                '<span class="who">' + esc(data.displayName) + "</span>" +
+                '<span class="where">ccclub.dev/u/' + esc(data.slug || HANDLE) + "</span>" +
+              "</div>" +
+            "</div>";
+        } else {
+          CURVE = null;
+        }
+      } catch (err) {
+        CURVE = null;
+      }
+
       document.getElementById("content").innerHTML =
         '<div class="profile">' + avatar +
           "<h1>" + esc(data.displayName) + "</h1>" +
@@ -394,6 +569,7 @@ function activityPageHTML(handle: string, ogTitle: string, ogDesc: string) {
           '<div class="stat"><div class="v">' + s.currentStreak + '</div><div class="k">Current streak</div></div>' +
           '<div class="stat"><div class="v">' + s.longestStreak + '</div><div class="k">Longest streak</div></div>' +
         "</div>" +
+        curve +
         '<div class="card"><h2>Token activity</h2>' +
           '<div class="map-scroll"><div class="map">' +
             '<div class="months">' + monthCells + "</div>" + rows +
@@ -407,6 +583,14 @@ function activityPageHTML(handle: string, ogTitle: string, ogDesc: string) {
         "</div>";
       document.title = data.displayName + " — ccclub activity";
 
+      // Drawn at the container's own pixel width so the labels keep their real
+      // size; below the 320 floor the whole chart scales down with the card.
+      // A width change is the only thing worth redrawing for.
+      if (CURVE) {
+        drawCurve();
+        window.addEventListener("resize", drawCurve);
+      }
+
       // On narrow screens the grid overflows; land on the recent end, not
       // a year ago, and let the user scroll back in time.
       var scroller = document.querySelector(".map-scroll");
@@ -417,10 +601,7 @@ function activityPageHTML(handle: string, ogTitle: string, ogDesc: string) {
         history.replaceState(null, "", "/u/" + encodeURIComponent(data.slug));
       }
 
-      // Real tooltip — title attributes are slow and unreliable on tight grids.
-      var tip = document.createElement("div");
-      tip.className = "tip";
-      document.body.appendChild(tip);
+      var tip = tooltip();
       var map = document.querySelector(".map");
       map.addEventListener("mouseover", function(e) {
         var t = e.target;

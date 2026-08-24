@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { aggregateDays, localDayKey, activityOgSvg } from "./activity-core.js";
+import { aggregateDays, localDayKey, activityOgSvg, cumulativeSeries, gridTicks } from "./activity-core.js";
 import { computeActivityStats as computeStats } from "@ccclub/shared";
 import type { UsageBlock } from "@ccclub/shared";
 
@@ -80,6 +80,107 @@ describe("computeStats", () => {
     const one = computeStats(mk([["2026-08-18", 5]]), "2026-08-18");
     expect(one.currentStreak).toBe(1);
     expect(one.longestStreak).toBe(1);
+  });
+});
+
+// These two ship to the browser as serialized source (see activity-core.ts),
+// so this is the only place they get exercised.
+describe("cumulativeSeries", () => {
+  const day = (d: string, tokens: number) => ({ d, tokens });
+
+  it("carries the running total across idle days", () => {
+    const pts = cumulativeSeries([day("2026-08-01", 10), day("2026-08-04", 5)], "2026-08-05", 0);
+    expect(pts.map((p) => `${p.d}:${p.v}`)).toEqual([
+      "2026-08-01:10", "2026-08-02:10", "2026-08-03:10", "2026-08-04:15", "2026-08-05:15",
+    ]);
+  });
+
+  it("never goes backwards, whatever order the days arrive in", () => {
+    const pts = cumulativeSeries([day("2026-08-04", 5), day("2026-08-01", 10), day("2026-08-02", 1)], "2026-08-04", 0);
+    expect(pts.map((p) => p.v)).toEqual([10, 11, 11, 16]);
+  });
+
+  it("skips a user with fewer than two active days", () => {
+    expect(cumulativeSeries([day("2026-08-01", 10)], "2026-08-05", 0)).toEqual([]);
+    expect(cumulativeSeries([day("2026-08-01", 0), day("2026-08-02", 0)], "2026-08-05", 0)).toEqual([]);
+    expect(cumulativeSeries([], "2026-08-05", 0)).toEqual([]);
+  });
+
+  it("ends on the all-time total when seeded with the days it wasn't given", () => {
+    // What the page does: the API sends a window, the stats cover all time.
+    const windowed = [day("2026-08-01", 10), day("2026-08-02", 5)];
+    const allTime = 400;
+    const carry = allTime - windowed.reduce((sum, d) => sum + d.tokens, 0);
+    const pts = cumulativeSeries(windowed, "2026-08-02", carry);
+    expect(pts[pts.length - 1].v).toBe(allTime);
+    expect(pts[0].v).toBe(395);
+  });
+
+  it("ignores a negative seed and malformed days", () => {
+    const junk = [null, { tokens: 5 }, { d: 7, tokens: 5 }, day("2026-08-01", 10), day("2026-08-02", 5)];
+    const pts = cumulativeSeries(junk as Array<{ d: string; tokens: number }>, "2026-08-02", -7);
+    expect(pts.map((p) => p.v)).toEqual([10, 15]);
+  });
+
+  it("adds string token counts instead of concatenating them", () => {
+    const wire = [{ d: "2026-08-01", tokens: "5" }, { d: "2026-08-03", tokens: "7" }];
+    const pts = cumulativeSeries(wire as unknown as Array<{ d: string; tokens: number }>, "2026-08-03", 0);
+    expect(pts.map((p) => p.v)).toEqual([5, 5, 12]);
+  });
+
+  it("drops the oldest days, not the newest, when the span outruns the cap", () => {
+    const start = Date.parse("2024-01-01T00:00:00Z");
+    // Only the last 800 days are drawn; days 0 and 100 fall outside it.
+    const days = [0, 100, 900, 1000].map((n) => day(new Date(start + n * 86_400_000).toISOString().slice(0, 10), 10));
+    const today = days[days.length - 1].d;
+    const pts = cumulativeSeries(days, today, 0);
+    expect(pts.length).toBe(800);
+    expect(pts[pts.length - 1].d).toBe(today);
+    // Everything that fell off the front is still in the total.
+    expect(pts[pts.length - 1].v).toBe(40);
+    expect(pts[0].v).toBe(20);
+  });
+
+  it("returns nothing for dates it can't make sense of", () => {
+    expect(cumulativeSeries([day("2026-08-01", 1), day("2026-08-02", 1)], "nonsense", 0)).toEqual([]);
+    expect(cumulativeSeries([day("2026-08-08", 1), day("2026-08-09", 1)], "2026-08-01", 0)).toEqual([]);
+  });
+
+  it("steps one calendar day at a time across a DST boundary", () => {
+    // US DST ends 2026-11-01; the series is UTC-keyed and shouldn't stutter.
+    const pts = cumulativeSeries([day("2026-10-30", 1), day("2026-11-03", 1)], "2026-11-03", 0);
+    expect(pts.map((p) => p.d)).toEqual([
+      "2026-10-30", "2026-10-31", "2026-11-01", "2026-11-02", "2026-11-03",
+    ]);
+  });
+});
+
+describe("gridTicks", () => {
+  it("keeps 2 to 4 gridlines across every realistic total", () => {
+    for (let exp = 3; exp <= 13; exp++) {
+      for (const mantissa of [1, 1.3, 2, 2.5, 3, 4, 4.2, 5, 6.7, 8, 9.9]) {
+        const total = Math.round(mantissa * 10 ** exp);
+        const top = total * 1.08; // the headroom the chart draws with
+        const ticks = gridTicks(top);
+        expect(ticks.length, `total ${total}`).toBeGreaterThanOrEqual(2);
+        expect(ticks.length, `total ${total}`).toBeLessThanOrEqual(4);
+        expect(ticks[0]).toBe(0);
+        expect(ticks[ticks.length - 1]).toBeLessThanOrEqual(top);
+        // The top gridline has to be a useful reference, not a floor-hugger.
+        expect(ticks[ticks.length - 1]).toBeGreaterThan(top / 2);
+      }
+    }
+  });
+
+  it("spaces ticks evenly on a 1, 2 or 5 step", () => {
+    expect(gridTicks(1.24e9 * 1.08)).toEqual([0, 5e8, 1e9]);
+    expect(gridTicks(4.2e9 * 1.08)).toEqual([0, 2e9, 4e9]);
+    expect(gridTicks(300 * 1.08)).toEqual([0, 100, 200, 300]);
+  });
+
+  it("gives up rather than loop on a degenerate range", () => {
+    expect(gridTicks(0)).toEqual([]);
+    expect(gridTicks(-5)).toEqual([]);
   });
 });
 

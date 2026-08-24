@@ -31,6 +31,70 @@ export function aggregateDays(blocks: UsageBlock[], tzMinutes: number): Map<stri
 }
 
 
+// ── Cumulative curve (runs in the browser) ───────────────────
+// The activity page serializes these two with String() — a page script can't
+// import a module — so they have to stay self-contained: no imports, no
+// closures, nothing but their arguments, in the same plain-var idiom as the
+// rest of that script. Unit-tested here, shipped there.
+
+/**
+ * Running token total per calendar day, from the first active day through
+ * `todayKey`. Idle days carry the sum forward so a quiet week reads as a flat
+ * stretch instead of vanishing into a compressed axis. `carry` seeds the sum
+ * with history the caller knows about but didn't pass in.
+ */
+export function cumulativeSeries(
+  days: Array<{ d: string; tokens: number }>,
+  todayKey: string,
+  carry: number,
+): Array<{ d: string; v: number }> {
+  var byDay: Record<string, number> = {};
+  var active = 0;
+  var first = "";
+  for (var i = 0; i < days.length; i++) {
+    var day = days[i];
+    // The payload comes off the wire; treat every field as a rumour.
+    if (!day || typeof day.d !== "string" || !(day.tokens > 0)) continue;
+    if (!byDay[day.d]) active++;
+    byDay[day.d] = (byDay[day.d] || 0) + +day.tokens;
+    if (!first || day.d < first) first = day.d;
+  }
+  if (active < 2) return [];
+  var ms = Date.parse(first + "T00:00:00Z");
+  var endMs = Date.parse(todayKey + "T00:00:00Z");
+  if (!isFinite(ms) || !isFinite(endMs) || endMs < ms) return [];
+  // Cap the drawn span from the recent end, so a wider API window would cost
+  // us the oldest flat stretch rather than the total the chart labels.
+  ms = Math.max(ms, endMs - 799 * 86400000);
+  var startKey = new Date(ms).toISOString().slice(0, 10);
+  var sum = carry > 0 ? carry : 0;
+  for (var key in byDay) if (key < startKey) sum += byDay[key];
+  var pts: Array<{ d: string; v: number }> = [];
+  for (; ms <= endMs; ms += 86400000) {
+    var dayKey = new Date(ms).toISOString().slice(0, 10);
+    sum += byDay[dayKey] || 0;
+    pts.push({ d: dayKey, v: sum });
+  }
+  return pts.length > 1 && sum > 0 ? pts : [];
+}
+
+/**
+ * Gridline values from 0 up to `top`, spaced on a 1/2/5 × 10ⁿ step. Aiming at
+ * quarters keeps it to 2–4 lines: half the range rounded up can only ever
+ * produce one line above the baseline.
+ */
+export function gridTicks(top: number): number[] {
+  if (!(top > 0)) return []; // log10(0) is -Infinity and every tick lands on 0
+  var raw = top / 4;
+  var mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  var norm = raw / mag;
+  var step = (norm > 5 ? 10 : norm > 2 ? 5 : norm > 1 ? 2 : 1) * mag;
+  var ticks: number[] = [];
+  for (var i = 0; i < 8 && i * step <= top; i++) ticks.push(i * step);
+  return ticks;
+}
+
+
 export function fmtTokensShort(n: number): string {
   if (n >= 1e12) return `${(n / 1e12).toFixed(1)}T`;
   if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;

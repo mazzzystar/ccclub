@@ -4,6 +4,7 @@ import { getNonCacheTokens, isRankedSource } from "@ccclub/shared";
 import type {
   AgentSource,
   GroupRecord,
+  MemberProject,
   UsageData,
   RankingEntry,
   RankingPeriod,
@@ -24,10 +25,10 @@ import type { MemberWeek, WeekTally } from "../week-winners.js";
 const app = new Hono<{ Bindings: Env }>();
 
 const VALID_PERIODS: RankingPeriod[] = ["daily", "yesterday", "weekly", "monthly", "all-time"];
-// v9: single-agent groups no longer carry a week row at all. The key must
-// move with the meaning, or cached entries keep serving the old numbers
-// under the new label until they expire.
-const RANK_CACHE_VERSION = "v9";
+// v10: entries now carry the member's projects. The key must move with the
+// meaning, or cached entries keep serving the old numbers under the new
+// label until they expire.
+const RANK_CACHE_VERSION = "v10";
 
 type AgentTotals = { costUSD: number; totalTokens: number; nonCacheTokens: number; chatCount: number; entryCount: number };
 
@@ -157,7 +158,7 @@ export async function computeGlobalRankings(env: Env, period: RankingPeriod, tz:
   );
 
   // Resolve display info and check if any user has a plan
-  const userInfos: Array<{ displayName: string; slug?: string; avatar: string; plan?: string; url?: string }> = [];
+  const userInfos: Array<{ displayName: string; slug?: string; avatar: string; plan?: string; url?: string; projects?: MemberProject[] }> = [];
   for (let idx = 0; idx < publicUsers.length; idx++) {
     const userId = publicUsers[idx];
     let displayName = userId.slice(0, 8);
@@ -165,6 +166,7 @@ export async function computeGlobalRankings(env: Env, period: RankingPeriod, tz:
     let avatar = "";
     let plan: string | undefined;
     let url: string | undefined;
+    let projects: MemberProject[] | undefined;
     const firstCode = firstGroupCodes[idx];
     if (firstCode) {
       const group = groupMap.get(firstCode);
@@ -175,9 +177,10 @@ export async function computeGlobalRankings(env: Env, period: RankingPeriod, tz:
         avatar = member.avatar || "";
         plan = member.plan;
         url = member.url;
+        projects = member.projects;
       }
     }
-    userInfos.push({ displayName, slug, avatar, plan, url });
+    userInfos.push({ displayName, slug, avatar, plan, url, projects });
   }
   const hasPlan = userInfos.some((u) => u.plan);
 
@@ -256,6 +259,7 @@ export async function computeGlobalRankings(env: Env, period: RankingPeriod, tz:
       };
       if (info.plan) entry.plan = info.plan;
       if (info.url) entry.url = info.url;
+      if (info.projects && info.projects.length > 0) entry.projects = info.projects;
       if (hasPlan) {
         entry.monthlyCostUSD = Math.round((isMonthly ? costUSD : monthlyCost) * 10000) / 10000;
       }
@@ -413,6 +417,7 @@ app.get("/rank/:code", async (c) => {
     };
     if (member.plan) entry.plan = member.plan;
     if (member.url) entry.url = member.url;
+    if (member.projects && member.projects.length > 0) entry.projects = member.projects;
     if (hasPlan) {
       entry.monthlyCostUSD = Math.round((isMonthly ? costUSD : monthlyCost) * 10000) / 10000;
     }

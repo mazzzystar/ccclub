@@ -1,11 +1,19 @@
 import { Hono } from "hono";
 import type { Env } from "../types.js";
 import { slugifyName, isReservedSlug } from "@ccclub/shared/slug";
+import {
+  isValidProjectUrl,
+  MAX_PROJECTS,
+  MAX_PROJECT_NAME_LENGTH,
+  MAX_PROJECT_URL_LENGTH,
+} from "@ccclub/shared";
 import type {
+  GroupMember,
   InitRequest,
   InitResponse,
   JoinRequest,
   JoinResponse,
+  MemberProject,
   UserRecord,
   GroupRecord,
   ProfileUpdateRequest,
@@ -52,6 +60,63 @@ async function assignSlug(kv: KVNamespace, displayName: string, userId: string):
     }
   }
   return undefined;
+}
+
+/**
+ * Projects are user-authored text rendered on every leaderboard that shows
+ * their owner, so the server keeps only {name, url} and refuses anything it
+ * cannot vouch for rather than storing it and hoping the page escapes well.
+ */
+function parseProjects(raw: unknown): { projects: MemberProject[] } | { error: string } {
+  if (!Array.isArray(raw)) return { error: "projects must be an array" };
+  if (raw.length > MAX_PROJECTS) return { error: `too many projects (max ${MAX_PROJECTS})` };
+
+  const projects: MemberProject[] = [];
+  const names = new Set<string>();
+  for (const item of raw) {
+    if (!item || typeof item !== "object") {
+      return { error: "each project must be an object with a name" };
+    }
+    const { name, url } = item as { name?: unknown; url?: unknown };
+    if (typeof name !== "string" || !name.trim()) {
+      return { error: "project name is required" };
+    }
+    const trimmed = name.trim();
+    if (trimmed.length > MAX_PROJECT_NAME_LENGTH) {
+      return { error: `project name too long (max ${MAX_PROJECT_NAME_LENGTH})` };
+    }
+    const nameKey = trimmed.toLowerCase();
+    if (names.has(nameKey)) {
+      return { error: `duplicate project name: ${trimmed}` };
+    }
+    names.add(nameKey);
+    const project: MemberProject = { name: trimmed };
+    if (url !== undefined && url !== "") {
+      if (typeof url !== "string") {
+        return { error: `project URL must start with https:// and be at most ${MAX_PROJECT_URL_LENGTH} characters` };
+      }
+      const trimmedUrl = url.trim();
+      if (trimmedUrl.length > MAX_PROJECT_URL_LENGTH || !isValidProjectUrl(trimmedUrl)) {
+        return { error: `project URL must be a valid https:// URL at most ${MAX_PROJECT_URL_LENGTH} characters long` };
+      }
+      project.url = trimmedUrl;
+    }
+    projects.push(project);
+  }
+  return { projects };
+}
+
+function memberFromUser(user: UserRecord, joinedAt: string): GroupMember {
+  return {
+    userId: user.userId,
+    displayName: user.displayName,
+    slug: user.slug,
+    avatar: user.avatar || "",
+    plan: user.plan,
+    url: user.url,
+    projects: user.projects,
+    joinedAt,
+  };
 }
 
 function generateInviteCode(): string {
@@ -115,7 +180,7 @@ app.post("/init", async (c) => {
     code: inviteCode,
     createdBy: userId,
     createdAt: now,
-    members: [{ userId, displayName, slug, avatar: "", joinedAt: now }],
+    members: [memberFromUser(userRecord, now)],
   };
   await c.env.KV.put(`group:${inviteCode}`, JSON.stringify(groupRecord));
 
@@ -166,7 +231,7 @@ app.post("/join", async (c) => {
       userRecord.slug = await assignSlug(c.env.KV, userRecord.displayName, userRecord.userId);
       await c.env.KV.put(`token:${token}`, JSON.stringify(userRecord));
     }
-    group.members.push({ userId: userRecord.userId, displayName: userRecord.displayName, slug: userRecord.slug, avatar: userRecord.avatar || "", joinedAt: now });
+    group.members.push(memberFromUser(userRecord, now));
     await c.env.KV.put(`group:${code}`, JSON.stringify(group));
   }
 
@@ -208,7 +273,7 @@ app.post("/group/create", async (c) => {
     code: inviteCode,
     createdBy: user.userId,
     createdAt: now,
-    members: [{ userId: user.userId, displayName: user.displayName, slug: user.slug, avatar: user.avatar || "", joinedAt: now }],
+    members: [memberFromUser(user, now)],
   };
   await c.env.KV.put(`group:${inviteCode}`, JSON.stringify(groupRecord));
 
@@ -249,6 +314,14 @@ app.post("/profile", async (c) => {
   if (body.url !== undefined && body.url !== "" && (body.url.length > 200 || !body.url.startsWith("https://"))) {
     return c.json({ error: "URL must start with https:// and be at most 200 characters" }, 400);
   }
+  let projects: MemberProject[] | undefined;
+  if (body.projects !== undefined) {
+    const parsed = parseProjects(body.projects);
+    if ("error" in parsed) {
+      return c.json({ error: parsed.error }, 400);
+    }
+    projects = parsed.projects;
+  }
 
   const oldVisibility = user.visibility || "private";
   let changed = false;
@@ -275,6 +348,11 @@ app.post("/profile", async (c) => {
       changed = true;
     }
   }
+  if (projects !== undefined && JSON.stringify(projects) !== JSON.stringify(user.projects || [])) {
+    // An empty list clears the field so old records don't keep a stray [].
+    user.projects = projects.length > 0 ? projects : undefined;
+    changed = true;
+  }
   if (body.visibility !== undefined && body.visibility !== oldVisibility) {
     user.visibility = body.visibility;
   }
@@ -282,8 +360,10 @@ app.post("/profile", async (c) => {
   // Save user record
   await c.env.KV.put(`token:${token}`, JSON.stringify(user));
 
-  // Sync displayName/avatar to all groups where user is a member
-  if (changed) {
+  // Sync profile fields to all groups where the user is a member. An explicit
+  // projects write also repairs a stale group snapshot after a partial retry,
+  // even when the canonical user record already contains the same list.
+  if (changed || projects !== undefined) {
     const userGroups = (await c.env.KV.get<string[]>(`user_groups:${user.userId}`, "json")) || [];
     for (const code of userGroups) {
       const group = await c.env.KV.get<GroupRecord>(`group:${code}`, "json");
@@ -294,9 +374,16 @@ app.post("/profile", async (c) => {
         member.avatar = user.avatar;
         member.plan = user.plan;
         member.url = user.url;
+        member.projects = user.projects;
         await c.env.KV.put(`group:${code}`, JSON.stringify(group));
       }
     }
+    // Ranking entries contain profile fields, so a profile write must expire
+    // any entry computed from the old member snapshot.
+    const invalidatedAt = String(Date.now());
+    await Promise.all(
+      userGroups.map((code) => c.env.KV.put(`last_sync:${code}`, invalidatedAt)),
+    );
   }
 
   // Manage public_users list
@@ -317,6 +404,7 @@ app.post("/profile", async (c) => {
     visibility: user.visibility || "private",
     plan: user.plan,
     url: user.url,
+    projects: user.projects,
   });
 });
 
@@ -383,6 +471,7 @@ app.get("/profile", async (c) => {
     visibility: user.visibility || "private",
     plan: user.plan,
     url: user.url,
+    projects: user.projects,
   });
 });
 

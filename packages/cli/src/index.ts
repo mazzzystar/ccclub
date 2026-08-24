@@ -4,6 +4,7 @@ import { joinCommand } from "./commands/join.js";
 import { syncCommand } from "./commands/sync.js";
 import { rankCommand } from "./commands/rank.js";
 import { profileCommand } from "./commands/profile.js";
+import { projectAddCommand, projectListCommand, projectRemoveCommand } from "./commands/project.js";
 import { showDataCommand } from "./commands/show-data.js";
 import { createGroupCommand } from "./commands/group.js";
 import { leaveCommand } from "./commands/leave.js";
@@ -85,6 +86,28 @@ program
   .option("--url <url>", "Link your name to a URL (GitHub, website, etc.)")
   .action(profileCommand);
 
+const project = program
+  .command("project")
+  .description("What you're building — shown on the leaderboard (max 5)");
+
+project
+  .command("add")
+  .description("Add a project (or update its URL)")
+  .argument("<name>", "Project name (max 30 characters)")
+  .option("--url <url>", "Link the project to an https:// URL")
+  .action(projectAddCommand);
+
+project
+  .command("remove")
+  .description("Remove a project")
+  .argument("<name>", "Project name")
+  .action(projectRemoveCommand);
+
+project
+  .command("list", { isDefault: true })
+  .description("Show your projects")
+  .action(projectListCommand);
+
 program
   .command("create")
   .description("Create an additional group")
@@ -133,6 +156,11 @@ Leaderboard options:
   --global                 Global public leaderboard
   --no-cache               Exclude cache tokens from token totals
   --all                    Show all members including inactive ones
+
+Projects (max 5, shown under your name on the leaderboard):
+  ccclub project add <name> [--url https://...]
+  ccclub project remove <name>
+  ccclub project list
 
 Examples:
   $ npx ccclub init        First-time setup

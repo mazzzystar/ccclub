@@ -115,6 +115,15 @@ export function getNonCacheTokens(
     getAdditionalReasoningTokens(usage.source, usage.reasoningTokens);
 }
 
+/**
+ * Something a member is building, shown as a chip on the leaderboard. Both
+ * fields are user-authored, so anything rendering them must escape first.
+ */
+export interface MemberProject {
+  name: string;
+  url?: string;
+}
+
 // KV: token:{deviceToken} → UserRecord
 export interface UserRecord {
   userId: string;
@@ -125,6 +134,7 @@ export interface UserRecord {
   visibility: "public" | "private";  // default "private"
   plan?: string;                     // "pro" | "max100" | "max200" | "api"
   url?: string;                      // clickable link (GitHub, website, etc.)
+  projects?: MemberProject[];        // what they're building (max MAX_PROJECTS)
   createdAt: string;
 }
 
@@ -144,6 +154,7 @@ export interface GroupMember {
   avatar: string;
   plan?: string;
   url?: string;
+  projects?: MemberProject[];
   joinedAt: string;
 }
 
@@ -172,6 +183,8 @@ export interface RankingEntry {
   avatar: string;
   plan?: string;
   url?: string;
+  /** What this member is building; absent on old caches and empty lists. */
+  projects?: MemberProject[];
   totalTokens: number;
   /** Exact non-cache total; optional while older servers/caches age out. */
   nonCacheTokens?: number;
@@ -257,6 +270,8 @@ export interface ProfileUpdateRequest {
   visibility?: "public" | "private";
   plan?: string;
   url?: string;
+  /** Replaces the whole list; the server is the single source of truth. */
+  projects?: MemberProject[];
 }
 
 export interface ProfileResponse {
@@ -265,6 +280,7 @@ export interface ProfileResponse {
   visibility: "public" | "private";
   plan?: string;
   url?: string;
+  projects?: MemberProject[];
 }
 
 // API: POST /api/leave

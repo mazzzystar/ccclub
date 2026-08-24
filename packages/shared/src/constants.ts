@@ -29,6 +29,11 @@ export const CCCLUB_CONFIG_DIR = ".ccclub";
 // Invite code length
 export const INVITE_CODE_LENGTH = 6;
 
+// Member projects — a leaderboard row has room for a handful of chips, no more.
+export const MAX_PROJECTS = 5;
+export const MAX_PROJECT_NAME_LENGTH = 30;
+export const MAX_PROJECT_URL_LENGTH = 200;
+
 // Subscription plan types and monthly prices (USD)
 export type PlanType = "pro" | "max100" | "max200" | "api";
 

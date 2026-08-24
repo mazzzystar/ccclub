@@ -509,6 +509,26 @@ function dashboardHTML(
     }
     .agent-source { color: var(--muted); }
     .agent-percent { color: var(--faint); font-variant-numeric: tabular-nums; }
+    /* Members without projects get no container at all, so the row keeps its rhythm. */
+    .project-line { display: flex; flex-wrap: wrap; gap: 5px 6px; margin-top: 5px; }
+    .project-chip {
+      display: inline-flex; align-items: center; gap: 5px; max-width: 100%;
+      padding: 2px 7px; border-radius: 999px;
+      background: var(--surface-soft); border: 1px solid var(--line-soft);
+      color: var(--muted); font-size: 11px; line-height: 1.55; text-decoration: none;
+    }
+    a.project-chip:hover { color: var(--text); border-color: var(--line); }
+    .project-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+    .project-icon { width: 12px; height: 12px; border-radius: 3px; object-fit: cover; flex: 0 0 auto; }
+    .project-letter {
+      width: 12px; height: 12px; border-radius: 3px; flex: 0 0 auto;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.07); color: var(--muted);
+      font-size: 8px; font-weight: 650; line-height: 1;
+    }
+    .project-icon + .project-letter { display: none; }
+    .project-icon.errored { display: none; }
+    .project-icon.errored + .project-letter { display: inline-flex; }
     .active-badge {
       display: inline-flex; align-items: center; gap: 4px; vertical-align: -1px;
       color: var(--success); font-size: 12px; font-weight: 400; margin-left: 6px; line-height: 1;
@@ -853,6 +873,59 @@ function dashboardHTML(
       return '<div class="agent-line" title="' + esc(agentTooltip(row)) + '">' +
         text + '</div>';
     }
+    var MAX_PROJECTS = 5;
+    // Project names and URLs are whatever a member typed. esc() leaves quotes
+    // alone, so nothing reaches an attribute without passing through the URL
+    // parser (which percent-encodes quotes) or encodeURIComponent first.
+    function safeProjectUrl(url) {
+      if (typeof url !== "string" || !/^https:\\/\\//.test(url)) return "";
+      try {
+        var parsed = new URL(url);
+        if (parsed.protocol !== "https:") return "";
+        return /^https:\\/\\//.test(parsed.href) ? parsed.href : "";
+      } catch (e) {
+        return "";
+      }
+    }
+    // GitHub projects borrow the owner's avatar; everything else falls back to
+    // the site's favicon service. Both are best-effort — onerror reveals the
+    // letter badge underneath rather than a broken-image glyph.
+    function projectIconSrc(url) {
+      try {
+        var parsed = new URL(url);
+        if (!parsed.hostname) return "";
+        if (parsed.hostname === "github.com" || parsed.hostname === "www.github.com") {
+          var owner = parsed.pathname.split("/").filter(Boolean)[0];
+          if (owner) return "https://github.com/" + encodeURIComponent(owner) + ".png?size=32";
+          return "";
+        }
+        return "https://icons.duckduckgo.com/ip3/" + encodeURIComponent(parsed.hostname) + ".ico";
+      } catch (e) {
+        return "";
+      }
+    }
+    function projectChipHTML(project) {
+      if (!project || typeof project.name !== "string") return "";
+      var name = project.name.trim();
+      if (!name) return "";
+      var url = safeProjectUrl(project.url);
+      var iconSrc = url ? projectIconSrc(url) : "";
+      var letter = '<span class="project-letter">' + esc(name.charAt(0).toUpperCase()) + '</span>';
+      var icon = iconSrc
+        ? '<img class="project-icon" src="' + iconSrc + '" alt="" onerror="this.classList.add(&#39;errored&#39;)">' + letter
+        : letter;
+      var inner = icon + '<span class="project-name">' + esc(name) + '</span>';
+      if (url) {
+        return '<a class="project-chip" href="' + esc(url) + '" target="_blank" rel="noopener">' + inner + '</a>';
+      }
+      return '<span class="project-chip">' + inner + '</span>';
+    }
+    function projectsHTML(row) {
+      if (!row.projects || row.projects.length === 0) return "";
+      var chips = row.projects.slice(0, MAX_PROJECTS).map(projectChipHTML).join("");
+      if (!chips) return "";
+      return '<div class="project-line">' + chips + '</div>';
+    }
     function activeBadgeHTML(row, isActive) {
       if (!isActive) return "";
       var source = row.lastActiveSource || (row.agents && row.agents[0]);
@@ -1045,7 +1118,7 @@ function dashboardHTML(
               '<td class="' + rankClass + '">' + r.rank + '</td>' +
               '<td><div class="name-cell">' + avatarHTML(r.userId, r.displayName, r.avatar, isActive) +
                 '<div><div class="name-text">' + '<a href="/u/' + encodeURIComponent(r.slug || r.userId) + '" class="name-link">' + esc(r.displayName) + '</a>' + activeBadgeHTML(r, isActive) + '</div>' +
-                agentLine + '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +
+                agentLine + projectsHTML(r) + '<div class="bar" style="width:' + pct + '%"></div></div></div></td>' +
               '<td class="cost">$' + r.costUSD.toFixed(2) + '</td>' +
               '<td class="tokens">' + formatTokens(displayedTokens) + '</td>';
             var chats = r.chatCount || 0;

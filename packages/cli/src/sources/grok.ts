@@ -1,9 +1,6 @@
-import { join } from "node:path";
 import { homedir } from "node:os";
-import {
-  DEFAULT_GROK_DIR,
-  GROK_HOME_ENV,
-} from "@ccclub/shared";
+import { join } from "node:path";
+import { DEFAULT_GROK_DIR, GROK_HOME_ENV } from "@ccclub/shared";
 import type { UsageEntry } from "@ccclub/shared";
 import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageFact, UsageTurn } from "./types.js";
 import { priceUsageFact } from "./types.js";
@@ -12,14 +9,16 @@ import {
   asRecord,
   asString,
   existingDirectories,
+  globFiles,
   parsePathList,
   readJsonlFile,
   statFile,
   toIsoTimestamp,
 } from "./shared.js";
 
-const GROK_SCAN_VERSION = 1;
+const GROK_SCAN_VERSION = 2;
 const FALLBACK_MODEL = "grok-4.6";
+const COST_USD_TICKS_PER_USD = 1e10;
 
 interface GrokScanResult {
   facts: UsageFact[];
@@ -31,145 +30,112 @@ function getGrokHomes(): Promise<string[]> {
   return existingDirectories(dirs);
 }
 
-async function listGrokLogFiles(homes: string[]): Promise<string[]> {
-  const files: string[] = [];
-  for (const home of homes) {
-    const file = join(home, "logs", "unified.jsonl");
-    if (await statFile(file) != null) files.push(file);
-  }
-  return files;
+async function listGrokSessionFiles(homes: string[]): Promise<string[]> {
+  return globFiles(homes.map((home) => join(home, "sessions")), "**/updates.jsonl");
 }
 
-function announcedModel(msg: string, ctx: Record<string, unknown> | null): string | undefined {
-  if (ctx == null) return undefined;
-  if (msg === "model changed") return asString(ctx.model);
-  if (msg === "backend_search: model switch") return asString(ctx.new_model);
-  if (msg === "model catalog: notifying clients") return asString(ctx.current_model_id);
-  return undefined;
+function usageRows(usage: Record<string, unknown>): Array<[string, Record<string, unknown>]> {
+  const modelUsage = asRecord(usage.modelUsage);
+  const rows = Object.entries(modelUsage ?? {}).flatMap(([model, value]) => {
+    const record = asRecord(value);
+    return record == null ? [] : [[model, record] as [string, Record<string, unknown>]];
+  });
+  return rows.length > 0 ? rows : [[FALLBACK_MODEL, usage]];
 }
 
-function resolveModel(
-  sid: string | undefined,
-  pid: number,
-  sidModel: Map<string, string>,
-  pidModel: Map<number, string>,
-  lastModel: string | undefined,
-): string {
-  if (sid != null && sidModel.has(sid)) return sidModel.get(sid)!;
-  if (pid > 0 && pidModel.has(pid)) return pidModel.get(pid)!;
-  return lastModel ?? FALLBACK_MODEL;
+function usageFact(
+  usage: Record<string, unknown>,
+  identity: { sessionId: string; timestamp: string; promptId: string; eventId?: string; model: string },
+): UsageFact | null {
+  const rawInput = Math.max(0, asNumber(usage.inputTokens));
+  const cacheReadTokens = Math.min(rawInput, Math.max(0, asNumber(usage.cachedReadTokens)));
+  const remainingInput = rawInput - cacheReadTokens;
+  const cacheCreationTokens = Math.min(remainingInput, Math.max(0, asNumber(usage.cacheCreationTokens)));
+  const inputTokens = remainingInput - cacheCreationTokens;
+  const outputTokens = Math.max(0, asNumber(usage.outputTokens));
+  const reasoningTokens = Math.min(outputTokens, Math.max(0, asNumber(usage.reasoningTokens)));
+  if (rawInput === 0 && outputTokens === 0) return null;
+
+  const totalTokens = rawInput + outputTokens;
+  const fallbackId = [
+    "grok", identity.sessionId, identity.timestamp, identity.promptId, identity.model,
+    inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens, reasoningTokens,
+  ].join(":");
+  const ticks = Math.max(0, asNumber(usage.costUsdTicks));
+
+  return {
+    source: "grok",
+    timestamp: identity.timestamp,
+    sessionId: identity.sessionId,
+    requestId: identity.eventId == null ? fallbackId : `${identity.eventId}:${identity.model}`,
+    model: identity.model,
+    inputTokens,
+    outputTokens,
+    cacheCreationTokens,
+    cacheReadTokens,
+    reasoningTokens,
+    totalTokens,
+    reportedCostUSD: ticks > 0 ? ticks / COST_USD_TICKS_PER_USD : undefined,
+  };
 }
 
 async function scanGrokFile(file: string): Promise<GrokScanResult> {
-  const source = "grok";
   const facts: UsageFact[] = [];
   const turns: UsageTurn[] = [];
-  const sidModel = new Map<string, string>();
-  const pidModel = new Map<number, string>();
-  let lastModel: string | undefined;
-
   await readJsonlFile(file, (value) => {
     const record = asRecord(value);
-    const msg = asString(record?.msg);
-    if (msg == null) return;
+    const params = asRecord(record?.params);
+    const update = asRecord(params?.update);
+    const usage = asRecord(update?.usage);
+    if (asString(update?.sessionUpdate) !== "turn_completed" || usage == null) return;
 
-    const ctx = asRecord(record?.ctx);
-    const model = announcedModel(msg, ctx);
-    if (model != null) {
-      lastModel = model;
-      const sid = asString(record?.sid);
-      const pid = asNumber(record?.pid);
-      if (sid != null) sidModel.set(sid, model);
-      if (pid > 0) pidModel.set(pid, model);
-      return;
-    }
-
-    const timestamp = toIsoTimestamp(record?.ts);
+    const meta = asRecord(params?._meta);
+    const timestamp = toIsoTimestamp(record?.timestamp ?? meta?.agentTimestampMs);
     if (timestamp == null) return;
-
-    const sessionId = asString(record?.sid) ?? "unknown";
-
-    if (msg === "shell.handle_prompt.start") {
-      const promptId = asString(ctx?.prompt_id) ?? "";
-      turns.push({
-        source,
-        timestamp,
-        key: [source, sessionId, timestamp, promptId].join(":"),
-      });
-      return;
-    }
-
-    if (msg !== "shell.turn.inference_done" || ctx == null) return;
-
-    const promptTotal = Math.max(0, asNumber(ctx.prompt_tokens));
-    const cached = Math.min(Math.max(0, asNumber(ctx.cached_prompt_tokens)), promptTotal);
-    const inputTokens = promptTotal - cached;
-    const outputTokens = Math.max(0, asNumber(ctx.completion_tokens));
-    const reasoningTokens = Math.max(0, asNumber(ctx.reasoning_tokens));
-    if (promptTotal === 0 && outputTokens === 0 && reasoningTokens === 0) return;
-
-    const resolved = asString(ctx.model) ?? resolveModel(
-      asString(record?.sid),
-      asNumber(record?.pid),
-      sidModel,
-      pidModel,
-      lastModel,
-    );
-    const totalTokens = promptTotal + outputTokens + reasoningTokens;
-    const requestId = [
-      source,
-      sessionId,
+    const sessionId = asString(params?.sessionId) ?? "unknown";
+    const eventId = asString(meta?.eventId);
+    const promptId = asString(update?.prompt_id) ?? "";
+    turns.push({
+      source: "grok",
       timestamp,
-      resolved,
-      inputTokens,
-      outputTokens,
-      cached,
-      reasoningTokens,
-      totalTokens,
-    ].join(":");
-
-    facts.push({
-      source,
-      timestamp,
-      sessionId,
-      requestId,
-      model: resolved,
-      inputTokens,
-      outputTokens,
-      cacheCreationTokens: 0,
-      cacheReadTokens: cached,
-      reasoningTokens,
-      totalTokens,
+      key: eventId ?? ["grok", sessionId, timestamp, promptId].join(":"),
     });
-  });
 
+    for (const [model, modelUsage] of usageRows(usage)) {
+      const fact = usageFact(modelUsage, { sessionId, timestamp, promptId, eventId, model });
+      if (fact != null) facts.push(fact);
+    }
+  });
   return { facts, turns };
 }
 
 export async function collectGrokUsage(context: CollectorContext): Promise<SourceCollection> {
   const source = "grok";
-  const files = await listGrokLogFiles(await getGrokHomes());
+  const files = await listGrokSessionFiles(await getGrokHomes());
   const cache = await context.openScanCache?.<GrokScanResult>(source, `parser=${GROK_SCAN_VERSION}`);
   const entries: UsageEntry[] = [];
   const turns: UsageTurn[] = [];
-  const seen = new Set<string>();
+  const seenEntries = new Set<string>();
+  const seenTurns = new Set<string>();
 
   for (const file of files) {
     const stat = await statFile(file);
-    let parsed = stat != null ? cache?.get(file, stat) : undefined;
+    let parsed = stat == null ? undefined : cache?.get(file, stat);
     if (parsed == null) {
       parsed = await scanGrokFile(file);
       if (stat != null) cache?.set(file, stat, parsed);
     }
-
     for (const fact of parsed.facts) {
-      const entry = priceUsageFact(fact, context);
-      const key = entry.requestId ?? "";
-      if (seen.has(key)) continue;
-      seen.add(key);
-      entries.push(entry);
+      const key = fact.requestId ?? "";
+      if (seenEntries.has(key)) continue;
+      seenEntries.add(key);
+      entries.push(priceUsageFact(fact, context));
     }
-    turns.push(...parsed.turns);
+    for (const turn of parsed.turns) {
+      if (seenTurns.has(turn.key)) continue;
+      seenTurns.add(turn.key);
+      turns.push(turn);
+    }
   }
 
   await cache?.save();

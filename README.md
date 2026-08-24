@@ -39,7 +39,7 @@ Supported sources:
 | OpenCode | `~/.local/share/opencode` |
 | Amp | `~/.local/share/amp/threads` |
 | Pi | `~/.pi/agent/sessions` |
-| Grok | `~/.grok/logs/unified.jsonl` |
+| Grok | `~/.grok/sessions/**/updates.jsonl` |
 
 If you use the default locations, there is nothing to configure. Custom locations are supported with `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_DATA_DIR`, `AMP_DATA_DIR`, `PI_AGENT_DIR`, and `GROK_HOME`.
 

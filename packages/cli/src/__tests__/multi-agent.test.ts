@@ -870,72 +870,54 @@ describe("multi-agent collection", () => {
     expect(getNonCacheTokens(result.entries[0])).toBe(160);
   });
 
-  it("loads Grok unified.jsonl inference, model switches, and prompt turns", async () => {
+  it("loads completed Grok session usage without double-counting cache or reasoning", async () => {
     const grokHome = await makeTempDir();
-    const logsDir = join(grokHome, "logs");
-    await mkdir(logsDir, { recursive: true });
-    await writeFile(join(logsDir, "unified.jsonl"), [
+    const sessionDir = join(grokHome, "sessions", "project", "session-a");
+    await mkdir(sessionDir, { recursive: true });
+    await writeFile(join(sessionDir, "updates.jsonl"), [
       JSON.stringify({
-        ts: "2026-08-18T09:00:00.000Z",
-        sid: "s1",
-        pid: 1,
-        msg: "model changed",
-        ctx: { model: "grok-4.6" },
-      }),
-      JSON.stringify({
-        ts: "2026-08-18T09:00:01.000Z",
-        sid: "s1",
-        pid: 1,
-        msg: "shell.handle_prompt.start",
-        ctx: { prompt_id: "p1" },
-      }),
-      JSON.stringify({
-        ts: "2026-08-18T09:01:00.000Z",
-        sid: "s1",
-        pid: 1,
-        msg: "shell.turn.inference_done",
-        ctx: {
-          prompt_tokens: 10_000,
-          cached_prompt_tokens: 2_000,
-          completion_tokens: 500,
-          reasoning_tokens: 1_500,
+        timestamp: 1_776_507_600,
+        params: {
+          sessionId: "session-a",
+          update: { sessionUpdate: "agent_message_chunk" },
         },
       }),
       JSON.stringify({
-        ts: "2026-08-18T09:02:00.000Z",
-        sid: "s2",
-        pid: 2,
-        msg: "backend_search: model switch",
-        ctx: { new_model: "grok-4.5" },
-      }),
-      JSON.stringify({
-        ts: "2026-08-18T09:03:00.000Z",
-        sid: "s2",
-        pid: 2,
-        msg: "shell.turn.inference_done",
-        ctx: {
-          prompt_tokens: 200,
-          cached_prompt_tokens: 0,
-          completion_tokens: 20,
-          reasoning_tokens: 0,
+        timestamp: 1_776_507_660,
+        params: {
+          sessionId: "session-a",
+          update: {
+            sessionUpdate: "turn_completed",
+            prompt_id: "prompt-a",
+            usage: {
+              inputTokens: 10_000,
+              outputTokens: 2_000,
+              totalTokens: 12_000,
+              cachedReadTokens: 7_000,
+              cacheCreationTokens: 500,
+              reasoningTokens: 1_500,
+              costUsdTicks: 2_500_000_000,
+              modelUsage: {
+                "grok-4.6-build": {
+                  inputTokens: 10_000,
+                  outputTokens: 2_000,
+                  totalTokens: 12_000,
+                  cachedReadTokens: 7_000,
+                  cacheCreationTokens: 500,
+                  reasoningTokens: 1_500,
+                  costUsdTicks: 2_500_000_000,
+                },
+              },
+            },
+          },
+          _meta: { eventId: "event-a", agentTimestampMs: 1_776_507_660_000 },
         },
       }),
       JSON.stringify({
-        ts: "2026-08-18T09:04:00.000Z",
-        sid: "s1",
-        pid: 1,
-        msg: "shell.turn.inference_start",
-        ctx: { loop_index: 2 },
-      }),
-      JSON.stringify({
-        ts: "2026-08-18T09:05:00.000Z",
-        sid: "s3",
-        msg: "shell.turn.inference_done",
-        ctx: {
-          prompt_tokens: 0,
-          cached_prompt_tokens: 0,
-          completion_tokens: 0,
-          reasoning_tokens: 0,
+        timestamp: 1_776_507_720,
+        params: {
+          sessionId: "session-a",
+          update: { sessionUpdate: "turn_completed", prompt_id: "cancelled", stop_reason: "cancelled" },
         },
       }),
     ].join("\n"));
@@ -943,48 +925,76 @@ describe("multi-agent collection", () => {
 
     const result = await collectUsageEntries({ sources: ["grok"] });
 
-    expect(result.entries).toHaveLength(2);
+    expect(result.entries).toHaveLength(1);
     expect(result.humanTurns).toHaveLength(1);
-    const first = result.entries.find((entry) => entry.sessionId === "s1");
-    const second = result.entries.find((entry) => entry.sessionId === "s2");
-    expect(first).toMatchObject({
+    expect(result.entries[0]).toMatchObject({
       source: "grok",
-      model: "grok-4.6",
-      inputTokens: 8_000,
-      outputTokens: 500,
-      cacheCreationTokens: 0,
-      cacheReadTokens: 2_000,
+      model: "grok-4.6-build",
+      inputTokens: 2_500,
+      outputTokens: 2_000,
+      cacheCreationTokens: 500,
+      cacheReadTokens: 7_000,
       reasoningTokens: 1_500,
       totalTokens: 12_000,
+      costUSD: 0.25,
     });
-    expect(second).toMatchObject({
-      source: "grok",
-      model: "grok-4.5",
-      inputTokens: 200,
-      outputTokens: 20,
-      cacheReadTokens: 0,
-      reasoningTokens: 0,
-      totalTokens: 220,
-    });
-    // Grok reports reasoning separately from completion, so it stays an
-    // additional non-cache bucket — same as OpenCode, unlike Codex.
-    expect(getNonCacheTokens(first!)).toBe(10_000);
-    // grok-4.6: 8k input * $2 + 2k cache * $0.5 + (500+1500) output * $6 / 1M
-    expect(first!.costUSD).toBeCloseTo(0.029);
+    expect(getNonCacheTokens(result.entries[0])).toBe(4_500);
   });
 
-  it("falls back to grok-4.6 when unified.jsonl never announces a model", async () => {
+  it("keeps each model in a multi-model Grok turn", async () => {
     const grokHome = await makeTempDir();
-    await mkdir(join(grokHome, "logs"), { recursive: true });
-    await writeFile(join(grokHome, "logs", "unified.jsonl"), JSON.stringify({
-      ts: "2026-08-18T09:00:00.000Z",
-      sid: "s1",
-      msg: "shell.turn.inference_done",
-      ctx: {
-        prompt_tokens: 100,
-        cached_prompt_tokens: 0,
-        completion_tokens: 50,
-        reasoning_tokens: 0,
+    const sessionDir = join(grokHome, "sessions", "project", "session-models");
+    await mkdir(sessionDir, { recursive: true });
+    await writeFile(join(sessionDir, "updates.jsonl"), JSON.stringify({
+      timestamp: 1_776_507_660,
+      params: {
+        sessionId: "session-models",
+        update: {
+          sessionUpdate: "turn_completed",
+          usage: {
+            modelUsage: {
+              "grok-4.5-build": {
+                inputTokens: 100,
+                outputTokens: 20,
+                cachedReadTokens: 40,
+                costUsdTicks: 1_000_000_000,
+              },
+              "grok-4.6-build": {
+                inputTokens: 200,
+                outputTokens: 30,
+                cachedReadTokens: 50,
+                costUsdTicks: 2_000_000_000,
+              },
+            },
+          },
+        },
+        _meta: { eventId: "multi-model-event" },
+      },
+    }));
+    vi.stubEnv("GROK_HOME", grokHome);
+
+    const result = await collectUsageEntries({ sources: ["grok"] });
+
+    expect(result.entries).toHaveLength(2);
+    expect(result.humanTurns).toHaveLength(1);
+    expect(result.entries.map((entry) => [entry.model, entry.totalTokens, entry.costUSD])).toEqual([
+      ["grok-4.5-build", 120, 0.1],
+      ["grok-4.6-build", 230, 0.2],
+    ]);
+  });
+
+  it("falls back to top-level Grok usage and the agent timestamp", async () => {
+    const grokHome = await makeTempDir();
+    const sessionDir = join(grokHome, "sessions", "project", "session-fallback");
+    await mkdir(sessionDir, { recursive: true });
+    await writeFile(join(sessionDir, "updates.jsonl"), JSON.stringify({
+      params: {
+        sessionId: "session-fallback",
+        update: {
+          sessionUpdate: "turn_completed",
+          usage: { inputTokens: 100, outputTokens: 20, cachedReadTokens: 40 },
+        },
+        _meta: { eventId: "fallback-event", agentTimestampMs: 1_776_507_660_000 },
       },
     }));
     vi.stubEnv("GROK_HOME", grokHome);
@@ -992,8 +1002,46 @@ describe("multi-agent collection", () => {
     const result = await collectUsageEntries({ sources: ["grok"] });
 
     expect(result.entries).toHaveLength(1);
-    expect(result.entries[0].model).toBe("grok-4.6");
-    expect(result.humanTurns).toHaveLength(0);
+    expect(result.entries[0]).toMatchObject({
+      timestamp: "2026-04-18T10:21:00.000Z",
+      model: "grok-4.6",
+      inputTokens: 60,
+      cacheReadTokens: 40,
+      outputTokens: 20,
+      totalTokens: 120,
+    });
+  });
+
+  it("deduplicates Grok server events copied across session files", async () => {
+    const grokHome = await makeTempDir();
+    const firstDir = join(grokHome, "sessions", "project", "session-a");
+    const secondDir = join(grokHome, "sessions", "project", "session-b");
+    await Promise.all([mkdir(firstDir, { recursive: true }), mkdir(secondDir, { recursive: true })]);
+    const shared = JSON.stringify({
+      timestamp: 1_776_507_660,
+      params: {
+        sessionId: "session-a",
+        update: {
+          sessionUpdate: "turn_completed",
+          usage: {
+            modelUsage: {
+              "grok-4.6-build": { inputTokens: 100, outputTokens: 20, cachedReadTokens: 40 },
+            },
+          },
+        },
+        _meta: { eventId: "shared-event" },
+      },
+    });
+    await Promise.all([
+      writeFile(join(firstDir, "updates.jsonl"), shared),
+      writeFile(join(secondDir, "updates.jsonl"), shared),
+    ]);
+    vi.stubEnv("GROK_HOME", grokHome);
+
+    const result = await collectUsageEntries({ sources: ["grok"] });
+
+    expect(result.entries).toHaveLength(1);
+    expect(result.humanTurns).toHaveLength(1);
   });
 
   it("collects Grok by default and skips an empty GROK_HOME", async () => {

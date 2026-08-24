@@ -12,9 +12,9 @@ describe("getNonCacheTokens", () => {
     expect(getNonCacheTokens({ ...usage, source: "codex" })).toBe(150);
   });
 
-  it("keeps separately reported reasoning for other sources", () => {
+  it("only adds reasoning when the source reports it separately", () => {
     expect(getNonCacheTokens({ ...usage, source: "opencode" })).toBe(170);
-    expect(getNonCacheTokens({ ...usage, source: "grok" })).toBe(170);
+    expect(getNonCacheTokens({ ...usage, source: "grok" })).toBe(150);
     expect(getNonCacheTokens({ ...usage, source: undefined })).toBe(170);
   });
 });

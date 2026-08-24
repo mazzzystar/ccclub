@@ -24,12 +24,16 @@ import type { MemberWeek, WeekTally } from "../week-winners.js";
 const app = new Hono<{ Bindings: Env }>();
 
 const VALID_PERIODS: RankingPeriod[] = ["daily", "yesterday", "weekly", "monthly", "all-time"];
-// v9: single-agent groups no longer carry a week row at all. The key must
-// move with the meaning, or cached entries keep serving the old numbers
-// under the new label until they expire.
-const RANK_CACHE_VERSION = "v9";
+// Move the key whenever ranking output semantics change; otherwise cached
+// entries keep serving the old representation until they expire.
+const RANK_CACHE_VERSION = "v10";
 
 type AgentTotals = { costUSD: number; totalTokens: number; nonCacheTokens: number; chatCount: number; entryCount: number };
+
+export function agentSharePercent(numerator: number, denominator: number): number {
+  if (numerator <= 0 || denominator <= 0) return 0;
+  return Math.max(0.01, Math.round((numerator / denominator) * 10_000) / 100);
+}
 
 function hasUsage(block: UsageData["blocks"][number]): boolean {
   return block.entryCount > 0 || block.totalTokens > 0 || block.costUSD > 0;
@@ -67,7 +71,7 @@ function buildAgentBreakdown(totals: Map<AgentSource, AgentTotals>, totalCostUSD
         nonCacheTokens: value.nonCacheTokens,
         chatCount: value.chatCount,
         entryCount: value.entryCount,
-        percent: denominator > 0 ? Math.round((numerator / denominator) * 100) : 0,
+        percent: agentSharePercent(numerator, denominator),
       };
     })
     .sort((a, b) => b.percent - a.percent || b.costUSD - a.costUSD);

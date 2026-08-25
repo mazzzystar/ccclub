@@ -49,13 +49,13 @@ export const LANDING_T: Record<LandingLang, LandingT> = {
     htmlLang: "en",
     title: "ccclub — Claude Code & Codex Leaderboard Among Friends",
     description:
-      "Claude Code and Codex leaderboard among friends. Track coding agent token usage, costs, and active status across Claude Code, Codex, OpenCode, Amp, Grok, and Pi.",
+      "Claude Code and Codex leaderboard among friends. Track coding agent token usage, costs, and active status across Claude Code, Codex, OpenCode, Amp, Grok, Pi, and Cursor.",
     ogDescription:
-      "Track Claude Code, Codex, OpenCode, Amp, Grok, and Pi token usage, costs, and active status with friends.",
+      "Track Claude Code, Codex, OpenCode, Amp, Grok, Pi, and Cursor token usage, costs, and active status with friends.",
     eyebrow: "Among friends",
     h1: "Claude Code & Codex leaderboard among friends.",
     tagline:
-      "Track coding agent token usage, cost, active status, and agent mix across Claude Code, Codex, OpenCode, Amp, Grok, and Pi.",
+      "Track coding agent token usage, cost, active status, and agent mix across Claude Code, Codex, OpenCode, Amp, Grok, Pi, and Cursor.",
     previewTitle: "Live leaderboard preview",
     previewCaption: "Cost · tokens · turns · active friends · agent mix",
     tabAgent: "I'm Agent",
@@ -75,9 +75,9 @@ export const LANDING_T: Record<LandingLang, LandingT> = {
       'Share your invite link or have friends run <code class="mono">npx ccclub join CODE</code>. No account needed.',
     step3h: "See the leaderboard",
     step3p:
-      'Claude Code syncs at session end, and background sync picks up Codex, OpenCode, Amp, Grok, and Pi. Run <code class="mono">ccclub</code> or open the web dashboard.',
+      'Claude Code syncs at session end, and background sync picks up Codex, OpenCode, Amp, Grok, Pi, and Cursor. Run <code class="mono">ccclub</code> or open the web dashboard.',
     howDetail1:
-      "ccclub reads token counts, cost estimates, model names, and number of calls from local coding agent logs for Claude Code, Codex, OpenCode, Amp, Grok, and Pi. No prompts, responses, code, file paths, or conversation data ever leave your machine.",
+      "ccclub reads token counts, cost estimates, model names, and number of calls from local coding agent logs for Claude Code, Codex, OpenCode, Amp, Grok, Pi, and Cursor. No prompts, responses, code, file paths, or conversation data ever leave your machine.",
     howDetail2: 'Run <code class="mono">ccclub show-data</code> to see exactly what gets uploaded.',
     guidesNote:
       'New to usage tracking? See <a href="/claude-code-usage">how to check Claude Code usage</a> and <a href="/claude-code-limits">how the 5-hour and weekly limits work</a>.',
@@ -95,11 +95,11 @@ export const LANDING_T: Record<LandingLang, LandingT> = {
     htmlLang: "zh",
     title: "ccclub — 和朋友一起的 Claude Code & Codex 排行榜",
     description:
-      "和朋友一起的 Claude Code / Codex 排行榜。追踪 Claude Code、Codex、OpenCode、Amp、Grok、Pi 的 token 用量、费用和活跃状态。",
-    ogDescription: "和朋友一起追踪 Claude Code、Codex、OpenCode、Amp、Grok、Pi 的 token 用量、费用和活跃状态。",
+      "和朋友一起的 Claude Code / Codex 排行榜。追踪 Claude Code、Codex、OpenCode、Amp、Grok、Pi、Cursor 的 token 用量、费用和活跃状态。",
+    ogDescription: "和朋友一起追踪 Claude Code、Codex、OpenCode、Amp、Grok、Pi、Cursor 的 token 用量、费用和活跃状态。",
     eyebrow: "和朋友一起",
     h1: "和朋友一起的 Claude Code & Codex 排行榜。",
-    tagline: "追踪 Claude Code、Codex、OpenCode、Amp、Grok、Pi 的 token 用量、费用、活跃状态和 agent 构成。",
+    tagline: "追踪 Claude Code、Codex、OpenCode、Amp、Grok、Pi、Cursor 的 token 用量、费用、活跃状态和 agent 构成。",
     previewTitle: "实时排行榜预览",
     previewCaption: "费用 · token · 轮次 · 活跃好友 · agent 构成",
     tabAgent: "我是 Agent",
@@ -116,9 +116,9 @@ export const LANDING_T: Record<LandingLang, LandingT> = {
     step2p: '分享邀请链接，或让朋友运行 <code class="mono">npx ccclub join CODE</code>。不需要注册账号。',
     step3h: "查看排行榜",
     step3p:
-      'Claude Code 在会话结束时自动同步，后台同步覆盖 Codex、OpenCode、Amp、Grok 和 Pi。运行 <code class="mono">ccclub</code> 或打开网页仪表盘。',
+      'Claude Code 在会话结束时自动同步，后台同步覆盖 Codex、OpenCode、Amp、Grok、Pi 和 Cursor。运行 <code class="mono">ccclub</code> 或打开网页仪表盘。',
     howDetail1:
-      "ccclub 只从本机的 coding agent 日志（Claude Code、Codex、OpenCode、Amp、Grok、Pi）读取 token 数、费用估算、模型名和调用次数。提示词、回复、代码、文件路径和对话内容永远不会离开你的电脑。",
+      "ccclub 只从本机的 coding agent 日志（Claude Code、Codex、OpenCode、Amp、Grok、Pi、Cursor）读取 token 数、费用估算、模型名和调用次数。提示词、回复、代码、文件路径和对话内容永远不会离开你的电脑。",
     howDetail2: '运行 <code class="mono">ccclub show-data</code> 可以看到上传内容的完整明细。',
     guidesNote:
       '刚开始关注用量？看看<a href="/claude-code-usage">如何查看 Claude Code 用量</a>，以及 <a href="/claude-code-limits">5 小时窗口和每周上限的规则</a>。',
@@ -136,13 +136,13 @@ export const LANDING_T: Record<LandingLang, LandingT> = {
     htmlLang: "ja",
     title: "ccclub — 友達と競う Claude Code & Codex リーダーボード",
     description:
-      "友達と競う Claude Code / Codex リーダーボード。Claude Code、Codex、OpenCode、Amp、Grok、Pi のトークン使用量・コスト・アクティブ状況をトラッキング。",
+      "友達と競う Claude Code / Codex リーダーボード。Claude Code、Codex、OpenCode、Amp、Grok、Pi、Cursor のトークン使用量・コスト・アクティブ状況をトラッキング。",
     ogDescription:
-      "Claude Code、Codex、OpenCode、Amp、Grok、Pi のトークン使用量・コスト・アクティブ状況を友達と一緒にトラッキング。",
+      "Claude Code、Codex、OpenCode、Amp、Grok、Pi、Cursor のトークン使用量・コスト・アクティブ状況を友達と一緒にトラッキング。",
     eyebrow: "友達と一緒に",
     h1: "友達と競う Claude Code & Codex リーダーボード。",
     tagline:
-      "Claude Code、Codex、OpenCode、Amp、Grok、Pi のトークン使用量、コスト、アクティブ状況、エージェント構成をトラッキング。",
+      "Claude Code、Codex、OpenCode、Amp、Grok、Pi、Cursor のトークン使用量、コスト、アクティブ状況、エージェント構成をトラッキング。",
     previewTitle: "ライブリーダーボードのプレビュー",
     previewCaption: "コスト · トークン · ターン · アクティブな友達 · エージェント構成",
     tabAgent: "私はエージェント",
@@ -162,9 +162,9 @@ export const LANDING_T: Record<LandingLang, LandingT> = {
       '招待リンクを共有するか、友達に <code class="mono">npx ccclub join CODE</code> を実行してもらいます。アカウント不要。',
     step3h: "リーダーボードを見る",
     step3p:
-      'Claude Code はセッション終了時に自動同期し、Codex・OpenCode・Amp・Grok・Pi はバックグラウンドで同期されます。<code class="mono">ccclub</code> を実行するか、Web ダッシュボードを開いてください。',
+      'Claude Code はセッション終了時に自動同期し、Codex・OpenCode・Amp・Grok・Pi・Cursor はバックグラウンドで同期されます。<code class="mono">ccclub</code> を実行するか、Web ダッシュボードを開いてください。',
     howDetail1:
-      "ccclub が読み取るのは、ローカルのエージェントログ（Claude Code、Codex、OpenCode、Amp、Grok、Pi）にあるトークン数・コスト見積もり・モデル名・呼び出し回数だけです。プロンプト、応答、コード、ファイルパス、会話内容がマシンの外に出ることはありません。",
+      "ccclub が読み取るのは、ローカルのエージェントログ（Claude Code、Codex、OpenCode、Amp、Grok、Pi、Cursor）にあるトークン数・コスト見積もり・モデル名・呼び出し回数だけです。プロンプト、応答、コード、ファイルパス、会話内容がマシンの外に出ることはありません。",
     howDetail2: '<code class="mono">ccclub show-data</code> を実行すると、アップロードされる内容を正確に確認できます。',
     guidesNote:
       '使用量トラッキングが初めてなら、<a href="/claude-code-usage">Claude Code の使用量を確認する方法</a>と<a href="/claude-code-limits">5時間・週間リミットの仕組み</a>をご覧ください。',
@@ -182,13 +182,13 @@ export const LANDING_T: Record<LandingLang, LandingT> = {
     htmlLang: "de",
     title: "ccclub — Claude Code & Codex Leaderboard unter Freunden",
     description:
-      "Claude Code & Codex Leaderboard unter Freunden. Verfolge Token-Verbrauch, Kosten und Aktivität über Claude Code, Codex, OpenCode, Amp, Grok und Pi.",
+      "Claude Code & Codex Leaderboard unter Freunden. Verfolge Token-Verbrauch, Kosten und Aktivität über Claude Code, Codex, OpenCode, Amp, Grok, Pi und Cursor.",
     ogDescription:
-      "Token-Verbrauch, Kosten und Aktivität von Claude Code, Codex, OpenCode, Amp, Grok und Pi gemeinsam mit Freunden verfolgen.",
+      "Token-Verbrauch, Kosten und Aktivität von Claude Code, Codex, OpenCode, Amp, Grok, Pi und Cursor gemeinsam mit Freunden verfolgen.",
     eyebrow: "Unter Freunden",
     h1: "Das Claude Code & Codex Leaderboard unter Freunden.",
     tagline:
-      "Token-Verbrauch, Kosten, Aktivität und Agent-Mix über Claude Code, Codex, OpenCode, Amp, Grok und Pi hinweg.",
+      "Token-Verbrauch, Kosten, Aktivität und Agent-Mix über Claude Code, Codex, OpenCode, Amp, Grok, Pi und Cursor hinweg.",
     previewTitle: "Live-Leaderboard-Vorschau",
     previewCaption: "Kosten · Tokens · Turns · aktive Freunde · Agent-Mix",
     tabAgent: "Ich bin ein Agent",
@@ -209,9 +209,9 @@ export const LANDING_T: Record<LandingLang, LandingT> = {
       'Teile deinen Link oder lass Freunde <code class="mono">npx ccclub join CODE</code> ausführen. Kein Konto nötig.',
     step3h: "Leaderboard ansehen",
     step3p:
-      'Claude Code synchronisiert am Sessionende; Codex, OpenCode, Amp, Grok und Pi per Hintergrund-Sync. Führe <code class="mono">ccclub</code> aus oder öffne das Web-Dashboard.',
+      'Claude Code synchronisiert am Sessionende; Codex, OpenCode, Amp, Grok, Pi und Cursor per Hintergrund-Sync. Führe <code class="mono">ccclub</code> aus oder öffne das Web-Dashboard.',
     howDetail1:
-      "ccclub liest aus den lokalen Agent-Logs (Claude Code, Codex, OpenCode, Amp, Grok, Pi) nur Token-Zahlen, Kostenschätzungen, Modellnamen und Aufrufzahlen. Prompts, Antworten, Code, Dateipfade oder Gesprächsinhalte verlassen deinen Rechner nie.",
+      "ccclub liest aus den lokalen Agent-Logs (Claude Code, Codex, OpenCode, Amp, Grok, Pi, Cursor) nur Token-Zahlen, Kostenschätzungen, Modellnamen und Aufrufzahlen. Prompts, Antworten, Code, Dateipfade oder Gesprächsinhalte verlassen deinen Rechner nie.",
     howDetail2: 'Mit <code class="mono">ccclub show-data</code> siehst du genau, was hochgeladen wird.',
     guidesNote:
       'Neu beim Usage-Tracking? Siehe <a href="/claude-code-usage">wie man den Claude-Code-Verbrauch prüft</a> und <a href="/claude-code-limits">wie das 5-Stunden-Fenster und die Wochenlimits funktionieren</a>.',
@@ -229,13 +229,13 @@ export const LANDING_T: Record<LandingLang, LandingT> = {
     htmlLang: "ru",
     title: "ccclub — рейтинг Claude Code и Codex среди друзей",
     description:
-      "Рейтинг Claude Code и Codex среди друзей. Отслеживайте расход токенов, затраты и активность в Claude Code, Codex, OpenCode, Amp, Grok и Pi.",
+      "Рейтинг Claude Code и Codex среди друзей. Отслеживайте расход токенов, затраты и активность в Claude Code, Codex, OpenCode, Amp, Grok, Pi и Cursor.",
     ogDescription:
-      "Отслеживайте расход токенов, затраты и активность Claude Code, Codex, OpenCode, Amp, Grok и Pi вместе с друзьями.",
+      "Отслеживайте расход токенов, затраты и активность Claude Code, Codex, OpenCode, Amp, Grok, Pi и Cursor вместе с друзьями.",
     eyebrow: "Среди друзей",
     h1: "Рейтинг Claude Code и Codex среди друзей.",
     tagline:
-      "Расход токенов, затраты, активность и состав агентов: Claude Code, Codex, OpenCode, Amp, Grok и Pi.",
+      "Расход токенов, затраты, активность и состав агентов: Claude Code, Codex, OpenCode, Amp, Grok, Pi и Cursor.",
     previewTitle: "Живой предпросмотр рейтинга",
     previewCaption: "Затраты · токены · ходы · активные друзья · состав агентов",
     tabAgent: "Я агент",
@@ -256,9 +256,9 @@ export const LANDING_T: Record<LandingLang, LandingT> = {
       'Поделитесь ссылкой или пусть друзья выполнят <code class="mono">npx ccclub join CODE</code>. Без регистрации.',
     step3h: "Смотрите рейтинг",
     step3p:
-      'Claude Code синхронизируется в конце сессии; Codex, OpenCode, Amp, Grok и Pi — в фоне. Запустите <code class="mono">ccclub</code> или откройте веб-дашборд.',
+      'Claude Code синхронизируется в конце сессии; Codex, OpenCode, Amp, Grok, Pi и Cursor — в фоне. Запустите <code class="mono">ccclub</code> или откройте веб-дашборд.',
     howDetail1:
-      "ccclub читает из локальных логов агентов (Claude Code, Codex, OpenCode, Amp, Grok, Pi) только количество токенов, оценку затрат, названия моделей и число вызовов. Промпты, ответы, код, пути к файлам и содержимое диалогов никогда не покидают ваш компьютер.",
+      "ccclub читает из локальных логов агентов (Claude Code, Codex, OpenCode, Amp, Grok, Pi, Cursor) только количество токенов, оценку затрат, названия моделей и число вызовов. Промпты, ответы, код, пути к файлам и содержимое диалогов никогда не покидают ваш компьютер.",
     howDetail2: 'Команда <code class="mono">ccclub show-data</code> показывает, что именно будет загружено.',
     guidesNote:
       'Впервые следите за расходом? Смотрите <a href="/claude-code-usage">как проверить использование Claude Code</a> и <a href="/claude-code-limits">как работают 5-часовое окно и недельные лимиты</a>.',

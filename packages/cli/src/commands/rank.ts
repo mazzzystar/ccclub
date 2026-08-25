@@ -18,7 +18,7 @@ import { homedir } from "node:os";
 import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
 
 const ACTIVE_THRESHOLD_MS = 15 * 60 * 1000;
-const AGENT_ORDER: AgentSource[] = ["claude", "codex", "opencode", "amp", "grok", "pi"];
+const AGENT_ORDER: AgentSource[] = ["claude", "codex", "opencode", "amp", "grok", "pi", "cursor"];
 
 export function getRankingNonCacheTokens(
   entry: Pick<RankingEntry, "nonCacheTokens" | "agentBreakdown" | "inputTokens" | "outputTokens" | "reasoningTokens">,

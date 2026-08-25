@@ -42,6 +42,7 @@
     "opencode",
     "amp",
     "grok",
+    "cursor",
     "coding-agent",
     "ai-coding-agent",
     "token-usage",

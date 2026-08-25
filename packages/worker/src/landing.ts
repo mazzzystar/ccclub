@@ -99,6 +99,7 @@ const AGENT_ICONS: Partial<Record<AgentSource, string>> = {
   amp: "/agent-icons/amp.svg",
   grok: "/agent-icons/grok-light.svg",
   pi: "/agent-icons/pi-light.svg",
+  cursor: "/agent-icons/cursor-light.svg",
 };
 
 function agentIconHTML(source: AgentSource, size: number): string {
@@ -753,11 +754,12 @@ function landingHTML(lang: LandingLang, demoBoard: string | null = null) {
               <span class="agent-logo" title="OpenCode"><img src="/agent-icons/opencode.svg" alt="OpenCode" /></span>
               <span class="agent-logo" title="Amp"><img src="/agent-icons/amp.svg" alt="Amp" /></span>
               <span class="agent-logo" title="Grok"><img src="/agent-icons/grok.svg" alt="Grok" /></span>
+              <span class="agent-logo" title="Cursor"><img src="/agent-icons/cursor.svg" alt="Cursor" /></span>
               <span class="agent-logo pi" title="Pi"><img src="/agent-icons/pi-light.svg" alt="Pi" /></span>
             </div>
             <div class="supported-copy">
               <strong>${t.supportedStrong}</strong>
-              <span>Claude Code · Codex · OpenCode · Amp · Grok · Pi</span>
+              <span>Claude Code · Codex · OpenCode · Amp · Grok · Pi · Cursor</span>
             </div>
           </div>
           <button class="setup-command" id="copy-setup" type="button" data-copy="npx ccclub init">

@@ -16,6 +16,8 @@ export const OPENCODE_DATA_DIR_ENV = "OPENCODE_DATA_DIR";
 export const AMP_DATA_DIR_ENV = "AMP_DATA_DIR";
 export const PI_AGENT_DIR_ENV = "PI_AGENT_DIR";
 export const GROK_HOME_ENV = "GROK_HOME";
+/** Optional Cursor dashboard token. Otherwise the macOS Keychain item Cursor already stored is used. */
+export const CURSOR_ACCESS_TOKEN_ENV = "CURSOR_ACCESS_TOKEN";
 
 export const DEFAULT_CODEX_DIR = ".codex";
 export const DEFAULT_OPENCODE_DIR = ".local/share/opencode";

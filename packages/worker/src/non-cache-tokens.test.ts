@@ -15,6 +15,7 @@ describe("getNonCacheTokens", () => {
   it("keeps separately reported reasoning for other sources", () => {
     expect(getNonCacheTokens({ ...usage, source: "opencode" })).toBe(170);
     expect(getNonCacheTokens({ ...usage, source: "grok" })).toBe(170);
+    expect(getNonCacheTokens({ ...usage, source: "cursor" })).toBe(170);
     expect(getNonCacheTokens({ ...usage, source: undefined })).toBe(170);
   });
 });

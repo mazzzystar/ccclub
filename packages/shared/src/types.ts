@@ -1,4 +1,4 @@
-export const AGENT_SOURCES = ["claude", "codex", "opencode", "amp", "pi", "grok", "openclaw"] as const;
+export const AGENT_SOURCES = ["claude", "codex", "opencode", "amp", "pi", "grok", "cursor", "openclaw"] as const;
 export type AgentSource = (typeof AGENT_SOURCES)[number];
 
 // OpenClaw is a personal assistant, not a coding agent — counting it by
@@ -24,6 +24,7 @@ export const AGENT_LABELS: Record<AgentSource, string> = {
   amp: "Amp",
   pi: "Pi",
   grok: "Grok",
+  cursor: "Cursor",
   openclaw: "OpenClaw",
 };
 

@@ -54,7 +54,7 @@ ccclub sources                 # see what is collected
 ccclub sources disable cursor
 ```
 
-Your Cursor token is never uploaded to ccclub; it only authenticates you to Cursor. The refresh token is never read, `CURSOR_ACCESS_TOKEN` overrides the Keychain lookup, and what syncs is the same aggregated block summary as every other source. If you never enable it, ccclub never reads your Keychain and never contacts Cursor.
+Your Cursor token is never uploaded to ccclub; it only authenticates you to Cursor. The refresh token is never read, `CURSOR_ACCESS_TOKEN` overrides the Keychain lookup, and what syncs is the same aggregated block summary as every other source. If you never enable it, ccclub never reads the Cursor Keychain item and never contacts Cursor.
 
 The leaderboard deliberately tracks **coding agents only** — usage from personal-assistant tools (e.g. OpenClaw) is excluded server-side so it can never inflate anyone's rank.
 

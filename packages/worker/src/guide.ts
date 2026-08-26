@@ -193,7 +193,7 @@ ccclub sources                  # see what is collected
 ccclub sources disable cursor
 \`\`\`
 
-Your Cursor token is never uploaded to ccclub; it only authenticates you to Cursor. The refresh token is never read, and \`CURSOR_ACCESS_TOKEN\` overrides the Keychain lookup. If you never run \`sources enable\`, ccclub never reads your Keychain and never contacts Cursor.
+Your Cursor token is never uploaded to ccclub; it only authenticates you to Cursor. The refresh token is never read, and \`CURSOR_ACCESS_TOKEN\` overrides the Keychain lookup. If you never run \`sources enable\`, ccclub never reads the Cursor Keychain item and never contacts Cursor.
 
 ---
 
@@ -302,7 +302,7 @@ ccclub profile --avatar https://example.com/photo.jpg
 
 ## Privacy
 
-ccclub reads **only** agent source, token counts, cost estimates, model names, and number of calls from the local usage logs written by Claude Code, Codex, OpenCode, Amp, Grok, and Pi. Nothing else on your machine is read, and nothing is fetched from the network.
+ccclub reads **only** agent source, token counts, cost estimates, model names, and number of calls from the local usage logs written by Claude Code, Codex, OpenCode, Amp, Grok, and Pi. Every number on the board comes out of those files — no other file on your machine is read for usage. ccclub does use the network, just never for your content: it uploads the block summaries, refreshes the pricing table, checks npm for a newer version, and — for the Claude Code statusline — asks Anthropic for your own limit percentages using the credentials Claude Code already stored locally.
 
 **Never uploaded:**
 - Prompts or responses

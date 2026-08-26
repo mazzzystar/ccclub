@@ -126,6 +126,18 @@ describe("mergeUsageBlocks", () => {
     expect(mergeUsageBlocks([], [openclaw], { trackedSources: ["openclaw"] })).toEqual([]);
   });
 
+  it("prunes nothing at all when the request omits trackedSources", () => {
+    // Pre-0.6.2 clients never send the field. Absent is not "tracks nothing":
+    // reading it that way would delete stored history on every old-client
+    // sync, which is why the prune is gated on `!= null`, not on the set.
+    const openclaw = block("openclaw", "2026-07-08T00:00:00.000Z", 100);
+    const claude = block("claude", "2026-07-08T00:30:00.000Z", 200);
+
+    expect(mergeUsageBlocks([openclaw, claude], [])).toEqual([openclaw, claude]);
+    expect(mergeUsageBlocks([openclaw, claude], [], {})).toEqual([openclaw, claude]);
+    expect(mergeUsageBlocks([openclaw, claude], [], { replaceSources: [] })).toEqual([openclaw, claude]);
+  });
+
   it("prunes legacy opt-in blocks after the client stops tracking them", () => {
     const openclaw = block("openclaw", "2026-07-08T00:00:00.000Z", 100);
 

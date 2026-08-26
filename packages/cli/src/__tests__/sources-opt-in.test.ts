@@ -29,7 +29,7 @@ vi.mock("node:os", async (importOriginal) => {
 const { loadConfig, saveConfig } = await import("../config.js");
 const { collectUsageEntries } = await import("../collector.js");
 const { getEffectiveSources, parseSources, resolveCollectSources } = await import("../sources/index.js");
-const { enableableSources, withSourceDisabled, withSourceEnabled } = await import("../commands/sources.js");
+const { enableableSources, platformEnableWarning, withSourceDisabled, withSourceEnabled } = await import("../commands/sources.js");
 
 const BASE_CONFIG = {
   apiUrl: "https://example.invalid",
@@ -155,6 +155,15 @@ describe("ccclub sources enable/disable", () => {
     });
     expect(withSourceDisabled({ enabledSources: [] }, "cursor")).toMatchObject({ ok: true, changed: false });
     expect(withSourceDisabled({}, "codex")).toMatchObject({ ok: false });
+  });
+
+  it("warns that Cursor needs CURSOR_ACCESS_TOKEN off macOS", () => {
+    // Enabling still works everywhere — but without the Keychain there is no
+    // token to find, and collection would just be silently empty.
+    expect(platformEnableWarning("cursor", { platform: "linux", hasCursorToken: false }))
+      .toMatch(/CURSOR_ACCESS_TOKEN/);
+    expect(platformEnableWarning("cursor", { platform: "linux", hasCursorToken: true })).toBeNull();
+    expect(platformEnableWarning("cursor", { platform: "darwin", hasCursorToken: false })).toBeNull();
   });
 
   it("survives a round trip through ~/.ccclub/config.json", async () => {

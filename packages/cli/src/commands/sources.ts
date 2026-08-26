@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { AGENT_LABELS, AGENT_SOURCES, DEFAULT_SOURCES, OPT_IN_SOURCES } from "@ccclub/shared";
+import { AGENT_LABELS, AGENT_SOURCES, CURSOR_ACCESS_TOKEN_ENV, DEFAULT_SOURCES, OPT_IN_SOURCES } from "@ccclub/shared";
 import type { AgentSource } from "@ccclub/shared";
 import { loadConfig, requireConfig, saveConfig } from "../config.js";
 import type { CliConfig } from "../config.js";
@@ -98,6 +98,22 @@ const ENABLE_NOTICE: Partial<Record<AgentSource, string[]>> = {
   ],
 };
 
+/**
+ * What `enable` has to add on a machine where the automatic token lookup
+ * cannot work. Cursor's token lives in the macOS Keychain; off darwin there
+ * is nothing to read, so enabling succeeds and then collects nothing at all
+ * unless CURSOR_ACCESS_TOKEN is set. Saying so beats a silently empty source.
+ * @internal exported for tests.
+ */
+export function platformEnableWarning(
+  source: AgentSource,
+  env: { platform: string; hasCursorToken: boolean },
+): string | null {
+  if (source !== "cursor") return null;
+  if (env.platform === "darwin" || env.hasCursorToken) return null;
+  return `Cursor's token lives in the macOS Keychain, and this is ${env.platform}. Set CURSOR_ACCESS_TOKEN in the environment your syncs run in, or Cursor will collect nothing.`;
+}
+
 export async function sourcesEnableCommand(name: string): Promise<void> {
   const config = await requireConfig();
   const change = withSourceEnabled(config, name);
@@ -122,6 +138,12 @@ export async function sourcesEnableCommand(name: string): Promise<void> {
     for (const line of notice) console.log(line ? chalk.dim(`  ${line}`) : "");
     console.log();
   }
+
+  const platformWarning = platformEnableWarning(change.source, {
+    platform: process.platform,
+    hasCursorToken: Boolean(process.env[CURSOR_ACCESS_TOKEN_ENV]?.trim()),
+  });
+  if (platformWarning) console.log(chalk.yellow(`  Note: ${platformWarning}\n`));
 
   await saveConfig({ ...config, enabledSources: change.enabledSources });
   console.log(theme.success(`  ✓ ${label} enabled`) + chalk.dim(" — it syncs from the next sync onward."));

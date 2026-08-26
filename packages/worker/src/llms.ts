@@ -7,11 +7,14 @@ import type { Env } from "./types.js";
 const LLMS_TXT = `# ccclub
 
 > Claude Code and Codex leaderboard among friends. The ccclub CLI reads local
-> coding-agent usage logs (Claude Code, Codex, OpenCode, Amp, Grok, Pi, Cursor),
+> coding-agent usage logs (Claude Code, Codex, OpenCode, Amp, Grok, Pi),
 > aggregates them into anonymous 30-minute token/cost summaries, and uploads
 > only those counters to group leaderboards. No prompts, no code, no file
-> paths ever leave the machine. Non-coding assistant usage is excluded from
-> rankings server-side.
+> paths ever leave the machine. Cursor is supported too, but opt-in: it keeps
+> no local usage logs, so \`ccclub sources enable cursor\` is required before
+> ccclub reads the Cursor token from the macOS Keychain and fetches usage
+> from Cursor's dashboard API (the token itself is never uploaded).
+> Non-coding assistant usage is excluded from rankings server-side.
 
 ## CLI
 
@@ -22,6 +25,8 @@ const LLMS_TXT = `# ccclub
   suitable for jq, scripts, and agents. Shape: { period, groups: [RankResponse] }
 - Claude Code statusline (model · 5h/7d limits · rank): \`ccclub statusline on|off\`
 - Audit what gets uploaded: \`ccclub show-data\`
+- List collected agents, and turn opt-in ones on/off:
+  \`ccclub sources\` · \`ccclub sources enable cursor\` · \`ccclub sources disable cursor\`
 
 ## Public HTTP API (no auth required)
 

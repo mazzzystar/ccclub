@@ -1,6 +1,6 @@
 ---
 name: ccclub
-description: Check the user's coding-agent leaderboard — token usage, cost, and rank among friends across Claude Code, Codex, OpenCode, Amp, Grok, Pi, and Cursor. Use when the user asks how many tokens they burned, what their AI spend is, where they rank in their group, or wants to set up / join a ccclub leaderboard.
+description: Check the user's coding-agent leaderboard — token usage, cost, and rank among friends across Claude Code, Codex, OpenCode, Amp, Grok, and Pi (plus Cursor, if the user opted in). Use when the user asks how many tokens they burned, what their AI spend is, where they rank in their group, or wants to set up / join a ccclub leaderboard.
 ---
 
 # ccclub — coding-agent leaderboard among friends
@@ -53,6 +53,13 @@ If it prints "Not initialized", run setup too.
 - `ccclub statusline on|off` — Claude Code statusline (model · 5h/7d limits · rank)
 - `ccclub show-data` — audit exactly what gets uploaded (privacy check)
 - `ccclub sync` — force an immediate sync
+- `ccclub sources` — which agents are collected; `sources enable|disable <name>`
+
+Everything is read from local log files, except Cursor: it writes no local
+usage logs, so it is off by default and only collected after the user runs
+`ccclub sources enable cursor`, which lets ccclub read the Cursor token from
+the macOS Keychain and fetch usage from Cursor's dashboard API. Never suggest
+enabling it without saying that.
 
 The leaderboard counts coding agents only; personal-assistant usage (e.g.
 OpenClaw) is excluded from rankings server-side.

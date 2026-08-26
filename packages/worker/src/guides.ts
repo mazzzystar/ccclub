@@ -217,7 +217,7 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
 
       <h2>Codex and Claude Code on one board</h2>
 
-      <p>Many developers now run both agents and want one picture of usage — or want to compare with friends who use a different agent. <a href="/">ccclub</a> (our project) reads local logs from Codex, Claude Code, OpenCode, Amp, Grok, Pi, and Cursor, and puts a group on a single leaderboard with each member's agent mix. Set up with <code>npx ccclub init</code>; only numeric summaries are uploaded (no prompts, code, or file paths). If you only want your own numbers, stick with ccusage — see the <a href="/ccusage-vs-ccclub">comparison</a>.</p>
+      <p>Many developers now run both agents and want one picture of usage — or want to compare with friends who use a different agent. <a href="/">ccclub</a> (our project) reads local logs from Codex, Claude Code, OpenCode, Amp, Grok, and Pi — plus opt-in Cursor, which has no local logs to read — and puts a group on a single leaderboard with each member's agent mix. Set up with <code>npx ccclub init</code>; only numeric summaries are uploaded (no prompts, code, or file paths). If you only want your own numbers, stick with ccusage — see the <a href="/ccusage-vs-ccclub">comparison</a>.</p>
 
       <h2>A note on Codex "cost"</h2>
 
@@ -257,7 +257,7 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
 
       <p><strong>ccusage</strong> is a reporting CLI. It reads local coding-agent logs and prints tables — daily, monthly, per-session, or 5-hour billing blocks — with cost estimated at API pricing. It supports a long list of coding CLIs, runs entirely offline, and uploads nothing. It has become the de-facto standard for personal usage reports.</p>
 
-      <p><strong>ccclub</strong> is a shared leaderboard. Everyone in a group runs <code>npx ccclub init</code> or <code>join CODE</code>; after that, usage syncs automatically (a session-end hook for Claude Code, background sync for Codex, OpenCode, Amp, Grok, Pi, and Cursor) and the group sees one ranking — in the terminal via <code>ccclub</code> or on a live web dashboard. It uploads aggregated numeric summaries only: token counts, estimated cost, model names, turn counts, in 30-minute blocks. No prompts, code, or file paths; <code>ccclub show-data</code> prints the exact payload.</p>
+      <p><strong>ccclub</strong> is a shared leaderboard. Everyone in a group runs <code>npx ccclub init</code> or <code>join CODE</code>; after that, usage syncs automatically (a session-end hook for Claude Code, background sync for Codex, OpenCode, Amp, Grok, and Pi, and for Cursor once you enable it) and the group sees one ranking — in the terminal via <code>ccclub</code> or on a live web dashboard. It uploads aggregated numeric summaries only: token counts, estimated cost, model names, turn counts, in 30-minute blocks. No prompts, code, or file paths; <code>ccclub show-data</code> prints the exact payload.</p>
 
       <h2>Side by side</h2>
 
@@ -335,7 +335,7 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
 
       <p>Other public boards in the same vein: <a href="https://clawd.gg" rel="noopener">clawd.gg</a> (ranks prompts, tokens, and lines of code) and <a href="https://ccleaderboard.com" rel="noopener">CCLeaderboard</a> (CLI submission, daily and all-time rankings).</p>
 
-      <p><strong>ccclub</strong> — private-first. You create a group with <code>npx ccclub init</code>, friends join with a 6-letter code, and the board updates automatically from local logs (Claude Code session-end hook; background sync for Codex, OpenCode, Amp, Grok, Pi, Cursor). No accounts. Each group gets a live web dashboard, and there's an opt-in <a href="/g/global">global board</a> if you do want a public ranking. Only numeric summaries are uploaded — no prompts, code, or file paths.</p>
+      <p><strong>ccclub</strong> — private-first. You create a group with <code>npx ccclub init</code>, friends join with a 6-letter code, and the board updates automatically from local logs (Claude Code session-end hook; background sync for Codex, OpenCode, Amp, Grok, Pi — and Cursor, which is opt-in because it has no local logs). No accounts. Each group gets a live web dashboard, and there's an opt-in <a href="/g/global">global board</a> if you do want a public ranking. Only numeric summaries are uploaded — no prompts, code, or file paths.</p>
 
       <h2>Side by side</h2>
 

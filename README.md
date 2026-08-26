@@ -30,8 +30,6 @@ ccclub
 
 ccclub reads local usage logs that supported coding agents already write, bundles them into 30-minute summaries (agent source + token counts + cost), and uploads those numbers. **No prompts, no code, no file paths, no project names** — just counters. Run `ccclub show-data` to audit exactly what gets sent.
 
-Cursor is the exception: its local transcripts have no token counts, so ccclub reads the same dashboard events the Cursor app already shows (input / output / cost). On macOS it uses the access token Cursor stored in Keychain; `CURSOR_ACCESS_TOKEN` overrides that. The refresh token is never read.
-
 Supported sources:
 
 | Agent | Default location |
@@ -42,9 +40,21 @@ Supported sources:
 | Amp | `~/.local/share/amp/threads` |
 | Pi | `~/.pi/agent/sessions` |
 | Grok | `~/.grok/logs/unified.jsonl` |
-| Cursor | Cursor dashboard API (macOS Keychain, or `CURSOR_ACCESS_TOKEN`) |
+| Cursor | Cursor's dashboard API — **opt-in**, see below |
 
 If you use the default locations, there is nothing to configure. Custom locations are supported with `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_DATA_DIR`, `AMP_DATA_DIR`, `PI_AGENT_DIR`, and `GROK_HOME`.
+
+### Cursor is opt-in
+
+Cursor keeps no local token or cost logs, so it is the one source ccclub cannot read from disk. Collecting it means calling Cursor's own dashboard API (`api2.cursor.sh`) with the access token Cursor already stored in your macOS Keychain — so ccclub leaves it off until you ask:
+
+```bash
+ccclub sources enable cursor   # prints what it does, then turns it on
+ccclub sources                 # see what is collected
+ccclub sources disable cursor
+```
+
+Your Cursor token is never uploaded to ccclub; it only authenticates you to Cursor. The refresh token is never read, `CURSOR_ACCESS_TOKEN` overrides the Keychain lookup, and what syncs is the same aggregated block summary as every other source. If you never enable it, ccclub never reads your Keychain and never contacts Cursor.
 
 The leaderboard deliberately tracks **coding agents only** — usage from personal-assistant tools (e.g. OpenClaw) is excluded server-side so it can never inflate anyone's rank.
 
@@ -80,6 +90,8 @@ ccclub profile --avatar "URL"      # Custom avatar
 ccclub profile --public            # Show up on global board
 ccclub profile --private           # Hide from global (default)
 ccclub show-data                   # See exactly what gets uploaded
+ccclub sources                     # Which agents are collected
+ccclub sources enable cursor       # Turn on the opt-in Cursor source
 ccclub statusline on|off           # Claude Code statusline toggle
 ```
 
@@ -144,7 +156,7 @@ packages/
   worker/     Cloudflare Worker — Hono API + KV + dashboard
 ```
 
-Auto-sync: `ccclub init` installs Claude Code `SessionEnd` + `Stop` hooks and a lightweight background sync that keeps Codex, OpenCode, Amp, Grok, Pi, and Cursor fresh (throttled to once per 5 minutes).
+Auto-sync: `ccclub init` installs Claude Code `SessionEnd` + `Stop` hooks and a lightweight background sync that keeps Codex, OpenCode, Amp, Grok, and Pi fresh (throttled to once per 5 minutes). The background sync reads `~/.ccclub/config.json`, so an opt-in source you enable is picked up there too.
 
 Model pricing: costs are computed locally against a compact price table derived from [LiteLLM](https://github.com/BerriAI/litellm) — the same upstream ccusage uses. The Worker refreshes it daily and serves it at `/api/pricing`; the CLI keeps a 24-hour local cache (`~/.ccclub/pricing.json`) with a bundled snapshot as offline fallback. New models are priced correctly within a day, with no CLI update required.
 

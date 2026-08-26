@@ -12,7 +12,13 @@ export interface CursorEvent {
   outputTokens: number;
   cacheWriteTokens: number;
   cacheReadTokens: number;
-  costUSD: number;
+  /**
+   * Cursor's own charge for this event, in dollars. Undefined means the row
+   * carried no cents field at all — a missing number, not a free request —
+   * and the pricing table has to answer instead. An explicit 0 is a real
+   * answer and stays 0.
+   */
+  costUSD: number | undefined;
   conversationId?: string;
 }
 
@@ -25,13 +31,30 @@ export function asInt(value: unknown): number {
   return 0;
 }
 
-export function asFiniteNumber(value: unknown): number {
+/** Undefined, not 0, when the field is absent or unparsable — see CursorEvent.costUSD. */
+export function asFiniteNumber(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value.trim()) {
     const n = Number(value);
     if (Number.isFinite(n)) return n;
   }
-  return 0;
+  return undefined;
+}
+
+/**
+ * Which cents field Cursor's answer is. `totalCents` is the per-event charge
+ * and wins whenever it is there; `chargedCents` is the row-level fallback,
+ * used when totalCents is absent — and also when totalCents is 0 while
+ * chargedCents is not, which is how the dashboard reports some usage-based
+ * rows. With neither field present there is no answer to give.
+ */
+export function pickCursorCents(row: unknown): number | undefined {
+  const record = asRecord(row);
+  const totalCents = asFiniteNumber(asRecord(record?.tokenUsage)?.totalCents);
+  const chargedCents = asFiniteNumber(record?.chargedCents);
+  if (totalCents === undefined) return chargedCents;
+  if (totalCents === 0 && chargedCents !== undefined && chargedCents > 0) return chargedCents;
+  return totalCents;
 }
 
 function eventTimestamp(value: unknown): string | null {
@@ -51,13 +74,13 @@ export function parseCursorEvent(row: unknown): CursorEvent | null {
   const outputTokens = asInt(usage.outputTokens);
   const cacheWriteTokens = asInt(usage.cacheWriteTokens);
   const cacheReadTokens = asInt(usage.cacheReadTokens);
-  const cents = asFiniteNumber(usage.totalCents) || asFiniteNumber(record?.chargedCents);
+  const cents = pickCursorCents(record);
   if (
     inputTokens === 0 &&
     outputTokens === 0 &&
     cacheWriteTokens === 0 &&
     cacheReadTokens === 0 &&
-    cents === 0
+    (cents ?? 0) === 0
   ) {
     return null;
   }
@@ -69,7 +92,7 @@ export function parseCursorEvent(row: unknown): CursorEvent | null {
     outputTokens,
     cacheWriteTokens,
     cacheReadTokens,
-    costUSD: cents / 100,
+    costUSD: cents === undefined ? undefined : cents / 100,
     conversationId: asString(record?.conversationId),
   };
 }

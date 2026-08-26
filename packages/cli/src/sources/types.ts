@@ -56,7 +56,9 @@ export function priceUsageFact(
     ...usage,
     // Presence, not truthiness: a source that reports $0 (Cursor's included
     // requests) means it, and the pricing table would invent a cost instead —
-    // its fallback rules never return 0.
+    // its fallback rules never return 0. A NEGATIVE report is not a price at
+    // all (a refund line, or a parser reading the wrong field), so it counts
+    // as absent and the calculated cost wins.
     costUSD: reportedCostUSD !== undefined && reportedCostUSD >= 0 ? reportedCostUSD : calculated,
   };
 }
@@ -73,6 +75,13 @@ export interface SourceCollection {
   turns: UsageTurn[];
   files: number;
   warnings: string[];
+  /**
+   * This run covered only part of the source's window — an API collector that
+   * ran out of pages. Sync must not advance the source's watermark past a
+   * partial read, or the blocks it never reached fall below the watermark and
+   * are never asked for again.
+   */
+  truncated?: boolean;
 }
 
 export interface AgentSourceCollector {

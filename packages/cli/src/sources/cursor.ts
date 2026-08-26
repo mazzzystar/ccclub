@@ -19,12 +19,15 @@ const MAX_PAGES = 50;
 const LOOKBACK_MS = 400 * 24 * 60 * 60 * 1000;
 /**
  * How far before the last synced block an incremental fetch reaches back. The
- * watermark is a block start, and the dashboard can publish an event after the
- * block it belongs to has already been synced, so a day of overlap is what
- * keeps late arrivals from falling into the gap. Re-fetched events are
- * deduped by request key, so overlap costs a request, never a double count.
+ * watermark is the START of the newest block already synced, so that block is
+ * usually still open: an hour covers it and the events the dashboard publishes
+ * late into it. Reaching back further buys nothing — filterBlocksToSync drops
+ * every block older than the watermark before upload anyway — while every
+ * extra hour is more pages for a heavy user's five-minute background sync.
+ * Re-fetched events dedupe on request key, so overlap costs a request, never
+ * a double count.
  */
-const OVERLAP_MS = 24 * 60 * 60 * 1000;
+const OVERLAP_MS = 60 * 60 * 1000;
 
 export interface CursorCollectorDeps {
   readToken?: () => Promise<string | undefined>;
@@ -104,7 +107,7 @@ export function cursorStartMs(lastSyncIso: string | undefined, nowMs: number): n
 export async function collectCursorEvents(
   deps: CursorCollectorDeps = {},
   window: { startMs?: number; nowMs?: number } = {},
-): Promise<{ events: CursorEvent[]; files: number; warning?: string }> {
+): Promise<{ events: CursorEvent[]; files: number; warning?: string; truncated?: boolean }> {
   const readToken = deps.readToken ?? defaultReadCursorToken;
   const fetchPage = deps.fetchPage ?? defaultFetchCursorPage;
   const token = await readToken();
@@ -153,9 +156,13 @@ export async function collectCursorEvents(
     // reshaped API response must never be read as "this user has no history".
     files: events.length > 0 ? 1 : 0,
     // Newest-first means truncation drops the oldest events, so say so rather
-    // than let a first sync silently under-report a long history.
+    // than let a first sync silently under-report a long history. The flag
+    // travels with it because sync has to hold the watermark back too.
     ...(truncated
-      ? { warning: `Cursor: only the most recent ${MAX_PAGES * PAGE_SIZE} usage events were read` }
+      ? {
+        truncated: true,
+        warning: `Cursor: only the most recent ${MAX_PAGES * PAGE_SIZE} usage events were read`,
+      }
       : {}),
   };
 }
@@ -166,6 +173,7 @@ export function eventsToCollection(events: CursorEvent[], context: CollectorCont
   const turns: UsageTurn[] = [];
   const seen = new Set<string>();
   const seenConversations = new Set<string>();
+  let withoutReportedCost = 0;
 
   const sorted = [...events].sort(
     (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
@@ -196,12 +204,15 @@ export function eventsToCollection(events: CursorEvent[], context: CollectorCont
       cacheCreationTokens: event.cacheWriteTokens,
       cacheReadTokens: event.cacheReadTokens,
       totalTokens: cursorTotalTokens(event),
-      // Always Cursor's own number, including 0. Cursor bills per request and
-      // reports what it charged; falling back to the LiteLLM table would put
-      // an invented price on an included request, and that table never
-      // returns 0 for a known model family.
-      reportedCostUSD: event.costUSD,
+      // Cursor's own number whenever it gave one, including 0: it bills per
+      // request and reports what it charged, so falling back to the LiteLLM
+      // table would put an invented price on an included request (that table
+      // never returns 0 for a known model family). A row with no cents field
+      // at all is a different thing — nothing was reported, so the key stays
+      // off and the pricing table answers.
+      ...(event.costUSD === undefined ? {} : { reportedCostUSD: event.costUSD }),
     };
+    if (event.costUSD === undefined) withoutReportedCost++;
     entries.push(priceUsageFact(fact, context));
 
     // One turn per conversation, not per prompt. The dashboard exposes no
@@ -214,7 +225,18 @@ export function eventsToCollection(events: CursorEvent[], context: CollectorCont
     }
   }
 
-  return { source, entries, turns, files: entries.length > 0 ? 1 : 0, warnings: [] };
+  return {
+    source,
+    entries,
+    turns,
+    files: entries.length > 0 ? 1 : 0,
+    // One line, not one per event. Cursor has always sent a cents field, so a
+    // run where some rows have none is a schema drift worth seeing — those
+    // entries silently switched to pricing-table estimates.
+    warnings: withoutReportedCost > 0
+      ? [`Cursor: ${withoutReportedCost} usage event${withoutReportedCost === 1 ? "" : "s"} reported no cost — estimated from the pricing table instead`]
+      : [],
+  };
 }
 
 export async function collectCursorUsage(
@@ -222,21 +244,28 @@ export async function collectCursorUsage(
   deps: CursorCollectorDeps = {},
   nowMs = Date.now(),
 ): Promise<SourceCollection> {
-  const { events, files, warning } = await collectCursorEvents(deps, {
+  const { events, files, warning, truncated } = await collectCursorEvents(deps, {
     startMs: cursorStartMs(context.lastSyncBySource?.cursor, nowMs),
     nowMs,
   });
+  const fetchWarnings = warning ? [warning] : [];
   if (files === 0) {
     return {
       source: "cursor",
       entries: [],
       turns: [],
       files: 0,
-      warnings: warning ? [warning] : [],
+      warnings: fetchWarnings,
+      ...(truncated ? { truncated: true } : {}),
     };
   }
   const collection = eventsToCollection(events, context);
-  return { ...collection, files, warnings: warning ? [warning] : [] };
+  return {
+    ...collection,
+    files,
+    warnings: [...fetchWarnings, ...collection.warnings],
+    ...(truncated ? { truncated: true } : {}),
+  };
 }
 
 export const cursorCollector: AgentSourceCollector = {

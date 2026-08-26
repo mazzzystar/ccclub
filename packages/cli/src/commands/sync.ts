@@ -8,6 +8,7 @@ import { requireConfig, loadConfig, getLastSyncPath, getLastSyncTimePath } from 
 import type { CliConfig } from "../config.js";
 import { collectUsageEntries } from "../collector.js";
 import { getEffectiveSources, resolveCollectSources } from "../sources/index.js";
+import type { SourceCollection } from "../sources/index.js";
 import { aggregateToBlocks } from "../aggregator.js";
 import { loadPricing, refreshPricingCache } from "../pricing.js";
 import { refreshRankCache } from "../statusline.js";
@@ -204,7 +205,7 @@ async function performSync(config: CliConfig, firstSync = false, silent = false)
     const blocksToSync = filterBlocksToSync(allBlocks, { lastSync, lastSyncBySource, hasSourceState, firstSync });
     const nextLastSyncBySource = { ...lastSyncBySource };
     for (const source of replaceSources) delete nextLastSyncBySource[source];
-    Object.assign(nextLastSyncBySource, getLatestBlockStartBySource(allBlocks));
+    advanceSourceWatermarks(nextLastSyncBySource, allBlocks, sources);
 
     if (blocksToSync.length === 0 && replaceSources.length === 0) {
       if (spinner) spinner.succeed("Already up to date");
@@ -329,4 +330,32 @@ function getLatestBlockStartBySource(blocks: UsageBlock[]): Partial<Record<Agent
     }
   }
   return latest;
+}
+
+/**
+ * Move each source's watermark up to its newest block — except for a source
+ * whose collector only got through part of its window. filterBlocksToSync
+ * never looks below a watermark again, so advancing past a truncated read
+ * would strand the blocks that read never reached, permanently. Holding the
+ * marker makes the next run ask for the same window; blocks key on
+ * source+blockStart and Cursor events on request id, so the repeat is free.
+ *
+ * A truncated run with NO previous marker (first sync, or a repaired one) has
+ * nothing to hold: it advances anyway, or every later sync replays the same
+ * fifty pages forever without ever reaching further back.
+ * Exported for tests.
+ */
+export function advanceSourceWatermarks(
+  markers: Partial<Record<AgentSource, string>>,
+  allBlocks: UsageBlock[],
+  collections: Array<Pick<SourceCollection, "source" | "truncated">>,
+): Partial<Record<AgentSource, string>> {
+  const truncated = new Set(
+    collections.filter((collection) => collection.truncated).map((collection) => collection.source),
+  );
+  for (const [source, blockStart] of Object.entries(getLatestBlockStartBySource(allBlocks)) as Array<[AgentSource, string]>) {
+    if (truncated.has(source) && markers[source] != null) continue;
+    markers[source] = blockStart;
+  }
+  return markers;
 }

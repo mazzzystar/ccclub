@@ -3,6 +3,7 @@ import { createCostCalculator, DEFAULT_SOURCES, OPT_IN_SOURCES, getNonCacheToken
 import { collectCursorUsage, cursorStartMs } from "../sources/cursor.js";
 import { cursorTotalTokens, parseCursorEvent, parseCursorEventsPage } from "../sources/cursor-parse.js";
 import { parseSources } from "../sources/index.js";
+import { priceUsageFact } from "../sources/types.js";
 import { aggregateToBlocks } from "../aggregator.js";
 
 const calculateCost = createCostCalculator(PRICING_SNAPSHOT);
@@ -56,6 +57,75 @@ describe("parseCursorEvent", () => {
       cacheReadTokens: 400,
     });
     expect(event?.costUSD).toBeCloseTo(0.5);
+  });
+
+  it("reports no cost at all when neither cents field is present", () => {
+    // Absence is not $0. Collapsing the two would put a free price on a
+    // request Cursor did charge for, and nothing downstream could tell.
+    const event = parseCursorEvent({
+      timestamp: "1787641275311",
+      model: "gpt-5",
+      tokenUsage: { inputTokens: 10, outputTokens: 20 },
+    });
+    expect(event?.costUSD).toBeUndefined();
+  });
+
+  it("falls back to chargedCents only when totalCents is missing or zero", () => {
+    const missing = parseCursorEvent({
+      timestamp: "1787641275311",
+      model: "gpt-5",
+      tokenUsage: { inputTokens: 1, outputTokens: 1 },
+      chargedCents: 250,
+    });
+    expect(missing?.costUSD).toBeCloseTo(2.5);
+
+    const zeroTotal = parseCursorEvent({
+      timestamp: "1787641275311",
+      model: "gpt-5",
+      tokenUsage: { inputTokens: 1, outputTokens: 1, totalCents: 0 },
+      chargedCents: 250,
+    });
+    expect(zeroTotal?.costUSD).toBeCloseTo(2.5);
+
+    // A present totalCents wins over a disagreeing chargedCents.
+    const both = parseCursorEvent({
+      timestamp: "1787641275311",
+      model: "gpt-5",
+      tokenUsage: { inputTokens: 1, outputTokens: 1, totalCents: "100" },
+      chargedCents: 250,
+    });
+    expect(both?.costUSD).toBeCloseTo(1);
+
+    // Both zero is still a real answer: free.
+    const free = parseCursorEvent({
+      timestamp: "1787641275311",
+      model: "gpt-5",
+      tokenUsage: { inputTokens: 1, outputTokens: 1, totalCents: "0" },
+      chargedCents: 0,
+    });
+    expect(free?.costUSD).toBe(0);
+  });
+});
+
+describe("priceUsageFact cost precedence", () => {
+  const fact = {
+    source: "cursor" as const,
+    timestamp: "2026-08-25T07:01:15.311Z",
+    sessionId: "s",
+    model: "claude-fable-5-thinking-high",
+    inputTokens: 12,
+    outputTokens: 34,
+    cacheCreationTokens: 0,
+    cacheReadTokens: 2_000_000,
+    totalTokens: 2_000_046,
+  };
+
+  it("treats a negative reported cost as no answer and prices it instead", () => {
+    const priced = priceUsageFact(fact, context).costUSD;
+    expect(priced).toBeGreaterThan(0);
+    expect(priceUsageFact({ ...fact, reportedCostUSD: -1 }, context).costUSD).toBe(priced);
+    // Zero is still a real answer, and still wins.
+    expect(priceUsageFact({ ...fact, reportedCostUSD: 0 }, context).costUSD).toBe(0);
   });
 });
 
@@ -192,6 +262,32 @@ describe("collectCursorUsage", () => {
     expect(calculateCost("claude-fable-5-thinking-high", 12, 34, 0, 2_000_000)).toBeGreaterThan(0);
   });
 
+  it("prices events that report no cost, and says so once", async () => {
+    // Cursor has always sent a cents field. A run where some rows have none
+    // is schema drift: those entries quietly become estimates, so the run
+    // carries one warning saying how many — not one per event.
+    const noCentsRow = (index: number) => ({
+      timestamp: String(1_787_641_275_311 + index),
+      model: "claude-fable-5-thinking-high",
+      tokenUsage: { inputTokens: 12, outputTokens: 34, cacheWriteTokens: 0, cacheReadTokens: 2_000_000 },
+      conversationId: `drift-${index}`,
+    });
+    const result = await collectCursorUsage(context, {
+      readToken: async () => "test-token",
+      fetchPage: async (_token, page) => page === 1
+        ? { totalUsageEventsCount: 2, usageEventsDisplay: [noCentsRow(0), noCentsRow(1)] }
+        : { usageEventsDisplay: [] },
+    });
+
+    expect(result.entries).toHaveLength(2);
+    const expected = calculateCost("claude-fable-5-thinking-high", 12, 34, 0, 2_000_000);
+    expect(expected).toBeGreaterThan(0);
+    for (const entry of result.entries) expect(entry.costUSD).toBe(expected);
+    expect(result.warnings).toEqual([
+      "Cursor: 2 usage events reported no cost — estimated from the pricing table instead",
+    ]);
+  });
+
   it("reports no records when the API returns nothing usable", async () => {
     // files > 0 is what lets a full sync replace stored Cursor history. An
     // empty window — or a response whose shape changed — must not be read as
@@ -231,9 +327,13 @@ describe("cursor fetch window", () => {
     expect(cursorStartMs("not-a-date", now)).toBe(fullWindow);
   });
 
-  it("resumes from the last sync with a day of overlap", () => {
+  it("resumes an hour before the watermark, enough to cover its own block", () => {
+    // The watermark is a 30-minute block START, so that block may still be
+    // open. An hour covers it and its late arrivals; anything older than the
+    // watermark is dropped by filterBlocksToSync before upload anyway, so a
+    // wider window would only cost pages.
     expect(cursorStartMs("2026-08-20T00:00:00.000Z", now))
-      .toBe(Date.parse("2026-08-19T00:00:00.000Z"));
+      .toBe(Date.parse("2026-08-19T23:00:00.000Z"));
   });
 
   it("never reaches back further than the retention window", () => {
@@ -254,7 +354,7 @@ describe("cursor fetch window", () => {
       now,
     );
 
-    expect(windows).toEqual([[Date.parse("2026-08-23T00:00:00.000Z"), now]]);
+    expect(windows).toEqual([[Date.parse("2026-08-23T23:00:00.000Z"), now]]);
   });
 
   it("refetches everything when the watermark is gone", async () => {
@@ -333,5 +433,7 @@ describe("cursor pagination", () => {
     expect(result.entries).toHaveLength(5_000);
     expect(result.warnings).toEqual(["Cursor: only the most recent 5000 usage events were read"]);
     expect(result.files).toBe(1);
+    // The flag, not just the sentence: sync reads it to hold the watermark.
+    expect(result.truncated).toBe(true);
   });
 });

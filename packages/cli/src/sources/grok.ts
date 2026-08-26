@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { homedir } from "node:os";
 import {
   DEFAULT_GROK_DIR,
@@ -12,13 +12,15 @@ import {
   asRecord,
   asString,
   existingDirectories,
+  globFiles,
   parsePathList,
   readJsonlFile,
   statFile,
   toIsoTimestamp,
 } from "./shared.js";
 
-const GROK_SCAN_VERSION = 1;
+// v2: usage comes from session turn_completed, not trimmed unified.jsonl.
+const GROK_SCAN_VERSION = 2;
 const FALLBACK_MODEL = "grok-4.6";
 
 interface GrokScanResult {
@@ -31,100 +33,58 @@ function getGrokHomes(): Promise<string[]> {
   return existingDirectories(dirs);
 }
 
-async function listGrokLogFiles(homes: string[]): Promise<string[]> {
-  const files: string[] = [];
-  for (const home of homes) {
-    const file = join(home, "logs", "unified.jsonl");
-    if (await statFile(file) != null) files.push(file);
-  }
-  return files;
+async function listGrokSessionFiles(homes: string[]): Promise<string[]> {
+  const groups = await Promise.all(
+    homes.map((home) => globFiles([join(home, "sessions")], "**/updates.jsonl")),
+  );
+  return groups.flat().sort();
 }
 
-function announcedModel(msg: string, ctx: Record<string, unknown> | null): string | undefined {
-  if (ctx == null) return undefined;
-  if (msg === "model changed") return asString(ctx.model);
-  if (msg === "backend_search: model switch") return asString(ctx.new_model);
-  if (msg === "model catalog: notifying clients") return asString(ctx.current_model_id);
-  return undefined;
+function canonicalModel(raw: string | undefined): string {
+  if (raw == null) return FALLBACK_MODEL;
+  return raw.endsWith("-build") ? raw.slice(0, -"-build".length) || FALLBACK_MODEL : raw;
 }
 
-function resolveModel(
-  sid: string | undefined,
-  pid: number,
-  sidModel: Map<string, string>,
-  pidModel: Map<number, string>,
-  lastModel: string | undefined,
-): string {
-  if (sid != null && sidModel.has(sid)) return sidModel.get(sid)!;
-  if (pid > 0 && pidModel.has(pid)) return pidModel.get(pid)!;
-  return lastModel ?? FALLBACK_MODEL;
+function modelFromUsage(usage: Record<string, unknown>): string {
+  const modelUsage = asRecord(usage.modelUsage);
+  const key = modelUsage == null ? undefined : Object.keys(modelUsage).sort()[0];
+  return canonicalModel(key);
 }
 
-async function scanGrokFile(file: string): Promise<GrokScanResult> {
+async function scanGrokSessionFile(file: string): Promise<GrokScanResult> {
   const source = "grok";
+  const sessionId = basename(dirname(file));
   const facts: UsageFact[] = [];
   const turns: UsageTurn[] = [];
-  const sidModel = new Map<string, string>();
-  const pidModel = new Map<number, string>();
-  let lastModel: string | undefined;
 
   await readJsonlFile(file, (value) => {
     const record = asRecord(value);
-    const msg = asString(record?.msg);
-    if (msg == null) return;
+    const update = asRecord(asRecord(record?.params)?.update);
+    if (asString(update?.sessionUpdate) !== "turn_completed") return;
 
-    const ctx = asRecord(record?.ctx);
-    const model = announcedModel(msg, ctx);
-    if (model != null) {
-      lastModel = model;
-      const sid = asString(record?.sid);
-      const pid = asNumber(record?.pid);
-      if (sid != null) sidModel.set(sid, model);
-      if (pid > 0) pidModel.set(pid, model);
-      return;
-    }
+    const usage = asRecord(update?.usage);
+    const timestamp = toIsoTimestamp(record?.timestamp);
+    if (usage == null || timestamp == null) return;
 
-    const timestamp = toIsoTimestamp(record?.ts);
-    if (timestamp == null) return;
-
-    const sessionId = asString(record?.sid) ?? "unknown";
-
-    if (msg === "shell.handle_prompt.start") {
-      const promptId = asString(ctx?.prompt_id) ?? "";
-      turns.push({
-        source,
-        timestamp,
-        key: [source, sessionId, timestamp, promptId].join(":"),
-      });
-      return;
-    }
-
-    if (msg !== "shell.turn.inference_done" || ctx == null) return;
-
-    const promptTotal = Math.max(0, asNumber(ctx.prompt_tokens));
-    const cached = Math.min(Math.max(0, asNumber(ctx.cached_prompt_tokens)), promptTotal);
+    const promptTotal = Math.max(0, asNumber(usage.inputTokens));
+    const cached = Math.min(Math.max(0, asNumber(usage.cachedReadTokens)), promptTotal);
     const inputTokens = promptTotal - cached;
-    const outputTokens = Math.max(0, asNumber(ctx.completion_tokens));
-    const reasoningTokens = Math.max(0, asNumber(ctx.reasoning_tokens));
-    if (promptTotal === 0 && outputTokens === 0 && reasoningTokens === 0) return;
+    const outputTokens = Math.max(0, asNumber(usage.outputTokens));
+    const cacheCreationTokens = Math.max(0, asNumber(usage.cacheCreationTokens));
+    const reasoningTokens = Math.max(0, asNumber(usage.reasoningTokens));
+    const totalTokens = asNumber(usage.totalTokens) || promptTotal + outputTokens;
+    if (totalTokens === 0) return;
 
-    const resolved = asString(ctx.model) ?? resolveModel(
-      asString(record?.sid),
-      asNumber(record?.pid),
-      sidModel,
-      pidModel,
-      lastModel,
-    );
-    const totalTokens = promptTotal + outputTokens + reasoningTokens;
+    const model = modelFromUsage(usage);
     const requestId = [
       source,
       sessionId,
       timestamp,
-      resolved,
+      model,
       inputTokens,
       outputTokens,
+      cacheCreationTokens,
       cached,
-      reasoningTokens,
       totalTokens,
     ].join(":");
 
@@ -133,13 +93,18 @@ async function scanGrokFile(file: string): Promise<GrokScanResult> {
       timestamp,
       sessionId,
       requestId,
-      model: resolved,
+      model,
       inputTokens,
       outputTokens,
-      cacheCreationTokens: 0,
+      cacheCreationTokens,
       cacheReadTokens: cached,
       reasoningTokens,
       totalTokens,
+    });
+    turns.push({
+      source,
+      timestamp,
+      key: [source, sessionId, timestamp].join(":"),
     });
   });
 
@@ -148,7 +113,7 @@ async function scanGrokFile(file: string): Promise<GrokScanResult> {
 
 export async function collectGrokUsage(context: CollectorContext): Promise<SourceCollection> {
   const source = "grok";
-  const files = await listGrokLogFiles(await getGrokHomes());
+  const files = await listGrokSessionFiles(await getGrokHomes());
   const cache = await context.openScanCache?.<GrokScanResult>(source, `parser=${GROK_SCAN_VERSION}`);
   const entries: UsageEntry[] = [];
   const turns: UsageTurn[] = [];
@@ -158,7 +123,7 @@ export async function collectGrokUsage(context: CollectorContext): Promise<Sourc
     const stat = await statFile(file);
     let parsed = stat != null ? cache?.get(file, stat) : undefined;
     if (parsed == null) {
-      parsed = await scanGrokFile(file);
+      parsed = await scanGrokSessionFile(file);
       if (stat != null) cache?.set(file, stat, parsed);
     }
 

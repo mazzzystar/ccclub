@@ -8,13 +8,13 @@ describe("getNonCacheTokens", () => {
     reasoningTokens: 20,
   };
 
-  it("does not add the Codex reasoning breakdown twice", () => {
+  it("does not add reasoning already included in output", () => {
     expect(getNonCacheTokens({ ...usage, source: "codex" })).toBe(150);
+    expect(getNonCacheTokens({ ...usage, source: "grok" })).toBe(150);
   });
 
   it("keeps separately reported reasoning for other sources", () => {
     expect(getNonCacheTokens({ ...usage, source: "opencode" })).toBe(170);
-    expect(getNonCacheTokens({ ...usage, source: "grok" })).toBe(170);
     expect(getNonCacheTokens({ ...usage, source: "cursor" })).toBe(170);
     expect(getNonCacheTokens({ ...usage, source: undefined })).toBe(170);
   });

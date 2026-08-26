@@ -110,16 +110,15 @@ export interface UsageBlock {
 }
 
 /**
- * Reasoning is a separate token bucket for most sources. Codex is the
- * exception: its output_tokens already includes reasoning_output_tokens, so
- * adding the reasoning breakdown again would double-count both cost and
- * non-cache token totals.
+ * Reasoning is a separate token bucket for most sources. Codex and Grok
+ * session turns already include reasoning inside output_tokens, so adding
+ * the breakdown again would double-count both cost and non-cache totals.
  */
 export function getAdditionalReasoningTokens(
   source: AgentSource | undefined,
   reasoningTokens: number | undefined,
 ): number {
-  return source === "codex" ? 0 : reasoningTokens || 0;
+  return source === "codex" || source === "grok" ? 0 : reasoningTokens || 0;
 }
 
 /** Non-cache tokens using each source's output/reasoning semantics. */

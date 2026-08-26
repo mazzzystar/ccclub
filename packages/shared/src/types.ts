@@ -1,12 +1,26 @@
 export const AGENT_SOURCES = ["claude", "codex", "opencode", "amp", "pi", "grok", "cursor", "openclaw"] as const;
 export type AgentSource = (typeof AGENT_SOURCES)[number];
 
-// OpenClaw is a personal assistant, not a coding agent — counting it by
-// default would dilute what the coding leaderboard measures. Opt-in sources
-// are excluded unless the user runs `ccclub sources enable <source>`.
-export const OPT_IN_SOURCES: readonly AgentSource[] = ["openclaw"];
+/**
+ * Sources that are never collected until the user runs
+ * `ccclub sources enable <source>`. Two different reasons land here:
+ * OpenClaw is a personal assistant, not a coding agent, so counting it by
+ * default would dilute what the leaderboard measures; Cursor writes no local
+ * token or cost logs, so collecting it means calling Cursor's dashboard API
+ * with the access token Cursor stored in the OS keychain — never something to
+ * do behind a user's back.
+ */
+export const OPT_IN_SOURCES: readonly AgentSource[] = ["openclaw", "cursor"];
 export const DEFAULT_SOURCES: readonly AgentSource[] =
   AGENT_SOURCES.filter((source) => !OPT_IN_SOURCES.includes(source));
+
+/**
+ * Sources that never count toward a ranking, however they got uploaded. This
+ * is about what the leaderboard measures, not about how collection is
+ * enabled: an opt-in source can still be a real coding agent (Cursor is), so
+ * this list is deliberately narrower than OPT_IN_SOURCES.
+ */
+export const UNRANKED_SOURCES: readonly AgentSource[] = ["openclaw"];
 
 /**
  * Non-coding sources are excluded from every ranking computation server-side,
@@ -14,7 +28,7 @@ export const DEFAULT_SOURCES: readonly AgentSource[] =
  * padded-looking source must not be usable to inflate rank.
  */
 export function isRankedSource(source: AgentSource | undefined): boolean {
-  return !OPT_IN_SOURCES.includes(source ?? "claude");
+  return !UNRANKED_SOURCES.includes(source ?? "claude");
 }
 
 export const AGENT_LABELS: Record<AgentSource, string> = {
@@ -255,8 +269,10 @@ export interface SyncRequest {
   replaceSources?: AgentSource[];
   /**
    * Sources this client durably tracks (config-derived, not the per-run
-   * filter). The server prunes stored blocks of OPT_IN_SOURCES that are
-   * absent here, so disabling an opt-in source also cleans up history.
+   * filter). The server prunes stored blocks of UNRANKED_SOURCES that are
+   * absent here, cleaning up what older clients uploaded. Ranked sources are
+   * never pruned this way: one machine is not evidence about another, and a
+   * user may have an opt-in source enabled on only one of them.
    */
   trackedSources?: AgentSource[];
 }

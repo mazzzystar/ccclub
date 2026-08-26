@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createCostCalculator, DEFAULT_SOURCES, getNonCacheTokens, PRICING_SNAPSHOT } from "@ccclub/shared";
+import { createCostCalculator, DEFAULT_SOURCES, OPT_IN_SOURCES, getNonCacheTokens, PRICING_SNAPSHOT } from "@ccclub/shared";
 import { collectCursorUsage } from "../sources/cursor.js";
 import { parseCursorEvent, parseCursorEventsPage } from "../sources/cursor-parse.js";
 import { parseSources } from "../sources/index.js";
@@ -76,9 +76,12 @@ describe("parseCursorEventsPage", () => {
 });
 
 describe("collectCursorUsage", () => {
-  it("is a default collectable coding source", () => {
-    expect(DEFAULT_SOURCES).toContain("cursor");
-    expect(parseSources(undefined)).toContain("cursor");
+  it("is collectable but opt-in — never in the default set", () => {
+    expect(OPT_IN_SOURCES).toContain("cursor");
+    expect(DEFAULT_SOURCES).not.toContain("cursor");
+    expect(parseSources(undefined)).not.toContain("cursor");
+    // Naming it explicitly is a deliberate per-run choice, so it is accepted.
+    expect(parseSources("cursor")).toEqual(["cursor"]);
   });
 
   it("returns nothing when no Cursor token is available", async () => {

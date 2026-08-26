@@ -11,6 +11,7 @@ import { leaveCommand } from "./commands/leave.js";
 import { hookCommand } from "./commands/hook.js";
 import { statuslineCommand } from "./commands/statusline.js";
 import { activityCommand } from "./commands/activity.js";
+import { sourcesDisableCommand, sourcesEnableCommand, sourcesListCommand } from "./commands/sources.js";
 import { startUpdateCheck } from "./update-check.js";
 import { getCurrentVersion } from "./version.js";
 
@@ -130,6 +131,27 @@ program
   .description("Preview exactly what gets uploaded (privacy check)")
   .action(showDataCommand);
 
+const sources = program
+  .command("sources")
+  .description("Which coding agents ccclub collects — and turn opt-in ones on");
+
+sources
+  .command("enable")
+  .description("Turn on an opt-in source (cursor)")
+  .argument("<source>", "Source name")
+  .action(sourcesEnableCommand);
+
+sources
+  .command("disable")
+  .description("Turn off an opt-in source")
+  .argument("<source>", "Source name")
+  .action(sourcesDisableCommand);
+
+sources
+  .command("list", { isDefault: true })
+  .description("Show every source and whether it is collected")
+  .action(sourcesListCommand);
+
 program
   .command("statusline")
   .argument("[action]", "on | off")
@@ -148,7 +170,8 @@ Setup:
   ccclub join <code>      Join a friend's group
 
 Supported agents:
-  Claude Code, Codex, OpenCode, Amp, Grok, Pi, Cursor
+  Claude Code, Codex, OpenCode, Amp, Grok, Pi  (collected automatically)
+  Cursor                                       (opt-in: ccclub sources enable cursor)
 
 Leaderboard options:
   -d <period>              Time window: 1 | 7 | 30 | all (default: today)
@@ -169,6 +192,7 @@ Examples:
   $ ccclub --global        Global public leaderboard
   $ ccclub --json          Leaderboard as JSON (pipe to jq, feed to agents)
   $ ccclub show-data       Preview exactly what gets uploaded
+  $ ccclub sources         Which agents are collected (and what is opt-in)
   $ ccclub statusline off  Remove the Claude Code statusline
 `);
 

@@ -2,12 +2,12 @@ import chalk from "chalk";
 import ora from "ora";
 import { loadConfig } from "../config.js";
 import { collectUsageEntries } from "../collector.js";
-import { parseSources } from "../sources/index.js";
+import { resolveCollectSources } from "../sources/index.js";
 import { aggregateToBlocks } from "../aggregator.js";
 import { loadPricing } from "../pricing.js";
 import { createScanCacheFactory } from "../scan-cache.js";
 import { theme } from "../theme.js";
-import { DEFAULT_SOURCES, isRankedSource, computeActivityStats, activityLevelFor } from "@ccclub/shared";
+import { isRankedSource, computeActivityStats, activityLevelFor } from "@ccclub/shared";
 import type { DayTotal, UsageBlock } from "@ccclub/shared";
 
 // GitHub-style yearly heatmap of local coding-agent activity, computed from
@@ -137,11 +137,9 @@ export async function activityCommand(options: { json?: boolean } = {}): Promise
   const spinner = options.json || !process.stdout.isTTY ? null : ora("Reading local usage logs...").start();
 
   const { calculateCost } = await loadPricing();
-  const collectSources = process.env.CCCLUB_SOURCES?.trim()
-    ? parseSources(process.env.CCCLUB_SOURCES)
-    : [...DEFAULT_SOURCES];
+  const config = await loadConfig();
   const { entries, humanTurns } = await collectUsageEntries({
-    sources: collectSources,
+    sources: resolveCollectSources(config),
     calculateCost,
     openScanCache: createScanCacheFactory(),
   });
@@ -151,7 +149,6 @@ export async function activityCommand(options: { json?: boolean } = {}): Promise
   const days = buildDayTotals(blocks);
   const todayKey = localDayKeyOf(new Date());
   const stats = computeActivityStats(days, todayKey);
-  const config = await loadConfig();
 
   if (options.json) {
     const list = [...days.values()].sort((a, b) => (a.d < b.d ? -1 : 1));

@@ -7,12 +7,12 @@ import ora from "ora";
 import { requireConfig, loadConfig, getLastSyncPath, getLastSyncTimePath } from "../config.js";
 import type { CliConfig } from "../config.js";
 import { collectUsageEntries } from "../collector.js";
-import { parseSources } from "../sources/index.js";
+import { getEffectiveSources, resolveCollectSources } from "../sources/index.js";
 import { aggregateToBlocks } from "../aggregator.js";
 import { loadPricing, refreshPricingCache } from "../pricing.js";
 import { refreshRankCache } from "../statusline.js";
 import { createScanCacheFactory } from "../scan-cache.js";
-import { AGENT_LABELS, AGENT_SOURCES, CCCLUB_CONFIG_DIR, DEFAULT_SOURCES } from "@ccclub/shared";
+import { AGENT_LABELS, AGENT_SOURCES, CCCLUB_CONFIG_DIR } from "@ccclub/shared";
 import type { AgentSource, SyncRequest, SyncResponse, UsageBlock } from "@ccclub/shared";
 import { formatFetchError } from "../fetch-error.js";
 import { fetchUsageLimits } from "../usage-limits.js";
@@ -136,11 +136,11 @@ async function performSync(config: CliConfig, firstSync = false, silent = false)
 
   // Reporting trackedSources lets the server prune non-coding sources that
   // 0.6.0/0.6.1 uploaded; CCCLUB_SOURCES stays a per-run collection filter
-  // and never affects it.
-  const trackedSources = [...DEFAULT_SOURCES];
-  const collectSources = process.env.CCCLUB_SOURCES?.trim()
-    ? parseSources(process.env.CCCLUB_SOURCES)
-    : trackedSources;
+  // and never affects it. Opt-in sources the user enabled belong in here too,
+  // or the server's merge semantics would see this machine as no longer
+  // tracking a source it is actively uploading.
+  const trackedSources = getEffectiveSources(config);
+  const collectSources = resolveCollectSources(config);
 
   try {
     const { calculateCost, version } = await loadPricing();

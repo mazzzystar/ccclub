@@ -1,4 +1,4 @@
-import { OPT_IN_SOURCES, isRankedSource } from "@ccclub/shared";
+import { UNRANKED_SOURCES, isRankedSource } from "@ccclub/shared";
 import type { AgentSource, UsageBlock } from "@ccclub/shared";
 
 interface MergeUsageOptions {
@@ -52,8 +52,9 @@ export function mergeUsageBlocks(
     blockMap.set(`${source}:${block.blockStart}`, block);
   }
 
-  // Non-coding (opt-in) sources are dropped at storage time: older clients
-  // can still upload them, but nothing they send may reach rankings.
+  // Non-coding sources are dropped at storage time: older clients can still
+  // upload them, but nothing they send may reach rankings. Opt-in coding
+  // sources (Cursor) are ordinary blocks once a client chooses to send them.
   for (const block of incoming) {
     if (!isRankedSource(block.source)) continue;
     blockMap.set(`${block.source ?? "claude"}:${block.blockStart}`, block);
@@ -63,11 +64,14 @@ export function mergeUsageBlocks(
     (a, b) => new Date(a.blockStart).getTime() - new Date(b.blockStart).getTime(),
   );
 
-  // Restricted to opt-in sources so trackedSources can never prune a user's
-  // coding history. Old clients omit the field and nothing is pruned.
+  // Restricted to UNRANKED sources so trackedSources can never prune a user's
+  // coding history. NOT keyed off OPT_IN_SOURCES: opt-in only describes how
+  // one machine collects, and a user who enabled Cursor on their laptop must
+  // not lose that history the moment their desktop (where it is still off)
+  // syncs. Old clients omit the field and nothing is pruned.
   if (options.trackedSources != null) {
     const tracked = new Set(options.trackedSources);
-    const prune = new Set(OPT_IN_SOURCES.filter((source) => !tracked.has(source)));
+    const prune = new Set(UNRANKED_SOURCES.filter((source) => !tracked.has(source)));
     if (prune.size > 0) {
       merged = merged.filter((block) => !prune.has(block.source ?? "claude"));
     }

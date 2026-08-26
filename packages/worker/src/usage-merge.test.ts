@@ -131,4 +131,23 @@ describe("mergeUsageBlocks", () => {
 
     expect(mergeUsageBlocks([openclaw], [], { trackedSources: [] })).toEqual([]);
   });
+
+  it("stores Cursor blocks — opt-in collection, but a ranked coding source", () => {
+    const cursor = block("cursor", "2026-07-08T00:00:00.000Z", 100);
+
+    expect(mergeUsageBlocks([], [cursor], { trackedSources: ["claude", "cursor"] })).toEqual([cursor]);
+  });
+
+  it("keeps Cursor history when a second machine syncs without it enabled", () => {
+    // The user enabled Cursor on their laptop; their desktop still reports
+    // only the defaults. Pruning on trackedSources would make the two
+    // machines erase each other's history on every sync.
+    const cursor = block("cursor", "2026-07-08T00:00:00.000Z", 100);
+    const claude = block("claude", "2026-07-08T00:30:00.000Z", 200);
+
+    expect(mergeUsageBlocks([cursor], [claude], { trackedSources: ["claude", "codex"] })).toEqual([
+      cursor,
+      claude,
+    ]);
+  });
 });

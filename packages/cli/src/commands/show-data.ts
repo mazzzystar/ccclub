@@ -2,7 +2,9 @@ import chalk from "chalk";
 import { AGENT_LABELS, getNonCacheTokens } from "@ccclub/shared";
 import { collectUsageEntries } from "../collector.js";
 import { aggregateToBlocks } from "../aggregator.js";
+import { loadConfig } from "../config.js";
 import { loadPricing } from "../pricing.js";
+import { resolveCollectSources } from "../sources/index.js";
 import { createScanCacheFactory } from "../scan-cache.js";
 import { acquireSyncLock } from "../sync-lock.js";
 
@@ -20,7 +22,10 @@ export async function showDataCommand(): Promise<void> {
   let collection: Awaited<ReturnType<typeof collectUsageEntries>>;
   try {
     const { calculateCost } = await loadPricing();
+    // Same source list sync would use, so this preview is the real payload.
+    const config = await loadConfig();
     collection = await collectUsageEntries({
+      sources: resolveCollectSources(config),
       calculateCost,
       openScanCache: createScanCacheFactory(),
     });

@@ -12,6 +12,14 @@ export interface CliConfig {
   userId: string;
   displayName: string;
   groups: string[];      // invite codes
+  /**
+   * Opt-in sources this machine collects on top of the defaults, written by
+   * `ccclub sources enable <source>`. Config-derived on purpose: the
+   * background LaunchAgent sync reads the same file, so enabling a source
+   * once covers hook, heartbeat, and manual runs alike. Kept as strings —
+   * this file is user-editable, and readers validate before collecting.
+   */
+  enabledSources?: string[];
 }
 
 function getConfigDir(): string {

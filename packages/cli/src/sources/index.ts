@@ -12,9 +12,11 @@ import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageTur
 
 export type { CollectorContext, UsageTurn, SourceCollection } from "./types.js";
 
-// Deliberately no collector for opt-in/non-coding sources (openclaw): the
+// Deliberately no collector for non-coding sources (openclaw): the
 // leaderboard measures coding agents, and the server excludes those sources
-// from rankings regardless of what any client uploads.
+// from rankings regardless of what any client uploads. Cursor does have a
+// collector, but it is opt-in (see OPT_IN_SOURCES) and therefore never
+// reachable through DEFAULT_SOURCES.
 const COLLECTORS: Partial<Record<AgentSource, AgentSourceCollector>> = {
   claude: claudeCollector,
   codex: codexCollector,
@@ -32,7 +34,8 @@ export interface CollectionResult {
   warnings: string[];
 }
 
-function isCollectableSource(value: string): value is AgentSource {
+/** A known source ccclub actually knows how to read. Opt-in sources included. */
+export function isCollectableSource(value: string): value is AgentSource {
   return (AGENT_SOURCES as readonly string[]).includes(value) && COLLECTORS[value as AgentSource] != null;
 }
 
@@ -43,6 +46,31 @@ export function parseSources(value: string | undefined): AgentSource[] {
     .map((source) => source.trim().toLowerCase())
     .filter(isCollectableSource);
   return sources.length > 0 ? Array.from(new Set(sources)) : [...DEFAULT_SOURCES];
+}
+
+/**
+ * The sources this machine durably tracks: the always-on defaults plus every
+ * opt-in source the user explicitly enabled. This is the one place that turns
+ * stored config into a source list, so an opt-in source can only ever be
+ * collected by a config that names it — a user who never ran
+ * `ccclub sources enable` gets exactly DEFAULT_SOURCES, and the opt-in
+ * collectors are never entered at all.
+ */
+export function getEffectiveSources(config?: { enabledSources?: string[] } | null): AgentSource[] {
+  const enabled = (config?.enabledSources ?? [])
+    .map((source) => String(source).trim().toLowerCase())
+    .filter(isCollectableSource);
+  return Array.from(new Set([...DEFAULT_SOURCES, ...enabled]));
+}
+
+/**
+ * Which sources to collect for one run. CCCLUB_SOURCES stays a per-run filter
+ * over collectable sources and never changes what the machine durably tracks.
+ */
+export function resolveCollectSources(config?: { enabledSources?: string[] } | null): AgentSource[] {
+  return process.env.CCCLUB_SOURCES?.trim()
+    ? parseSources(process.env.CCCLUB_SOURCES)
+    : getEffectiveSources(config);
 }
 
 export function formatSourceList(sources: Iterable<AgentSource>): string {

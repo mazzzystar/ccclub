@@ -170,8 +170,8 @@ Setup:
   ccclub join <code>      Join a friend's group
 
 Supported agents:
-  Claude Code, Codex, OpenCode, Amp, Grok, Pi  (collected automatically)
-  Cursor                                       (opt-in: ccclub sources enable cursor)
+  Claude Code, Codex, OpenCode, Amp, Grok, Pi — collected automatically
+  Cursor — opt-in: ccclub sources enable cursor
 
 Leaderboard options:
   -d <period>              Time window: 1 | 7 | 30 | all (default: today)

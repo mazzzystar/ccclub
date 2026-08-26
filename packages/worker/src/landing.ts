@@ -755,7 +755,7 @@ function landingHTML(lang: LandingLang, demoBoard: string | null = null) {
               <span class="agent-logo" title="Amp"><img src="/agent-icons/amp.svg" alt="Amp" /></span>
               <span class="agent-logo" title="Grok"><img src="/agent-icons/grok.svg" alt="Grok" /></span>
               <span class="agent-logo pi" title="Pi"><img src="/agent-icons/pi-light.svg" alt="Pi" /></span>
-              <span class="agent-logo" title="Cursor"><img src="/agent-icons/cursor.svg" alt="Cursor" /></span>
+              <span class="agent-logo" title="Cursor (opt-in: ccclub sources enable cursor)"><img src="/agent-icons/cursor.svg" alt="Cursor" /></span>
             </div>
             <div class="supported-copy">
               <strong>${t.supportedStrong}</strong>

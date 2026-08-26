@@ -40,7 +40,7 @@ Supported sources:
 | Amp | `~/.local/share/amp/threads` |
 | Pi | `~/.pi/agent/sessions` |
 | Grok | `~/.grok/sessions/**/updates.jsonl` |
-| Cursor | Cursor's dashboard API — **opt-in**, see below |
+| Cursor | Cursor's dashboard API — **opt-in**: `ccclub sources enable cursor` |
 
 If you use the default locations, there is nothing to configure. Custom locations are supported with `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_DATA_DIR`, `AMP_DATA_DIR`, `PI_AGENT_DIR`, and `GROK_HOME`.
 

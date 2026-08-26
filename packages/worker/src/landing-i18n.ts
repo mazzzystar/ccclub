@@ -75,7 +75,7 @@ export const LANDING_T: Record<LandingLang, LandingT> = {
       'Share your invite link or have friends run <code class="mono">npx ccclub join CODE</code>. No account needed.',
     step3h: "See the leaderboard",
     step3p:
-      'Claude Code syncs at session end, and background sync picks up Codex, OpenCode, Amp, Grok, and Pi. Run <code class="mono">ccclub</code> or open the web dashboard.',
+      'Claude Code syncs at session end, and background sync picks up Codex, OpenCode, Amp, Grok, and Pi. Cursor is opt-in: <code class="mono">ccclub sources enable cursor</code>. Run <code class="mono">ccclub</code> or open the web dashboard.',
     howDetail1:
       "ccclub reads token counts, cost estimates, model names, and number of calls from local coding agent logs for Claude Code, Codex, OpenCode, Amp, Grok, and Pi. No prompts, responses, code, file paths, or conversation data ever leave your machine. Cursor is the one exception, and it is off by default: it writes no local usage logs, so \"ccclub sources enable cursor\" is what lets ccclub fetch those numbers from Cursor's own dashboard API. Your Cursor token never leaves your machine.",
     howDetail2: 'Run <code class="mono">ccclub show-data</code> to see exactly what gets uploaded.',
@@ -116,7 +116,7 @@ export const LANDING_T: Record<LandingLang, LandingT> = {
     step2p: '分享邀请链接，或让朋友运行 <code class="mono">npx ccclub join CODE</code>。不需要注册账号。',
     step3h: "查看排行榜",
     step3p:
-      'Claude Code 在会话结束时自动同步，后台同步覆盖 Codex、OpenCode、Amp、Grok 和 Pi。运行 <code class="mono">ccclub</code> 或打开网页仪表盘。',
+      'Claude Code 在会话结束时自动同步，后台同步覆盖 Codex、OpenCode、Amp、Grok 和 Pi。Cursor 需手动开启：<code class="mono">ccclub sources enable cursor</code>。运行 <code class="mono">ccclub</code> 或打开网页仪表盘。',
     howDetail1:
       "ccclub 只从本机的 coding agent 日志（Claude Code、Codex、OpenCode、Amp、Grok、Pi）读取 token 数、费用估算、模型名和调用次数。提示词、回复、代码、文件路径和对话内容永远不会离开你的电脑。Cursor 是唯一的例外，默认关闭：它本地不写用量日志，只有你运行 “ccclub sources enable cursor”，ccclub 才会去 Cursor 官方的 dashboard API 取这些数字。你的 Cursor token 始终留在本机。",
     howDetail2: '运行 <code class="mono">ccclub show-data</code> 可以看到上传内容的完整明细。',
@@ -162,7 +162,7 @@ export const LANDING_T: Record<LandingLang, LandingT> = {
       '招待リンクを共有するか、友達に <code class="mono">npx ccclub join CODE</code> を実行してもらいます。アカウント不要。',
     step3h: "リーダーボードを見る",
     step3p:
-      'Claude Code はセッション終了時に自動同期し、Codex・OpenCode・Amp・Grok・Pi はバックグラウンドで同期されます。<code class="mono">ccclub</code> を実行するか、Web ダッシュボードを開いてください。',
+      'Claude Code はセッション終了時に自動同期し、Codex・OpenCode・Amp・Grok・Pi はバックグラウンドで同期されます。Cursor はオプトインで、<code class="mono">ccclub sources enable cursor</code> が必要です。<code class="mono">ccclub</code> を実行するか、Web ダッシュボードを開いてください。',
     howDetail1:
       "ccclub が読み取るのは、ローカルのエージェントログ（Claude Code、Codex、OpenCode、Amp、Grok、Pi）にあるトークン数・コスト見積もり・モデル名・呼び出し回数だけです。プロンプト、応答、コード、ファイルパス、会話内容がマシンの外に出ることはありません。唯一の例外が Cursor で、既定ではオフです。Cursor はローカルに使用量ログを残さないため、「ccclub sources enable cursor」を実行したときにだけ、ccclub が Cursor 公式のダッシュボード API から数値を取得します。Cursor のトークンがマシンの外に出ることはありません。",
     howDetail2: '<code class="mono">ccclub show-data</code> を実行すると、アップロードされる内容を正確に確認できます。',
@@ -209,7 +209,7 @@ export const LANDING_T: Record<LandingLang, LandingT> = {
       'Teile deinen Link oder lass Freunde <code class="mono">npx ccclub join CODE</code> ausführen. Kein Konto nötig.',
     step3h: "Leaderboard ansehen",
     step3p:
-      'Claude Code synchronisiert am Sessionende; Codex, OpenCode, Amp, Grok und Pi per Hintergrund-Sync. Führe <code class="mono">ccclub</code> aus oder öffne das Web-Dashboard.',
+      'Claude Code synchronisiert am Sessionende; Codex, OpenCode, Amp, Grok und Pi per Hintergrund-Sync. Cursor ist Opt-in: <code class="mono">ccclub sources enable cursor</code>. Führe <code class="mono">ccclub</code> aus oder öffne das Web-Dashboard.',
     howDetail1:
       "ccclub liest aus den lokalen Agent-Logs (Claude Code, Codex, OpenCode, Amp, Grok, Pi) nur Token-Zahlen, Kostenschätzungen, Modellnamen und Aufrufzahlen. Prompts, Antworten, Code, Dateipfade oder Gesprächsinhalte verlassen deinen Rechner nie. Die einzige Ausnahme ist Cursor, standardmäßig deaktiviert: Cursor schreibt keine lokalen Nutzungslogs, deshalb holt ccclub diese Zahlen erst nach „ccclub sources enable cursor“ von Cursors eigener Dashboard-API. Dein Cursor-Token verlässt deinen Rechner nie.",
     howDetail2: 'Mit <code class="mono">ccclub show-data</code> siehst du genau, was hochgeladen wird.',
@@ -256,7 +256,7 @@ export const LANDING_T: Record<LandingLang, LandingT> = {
       'Поделитесь ссылкой или пусть друзья выполнят <code class="mono">npx ccclub join CODE</code>. Без регистрации.',
     step3h: "Смотрите рейтинг",
     step3p:
-      'Claude Code синхронизируется в конце сессии; Codex, OpenCode, Amp, Grok и Pi — в фоне. Запустите <code class="mono">ccclub</code> или откройте веб-дашборд.',
+      'Claude Code синхронизируется в конце сессии; Codex, OpenCode, Amp, Grok и Pi — в фоне. Cursor подключается вручную: <code class="mono">ccclub sources enable cursor</code>. Запустите <code class="mono">ccclub</code> или откройте веб-дашборд.',
     howDetail1:
       "ccclub читает из локальных логов агентов (Claude Code, Codex, OpenCode, Amp, Grok, Pi) только количество токенов, оценку затрат, названия моделей и число вызовов. Промпты, ответы, код, пути к файлам и содержимое диалогов никогда не покидают ваш компьютер. Единственное исключение — Cursor, и по умолчанию он выключен: Cursor не ведёт локальных логов использования, поэтому только после «ccclub sources enable cursor» ccclub запрашивает эти цифры у собственного dashboard API Cursor. Ваш токен Cursor не покидает компьютер.",
     howDetail2: 'Команда <code class="mono">ccclub show-data</code> показывает, что именно будет загружено.',

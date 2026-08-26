@@ -897,7 +897,7 @@ describe("multi-agent collection", () => {
       }),
     ].join("\n"));
     await writeFile(join(sessionB, "updates.jsonl"), JSON.stringify({
-      timestamp: 1_755_513_780,
+      timestamp: 1_787_043_780,
       params: {
         update: {
           sessionUpdate: "turn_completed",
@@ -920,6 +920,7 @@ describe("multi-agent collection", () => {
     expect(result.humanTurns).toHaveLength(2);
     const first = result.entries.find((entry) => entry.sessionId === "s1");
     const second = result.entries.find((entry) => entry.sessionId === "s2");
+    expect(second?.timestamp).toBe("2026-08-18T09:03:00.000Z");
     expect(first).toMatchObject({
       source: "grok",
       model: "grok-4.6",
@@ -969,6 +970,116 @@ describe("multi-agent collection", () => {
     expect(result.entries).toHaveLength(1);
     expect(result.entries[0].model).toBe("grok-4.6");
     expect(result.humanTurns).toHaveLength(1);
+  });
+
+  it("keeps multiple incremental turn_completed rows in one session file", async () => {
+    const grokHome = await makeTempDir();
+    const sessionDir = join(grokHome, "sessions", "project", "s1");
+    await mkdir(sessionDir, { recursive: true });
+    await writeFile(join(sessionDir, "updates.jsonl"), [
+      JSON.stringify({
+        timestamp: "2026-08-18T09:01:00.000Z",
+        params: {
+          update: {
+            sessionUpdate: "turn_completed",
+            usage: {
+              inputTokens: 100,
+              outputTokens: 10,
+              cachedReadTokens: 0,
+              totalTokens: 110,
+              modelUsage: { "grok-4.6-build": { totalTokens: 110 } },
+            },
+          },
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-08-18T09:02:00.000Z",
+        params: {
+          update: {
+            sessionUpdate: "turn_completed",
+            usage: {
+              inputTokens: 80,
+              outputTokens: 5,
+              cachedReadTokens: 0,
+              totalTokens: 85,
+              modelUsage: { "grok-4.6-build": { totalTokens: 85 } },
+            },
+          },
+        },
+      }),
+    ].join("\n"));
+    vi.stubEnv("GROK_HOME", grokHome);
+
+    const result = await collectUsageEntries({ sources: ["grok"] });
+
+    expect(result.entries.map((entry) => entry.totalTokens)).toEqual([110, 85]);
+    expect(result.humanTurns).toHaveLength(2);
+  });
+
+  it("attributes a mixed turn to the model with the most tokens", async () => {
+    const grokHome = await makeTempDir();
+    const sessionDir = join(grokHome, "sessions", "project", "s1");
+    await mkdir(sessionDir, { recursive: true });
+    await writeFile(join(sessionDir, "updates.jsonl"), JSON.stringify({
+      timestamp: "2026-08-18T09:00:00.000Z",
+      params: {
+        update: {
+          sessionUpdate: "turn_completed",
+          usage: {
+            inputTokens: 300,
+            outputTokens: 50,
+            totalTokens: 350,
+            modelUsage: {
+              "grok-4.5-build": { totalTokens: 20 },
+              "grok-4.6-build": { totalTokens: 330 },
+            },
+          },
+        },
+      },
+    }));
+    vi.stubEnv("GROK_HOME", grokHome);
+
+    const result = await collectUsageEntries({ sources: ["grok"] });
+    expect(result.entries[0].model).toBe("grok-4.6");
+  });
+
+  it("warns when unified.jsonl exists but session files do not", async () => {
+    const grokHome = await makeTempDir();
+    await mkdir(join(grokHome, "logs"), { recursive: true });
+    await writeFile(join(grokHome, "logs", "unified.jsonl"), "{}\n");
+    vi.stubEnv("GROK_HOME", grokHome);
+
+    const result = await collectUsageEntries({ sources: ["grok"] });
+
+    expect(result.entries).toHaveLength(0);
+    expect(result.sources[0]?.warnings[0]).toMatch(/too old for session usage/);
+  });
+
+  it("clamps a negative totalTokens and still prices cache writes", async () => {
+    const grokHome = await makeTempDir();
+    const sessionDir = join(grokHome, "sessions", "project", "s1");
+    await mkdir(sessionDir, { recursive: true });
+    await writeFile(join(sessionDir, "updates.jsonl"), JSON.stringify({
+      timestamp: "2026-08-18T09:00:00.000Z",
+      params: {
+        update: {
+          sessionUpdate: "turn_completed",
+          usage: {
+            inputTokens: 10,
+            outputTokens: 5,
+            cacheCreationTokens: 20,
+            cachedReadTokens: 0,
+            totalTokens: -3,
+            modelUsage: { "grok-4.6-build": {} },
+          },
+        },
+      },
+    }));
+    vi.stubEnv("GROK_HOME", grokHome);
+
+    const result = await collectUsageEntries({ sources: ["grok"] });
+    expect(result.entries[0].totalTokens).toBe(35);
+    expect(result.entries[0].cacheCreationTokens).toBe(20);
   });
 
   it("collects Grok by default and skips an empty GROK_HOME", async () => {

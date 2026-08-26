@@ -47,8 +47,20 @@ function canonicalModel(raw: string | undefined): string {
 
 function modelFromUsage(usage: Record<string, unknown>): string {
   const modelUsage = asRecord(usage.modelUsage);
-  const key = modelUsage == null ? undefined : Object.keys(modelUsage).sort()[0];
-  return canonicalModel(key);
+  if (modelUsage == null) return FALLBACK_MODEL;
+  let bestKey: string | undefined;
+  let bestTokens = -1;
+  for (const [key, raw] of Object.entries(modelUsage)) {
+    const rec = asRecord(raw);
+    const tokens = rec == null
+      ? 0
+      : asNumber(rec.totalTokens) || asNumber(rec.inputTokens) + asNumber(rec.outputTokens);
+    if (bestKey == null || tokens > bestTokens) {
+      bestKey = key;
+      bestTokens = tokens;
+    }
+  }
+  return canonicalModel(bestKey);
 }
 
 async function scanGrokSessionFile(file: string): Promise<GrokScanResult> {
@@ -72,7 +84,11 @@ async function scanGrokSessionFile(file: string): Promise<GrokScanResult> {
     const outputTokens = Math.max(0, asNumber(usage.outputTokens));
     const cacheCreationTokens = Math.max(0, asNumber(usage.cacheCreationTokens));
     const reasoningTokens = Math.max(0, asNumber(usage.reasoningTokens));
-    const totalTokens = asNumber(usage.totalTokens) || promptTotal + outputTokens;
+    const reportedTotal = asNumber(usage.totalTokens);
+    const totalTokens = Math.max(
+      0,
+      reportedTotal > 0 ? reportedTotal : promptTotal + outputTokens + cacheCreationTokens,
+    );
     if (totalTokens === 0) return;
 
     const model = modelFromUsage(usage);
@@ -113,7 +129,19 @@ async function scanGrokSessionFile(file: string): Promise<GrokScanResult> {
 
 export async function collectGrokUsage(context: CollectorContext): Promise<SourceCollection> {
   const source = "grok";
-  const files = await listGrokSessionFiles(await getGrokHomes());
+  const homes = await getGrokHomes();
+  const files = await listGrokSessionFiles(homes);
+  const warnings: string[] = [];
+  if (files.length === 0) {
+    for (const home of homes) {
+      if (await statFile(join(home, "logs", "unified.jsonl")) != null) {
+        warnings.push(
+          "Grok: found logs/unified.jsonl but no sessions/**/updates.jsonl; this Grok CLI is too old for session usage, so nothing was collected",
+        );
+        break;
+      }
+    }
+  }
   const cache = await context.openScanCache?.<GrokScanResult>(source, `parser=${GROK_SCAN_VERSION}`);
   const entries: UsageEntry[] = [];
   const turns: UsageTurn[] = [];
@@ -138,7 +166,7 @@ export async function collectGrokUsage(context: CollectorContext): Promise<Sourc
   }
 
   await cache?.save();
-  return { source, entries, turns, files: files.length, warnings: [] };
+  return { source, entries, turns, files: files.length, warnings };
 }
 
 export const grokCollector: AgentSourceCollector = {

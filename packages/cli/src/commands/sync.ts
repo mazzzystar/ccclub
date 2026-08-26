@@ -26,7 +26,7 @@ import { maybeAutoEnableStatusline } from "../statusline-install.js";
 // one-time source replacement so corrected parsing can also delete obsolete
 // historical blocks. Newly supported sources do NOT need a bump:
 // filterBlocksToSync already uploads their full history.
-const SYNC_FORMAT_VERSION = 18;
+const SYNC_FORMAT_VERSION = 19;
 
 function getSyncVersionPath(): string {
   return join(homedir(), CCCLUB_CONFIG_DIR, "sync-version");

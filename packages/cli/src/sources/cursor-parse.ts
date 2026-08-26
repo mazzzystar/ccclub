@@ -90,7 +90,12 @@ export function parseCursorEventsPage(data: unknown): {
   return { events, total, rawCount };
 }
 
-/** Display/leaderboard tokens: input + output. cacheRead is often 100× larger. */
-export function cursorDisplayTokens(event: CursorEvent): number {
-  return event.inputTokens + event.outputTokens;
+/**
+ * Total tokens, defined the same way as every other source: all four buckets.
+ * Cursor's cacheRead is routinely 100× input+output, but that is true of
+ * Claude Code too — the leaderboard's fairness comes from ranking on
+ * getNonCacheTokens, not from a source quietly under-reporting its totals.
+ */
+export function cursorTotalTokens(event: CursorEvent): number {
+  return event.inputTokens + event.outputTokens + event.cacheWriteTokens + event.cacheReadTokens;
 }

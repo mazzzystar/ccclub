@@ -11,6 +11,14 @@ export interface CollectorContext {
   calculateCost: CostCalculator;
   /** When absent (tests, library use), collectors parse everything cold. */
   openScanCache?: ScanCacheFactory;
+  /**
+   * Last block start successfully synced per source, as an ISO timestamp.
+   * Only sources that fetch from a remote API need it — a log scanner reads
+   * the whole file anyway, and the scan cache already makes that cheap.
+   * Deliberately absent on a full/forced sync so those sources refetch their
+   * entire window; a source with no entry here has never synced.
+   */
+  lastSyncBySource?: Partial<Record<AgentSource, string>>;
 }
 
 /**
@@ -19,7 +27,12 @@ export interface CollectorContext {
  * re-reading the original (potentially multi-GB) logs.
  */
 export type UsageFact = Omit<UsageEntry, "costUSD"> & {
-  /** Provider-reported cost, when that source has historically treated it as authoritative. */
+  /**
+   * Provider-reported cost, when that source has historically treated it as
+   * authoritative. Set it only when the number is meant to win: an explicit 0
+   * is a real answer ("this request cost nothing"), not a missing value, so
+   * collectors that cannot distinguish the two must leave this undefined.
+   */
   reportedCostUSD?: number;
 };
 
@@ -41,7 +54,10 @@ export function priceUsageFact(
   );
   return {
     ...usage,
-    costUSD: reportedCostUSD != null && reportedCostUSD > 0 ? reportedCostUSD : calculated,
+    // Presence, not truthiness: a source that reports $0 (Cursor's included
+    // requests) means it, and the pricing table would invent a cost instead —
+    // its fallback rules never return 0.
+    costUSD: reportedCostUSD !== undefined && reportedCostUSD >= 0 ? reportedCostUSD : calculated,
   };
 }
 

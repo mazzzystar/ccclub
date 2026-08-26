@@ -5,7 +5,7 @@ import type { UsageEntry } from "@ccclub/shared";
 import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageFact, UsageTurn } from "./types.js";
 import { priceUsageFact } from "./types.js";
 import {
-  cursorDisplayTokens,
+  cursorTotalTokens,
   parseCursorEventsPage,
   type CursorEvent,
 } from "./cursor-parse.js";
@@ -17,6 +17,14 @@ const CURSOR_USER_AGENT = "cursor-agent/2026.08.11";
 const PAGE_SIZE = 100;
 const MAX_PAGES = 50;
 const LOOKBACK_MS = 400 * 24 * 60 * 60 * 1000;
+/**
+ * How far before the last synced block an incremental fetch reaches back. The
+ * watermark is a block start, and the dashboard can publish an event after the
+ * block it belongs to has already been synced, so a day of overlap is what
+ * keeps late arrivals from falling into the gap. Re-fetched events are
+ * deduped by request key, so overlap costs a request, never a double count.
+ */
+const OVERLAP_MS = 24 * 60 * 60 * 1000;
 
 export interface CursorCollectorDeps {
   readToken?: () => Promise<string | undefined>;
@@ -80,9 +88,22 @@ export async function defaultFetchCursorPage(
   return response.json();
 }
 
+/**
+ * The dashboard window to request. Incremental once a sync has landed, so a
+ * heavy user's five-minute background sync is one page instead of fifty. A
+ * missing or unparsable watermark (never synced, or a forced full sync, which
+ * passes none) means the whole retention window.
+ */
+export function cursorStartMs(lastSyncIso: string | undefined, nowMs: number): number {
+  const floor = nowMs - LOOKBACK_MS;
+  const lastSyncMs = lastSyncIso == null ? NaN : Date.parse(lastSyncIso);
+  if (!Number.isFinite(lastSyncMs)) return floor;
+  return Math.max(floor, lastSyncMs - OVERLAP_MS);
+}
+
 export async function collectCursorEvents(
   deps: CursorCollectorDeps = {},
-  nowMs = Date.now(),
+  window: { startMs?: number; nowMs?: number } = {},
 ): Promise<{ events: CursorEvent[]; files: number; warning?: string }> {
   const readToken = deps.readToken ?? defaultReadCursorToken;
   const fetchPage = deps.fetchPage ?? defaultFetchCursorPage;
@@ -91,19 +112,31 @@ export async function collectCursorEvents(
     return { events: [], files: 0 };
   }
 
-  const startMs = nowMs - LOOKBACK_MS;
+  const nowMs = window.nowMs ?? Date.now();
+  const startMs = window.startMs ?? nowMs - LOOKBACK_MS;
   const events: CursorEvent[] = [];
   let fetched = 0;
   let total: number | null = null;
+  let truncated = false;
 
   try {
+    // The dashboard returns events newest-first and reports the full match
+    // count, so paging stops on that count rather than on a short page: rows
+    // this parser rejects (zero-usage placeholders) shrink a page without
+    // meaning the results ended. Only a page with no rows at all, or an
+    // absent total, leaves a short page as the end-of-results signal.
     for (let page = 1; page <= MAX_PAGES; page++) {
       const parsed = parseCursorEventsPage(await fetchPage(token, page, startMs, nowMs));
       if (page === 1) total = parsed.total;
       events.push(...parsed.events);
       fetched += parsed.rawCount;
-      if (parsed.rawCount === 0 || parsed.rawCount < PAGE_SIZE) break;
-      if (total != null && fetched >= total) break;
+      if (parsed.rawCount === 0) break;
+      if (total != null) {
+        if (fetched >= total) break;
+      } else if (parsed.rawCount < PAGE_SIZE) {
+        break;
+      }
+      truncated = page === MAX_PAGES;
     }
   } catch (error) {
     return {
@@ -113,7 +146,18 @@ export async function collectCursorEvents(
     };
   }
 
-  return { events, files: 1 };
+  return {
+    events,
+    // Reporting a record only when there is something to report: files > 0 is
+    // what makes a full sync replace Cursor's stored history, and an empty or
+    // reshaped API response must never be read as "this user has no history".
+    files: events.length > 0 ? 1 : 0,
+    // Newest-first means truncation drops the oldest events, so say so rather
+    // than let a first sync silently under-report a long history.
+    ...(truncated
+      ? { warning: `Cursor: only the most recent ${MAX_PAGES * PAGE_SIZE} usage events were read` }
+      : {}),
+  };
 }
 
 export function eventsToCollection(events: CursorEvent[], context: CollectorContext): SourceCollection {
@@ -151,11 +195,18 @@ export function eventsToCollection(events: CursorEvent[], context: CollectorCont
       outputTokens: event.outputTokens,
       cacheCreationTokens: event.cacheWriteTokens,
       cacheReadTokens: event.cacheReadTokens,
-      totalTokens: cursorDisplayTokens(event),
-      ...(event.costUSD > 0 ? { reportedCostUSD: event.costUSD } : {}),
+      totalTokens: cursorTotalTokens(event),
+      // Always Cursor's own number, including 0. Cursor bills per request and
+      // reports what it charged; falling back to the LiteLLM table would put
+      // an invented price on an included request, and that table never
+      // returns 0 for a known model family.
+      reportedCostUSD: event.costUSD,
     };
     entries.push(priceUsageFact(fact, context));
 
+    // One turn per conversation, not per prompt. The dashboard exposes no
+    // prompt boundary, only the conversation an event belongs to, so Cursor's
+    // turn counts are coarser than the log-derived ones of other sources.
     const conversationKey = event.conversationId ?? requestId;
     if (!seenConversations.has(conversationKey)) {
       seenConversations.add(conversationKey);
@@ -163,14 +214,18 @@ export function eventsToCollection(events: CursorEvent[], context: CollectorCont
     }
   }
 
-  return { source, entries, turns, files: 1, warnings: [] };
+  return { source, entries, turns, files: entries.length > 0 ? 1 : 0, warnings: [] };
 }
 
 export async function collectCursorUsage(
   context: CollectorContext,
   deps: CursorCollectorDeps = {},
+  nowMs = Date.now(),
 ): Promise<SourceCollection> {
-  const { events, files, warning } = await collectCursorEvents(deps);
+  const { events, files, warning } = await collectCursorEvents(deps, {
+    startMs: cursorStartMs(context.lastSyncBySource?.cursor, nowMs),
+    nowMs,
+  });
   if (files === 0) {
     return {
       source: "cursor",

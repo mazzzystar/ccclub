@@ -81,6 +81,7 @@ export async function collectAllUsageEntries(options?: {
   sources?: AgentSource[];
   calculateCost?: CostCalculator;
   openScanCache?: ScanCacheFactory;
+  lastSyncBySource?: Partial<Record<AgentSource, string>>;
 }): Promise<CollectionResult> {
   const selectedSources = options?.sources ?? parseSources(process.env.CCCLUB_SOURCES);
   const context: CollectorContext = {
@@ -88,6 +89,7 @@ export async function collectAllUsageEntries(options?: {
     // collection working without any setup (tests, first run).
     calculateCost: options?.calculateCost ?? createCostCalculator(PRICING_SNAPSHOT),
     openScanCache: options?.openScanCache,
+    lastSyncBySource: options?.lastSyncBySource,
   };
   const results = await Promise.all(
     selectedSources.map(async (source): Promise<SourceCollection> => {

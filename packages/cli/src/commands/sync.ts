@@ -155,11 +155,26 @@ async function performSync(config: CliConfig, firstSync = false, silent = false)
     if (needsPricingResync(existsSync(lastSyncPath), syncedPricingVersion, version)) {
       firstSync = true;
     }
+
+    let lastSyncBySource: Partial<Record<AgentSource, string>> = {};
+    const hasSourceState = existsSync(getLastSyncBySourcePath());
+    if (hasSourceState) {
+      try {
+        lastSyncBySource = JSON.parse(await readFile(getLastSyncBySourcePath(), "utf-8")) as Partial<Record<AgentSource, string>>;
+      } catch {
+        lastSyncBySource = {};
+      }
+    }
+
     const [{ entries, humanTurns, sources, warnings }, usageSnapshot] = await Promise.all([
       collectUsageEntries({
         sources: collectSources,
         calculateCost,
         openScanCache: createScanCacheFactory(),
+        // API-backed sources narrow their query to what is new. A full sync
+        // withholds the watermarks so they refetch everything — which is also
+        // what makes clearing a source's marker a working repair.
+        lastSyncBySource: firstSync ? undefined : lastSyncBySource,
       }),
       fetchUsageLimits().catch(() => null),
     ]);
@@ -184,16 +199,6 @@ async function performSync(config: CliConfig, firstSync = false, silent = false)
     let lastSync: string | null = null;
     if (existsSync(lastSyncPath)) {
       lastSync = (await readFile(lastSyncPath, "utf-8")).trim() || null;
-    }
-
-    let lastSyncBySource: Partial<Record<AgentSource, string>> = {};
-    const hasSourceState = existsSync(getLastSyncBySourcePath());
-    if (hasSourceState) {
-      try {
-        lastSyncBySource = JSON.parse(await readFile(getLastSyncBySourcePath(), "utf-8")) as Partial<Record<AgentSource, string>>;
-      } catch {
-        lastSyncBySource = {};
-      }
     }
 
     const blocksToSync = filterBlocksToSync(allBlocks, { lastSync, lastSyncBySource, hasSourceState, firstSync });

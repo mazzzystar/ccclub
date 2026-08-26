@@ -100,6 +100,14 @@ export async function profileCommand(options: {
     console.log(`  Visibility: ${profile.visibility === "public" ? chalk.green("public") : chalk.dim("private")}`);
     console.log(`  Plan:       ${profile.plan ? PLAN_LABELS[profile.plan as keyof typeof PLAN_LABELS] || profile.plan : chalk.dim("(not set)")}`);
     console.log(`  URL:        ${profile.url || chalk.dim("(not set)")}`);
+    // "public"/"private" alone doesn't say what changed, so spell out where the
+    // profile now shows up and how to undo it.
+    if (body.visibility === "public") {
+      const host = config.apiUrl.replace(/^https?:\/\//, "");
+      console.log(chalk.dim(`  Public on ${host}/g/global — revert: ccclub profile --private`));
+    } else if (body.visibility === "private") {
+      console.log(chalk.dim("  Removed from the public board — rejoin: ccclub profile --public"));
+    }
     console.log();
   } catch (err) {
     spinner.fail(`Error: ${formatFetchError(err)}`);

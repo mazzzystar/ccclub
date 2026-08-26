@@ -1,6 +1,6 @@
 import Table from "cli-table3";
 import ora from "ora";
-import type { AgentSource, RankingEntry, RankingPeriod, RankResponse } from "@ccclub/shared";
+import type { AgentSource, ProfileResponse, RankingEntry, RankingPeriod, RankResponse } from "@ccclub/shared";
 import { AGENT_LABELS, PLAN_PRICES } from "@ccclub/shared";
 import { theme, type StyleFn } from "../theme.js";
 import { requireConfig } from "../config.js";
@@ -52,6 +52,37 @@ function shouldNudgeInvite(): boolean {
 
 function markInviteNudged(): void {
   try { writeFileSync(getInviteNudgePath(), String(Date.now())); } catch { /* best effort */ }
+}
+
+/**
+ * The global board is opt-in — membership is written only by
+ * `ccclub profile --public`. Absence from the rankings is not proof of being
+ * private, since public members with no usage in the window are filtered out
+ * server-side, so the profile's own visibility decides the nudge. An unknown
+ * visibility (no token, API error) stays quiet.
+ */
+export function shouldShowGlobalJoinHint(
+  rankings: Array<Pick<RankingEntry, "userId">>,
+  userId: string,
+  visibility: ProfileResponse["visibility"] | undefined,
+): boolean {
+  if (visibility !== "private") return false;
+  return !rankings.some((entry) => entry.userId === userId);
+}
+
+/** Visibility of the caller's own profile, or undefined when it can't be read. */
+async function fetchOwnVisibility(config: { apiUrl: string; token: string }): Promise<ProfileResponse["visibility"] | undefined> {
+  if (!config.token) return undefined;
+  try {
+    const res = await fetch(`${config.apiUrl}/api/profile`, {
+      headers: { Authorization: `Bearer ${config.token}` },
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!res.ok) return undefined;
+    return ((await res.json()) as ProfileResponse).visibility;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -238,6 +269,16 @@ export async function rankCommand(options: RankCommandOptions): Promise<void> {
 
     if (await statuslineEnabledPromise) {
       console.log(theme.success("\n  ✓ Claude Code statusline enabled") + theme.muted(' — model · 5h/7d limits · rank. Run "') + theme.text("ccclub statusline off") + theme.muted('" to remove.'));
+    }
+
+    // Only ask for the profile when the board doesn't already list you —
+    // members with usage pay nothing for this.
+    const globalData = isGlobal ? groupResults[0]?.rankData : null;
+    if (globalData && !globalData.rankings.some((entry) => entry.userId === config.userId)) {
+      const visibility = await fetchOwnVisibility(config);
+      if (shouldShowGlobalJoinHint(globalData.rankings, config.userId, visibility)) {
+        console.log(theme.muted("\n  You're not on the public board — join with: ") + theme.text("ccclub profile --public"));
+      }
     }
 
     const soloGroup = isGlobal

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatLocalDateRange, getRankingNonCacheTokens } from "../commands/rank.js";
+import { formatLocalDateRange, getRankingNonCacheTokens, shouldShowGlobalJoinHint } from "../commands/rank.js";
 
 // Build boundaries from LOCAL midnights so expectations hold in any test-runner
 // timezone — mirroring how the server derives windows from the viewer's tz.
@@ -48,5 +48,25 @@ describe("getRankingNonCacheTokens", () => {
 
   it("keeps the legacy fallback for old responses without breakdowns", () => {
     expect(getRankingNonCacheTokens(legacy)).toBe(170);
+  });
+});
+
+describe("shouldShowGlobalJoinHint", () => {
+  const others = [{ userId: "someone" }, { userId: "else" }];
+
+  it("nudges a private user the global board doesn't list", () => {
+    expect(shouldShowGlobalJoinHint(others, "me", "private")).toBe(true);
+  });
+
+  it("stays quiet for a public user idle today, who is opted in but filtered out", () => {
+    expect(shouldShowGlobalJoinHint(others, "me", "public")).toBe(false);
+  });
+
+  it("stays quiet for anyone already on the board", () => {
+    expect(shouldShowGlobalJoinHint([...others, { userId: "me" }], "me", "private")).toBe(false);
+  });
+
+  it("stays quiet when the profile couldn't be read", () => {
+    expect(shouldShowGlobalJoinHint(others, "me", undefined)).toBe(false);
   });
 });

@@ -3,6 +3,7 @@ import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 import { existsSync, readFileSync } from "node:fs";
 import { execFile } from "node:child_process";
+import { extractPinnedVersion, isNewerPin } from "./pin-version.js";
 import { getCurrentVersion } from "./version.js";
 
 const PLIST_NAME = "dev.ccclub.sync";
@@ -58,10 +59,21 @@ export function getPlist(version = getCurrentVersion()): string {
 </plist>`;
 }
 
+/**
+ * Keep the on-disk LaunchAgent when it already matches this CLI, or when it
+ * is pinned to a newer release. Same-version PATH/template drift still
+ * rewrites; an older binary must not treat a forward pin as stale.
+ * @internal exported for regression tests and the postinstall lockstep check.
+ */
+export function shouldKeepExistingPlist(existing: string, version = getCurrentVersion()): boolean {
+  if (existing === getPlist(version)) return true;
+  return isNewerPin(extractPinnedVersion(existing), version);
+}
+
 function isCurrentPlist(): boolean {
   if (!existsSync(PLIST_PATH)) return false;
   try {
-    return readFileSync(PLIST_PATH, "utf-8") === getPlist();
+    return shouldKeepExistingPlist(readFileSync(PLIST_PATH, "utf-8"));
   } catch {
     return false;
   }

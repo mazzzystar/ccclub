@@ -1,13 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { dirname } from "node:path";
 import { createRequire } from "node:module";
-import { getPlist } from "../heartbeat.js";
+import { getPlist, shouldKeepExistingPlist } from "../heartbeat.js";
 
 const require = createRequire(import.meta.url);
 // The CJS postinstall script can't import the ESM heartbeat module, so it
 // carries a mirror of the plist template. These tests pin the two together.
 const postinstall = require("../../scripts/postinstall.cjs") as {
   buildPlist: (version: string) => string;
+  shouldKeepExistingPlist: (existing: string, version: string) => boolean;
 };
 
 describe("getPlist", () => {
@@ -57,5 +58,32 @@ describe("getPlist", () => {
     for (const version of ["0.6.16", "0.7.0-rc.1"]) {
       expect(postinstall.buildPlist(version)).toBe(getPlist(version));
     }
+  });
+});
+
+describe("shouldKeepExistingPlist", () => {
+  it("lets 0.9.3 keep the pin when 0.8.0 runs, and lets 0.9.3 replace 0.8.0", () => {
+    const v803 = getPlist("0.8.0");
+    const v093 = getPlist("0.9.3");
+
+    expect(shouldKeepExistingPlist(v093, "0.8.0")).toBe(true);
+    expect(shouldKeepExistingPlist(v803, "0.9.3")).toBe(false);
+    expect(shouldKeepExistingPlist(v093, "0.9.3")).toBe(true);
+    expect(postinstall.shouldKeepExistingPlist(v093, "0.8.0")).toBe(true);
+    expect(postinstall.shouldKeepExistingPlist(v803, "0.9.3")).toBe(false);
+  });
+
+  it("still rewrites same-version PATH drift, but not a newer pin with a different PATH", () => {
+    const drifted = getPlist("0.9.3").replace(":/usr/bin:/bin", ":/opt/custom/bin:/bin");
+    expect(drifted).not.toBe(getPlist("0.9.3"));
+    expect(shouldKeepExistingPlist(drifted, "0.9.3")).toBe(false);
+    expect(shouldKeepExistingPlist(drifted, "0.8.0")).toBe(true);
+    expect(postinstall.shouldKeepExistingPlist(drifted, "0.9.3")).toBe(false);
+    expect(postinstall.shouldKeepExistingPlist(drifted, "0.8.0")).toBe(true);
+  });
+
+  it("repairs an unreadable pin instead of treating it as newer", () => {
+    expect(shouldKeepExistingPlist("not a plist", "0.9.3")).toBe(false);
+    expect(postinstall.shouldKeepExistingPlist("not a plist", "0.9.3")).toBe(false);
   });
 });

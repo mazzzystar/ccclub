@@ -92,4 +92,57 @@ describe("updateManagedHooks", () => {
     expect(json).toContain('"junk"'); // unknown entries preserved
     expect(json).not.toContain('"ccclub sync --silent"'); // legacy removed
   });
+
+  it("does not let 0.8.0 rewrite hooks already pinned to 0.9.3", () => {
+    const currentGroup = pinnedGroup("0.9.3");
+    const settings: ClaudeSettings = {
+      hooks: {
+        SessionEnd: [structuredClone(currentGroup)],
+        Stop: [structuredClone(currentGroup)],
+      },
+    };
+    const before = structuredClone(settings);
+
+    expect(updateManagedHooks(settings, "0.8.0")).toBe(false);
+    expect(settings).toEqual(before);
+  });
+
+  it("lets 0.9.3 replace hooks still pinned to 0.8.0", () => {
+    const settings: ClaudeSettings = {
+      hooks: {
+        SessionEnd: [pinnedGroup("0.8.0")],
+        Stop: [pinnedGroup("0.8.0")],
+      },
+    };
+
+    expect(updateManagedHooks(settings, "0.9.3")).toBe(true);
+    expect(JSON.stringify(settings.hooks)).toContain("ccclub@0.9.3");
+    expect(JSON.stringify(settings.hooks)).not.toContain("ccclub@0.8.0");
+  });
+
+  it("upgrades only the stale event when the other event is already newer", () => {
+    const settings: ClaudeSettings = {
+      hooks: {
+        SessionEnd: [pinnedGroup("0.9.3")],
+        Stop: [pinnedGroup("0.8.0")],
+      },
+    };
+
+    expect(updateManagedHooks(settings, "0.9.3")).toBe(true);
+    expect(settings.hooks?.SessionEnd).toEqual([pinnedGroup("0.9.3")]);
+    expect(JSON.stringify(settings.hooks?.Stop)).toContain("ccclub@0.9.3");
+    expect(JSON.stringify(settings.hooks?.Stop)).not.toContain("ccclub@0.8.0");
+  });
 });
+
+function pinnedGroup(version: string) {
+  return {
+    matcher: "",
+    hooks: [{
+      type: "command",
+      command: `npx --yes ccclub@${version} sync --silent`,
+      async: true,
+      timeout: 30,
+    }],
+  };
+}

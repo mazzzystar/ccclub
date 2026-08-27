@@ -1,8 +1,10 @@
 // Runs on every npm install. Re-pins the background entrypoints (Claude Code
 // hooks and, on macOS, the heartbeat LaunchAgent) to the version being
 // installed, so `npm i -g ccclub@latest` upgrades everything in one command.
-// Without the LaunchAgent half, a still-old heartbeat would keep rewriting the
-// hooks back to its own version every 5 minutes until the user ran ccclub.
+// An already-newer pin is left alone: a leftover older package must not
+// rewrite 0.9.x back to itself. Without the LaunchAgent half, a still-old
+// heartbeat would keep rewriting the hooks back to its own version every 5
+// minutes until the user ran ccclub.
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
@@ -24,9 +26,75 @@ const HOOK_EVENTS = ["SessionEnd", "Stop"];
 const PLIST_NAME = "dev.ccclub.sync";
 const PLIST_PATH = path.join(os.homedir(), "Library", "LaunchAgents", `${PLIST_NAME}.plist`);
 
+const PINNED_PACKAGE = /ccclub@([0-9A-Za-z][0-9A-Za-z.+-]*)/;
+const VERSION = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/;
+
 const isManagedHookCommand = (command) =>
   typeof command === "string" &&
   (LEGACY_HOOK_COMMANDS.has(command) || VERSIONED_HOOK_COMMAND.test(command));
+
+// Mirror of packages/cli/src/pin-version.ts. pin-version.test.ts asserts the
+// two comparators stay in lockstep — a drift would reintroduce the downgrade
+// loop this script exists to close on `npm i -g`.
+function extractPinnedVersion(text) {
+  const match = typeof text === "string" ? text.match(PINNED_PACKAGE) : null;
+  return match ? match[1] : null;
+}
+
+function parseNpmVersion(version) {
+  const match = VERSION.exec(version);
+  if (!match) return null;
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+    pre: match[4] ? match[4].split(".") : null,
+  };
+}
+
+function comparePreRelease(a, b) {
+  const len = Math.max(a.length, b.length);
+  for (let i = 0; i < len; i++) {
+    const left = a[i];
+    const right = b[i];
+    if (left == null) return -1;
+    if (right == null) return 1;
+    const leftNum = /^\d+$/.test(left) ? Number(left) : null;
+    const rightNum = /^\d+$/.test(right) ? Number(right) : null;
+    if (leftNum != null && rightNum != null) {
+      if (leftNum !== rightNum) return leftNum - rightNum;
+      continue;
+    }
+    if (leftNum != null) return -1;
+    if (rightNum != null) return 1;
+    if (left !== right) return left < right ? -1 : 1;
+  }
+  return 0;
+}
+
+function compareNpmVersions(a, b) {
+  const left = parseNpmVersion(a);
+  const right = parseNpmVersion(b);
+  if (!left || !right) return null;
+  if (left.major !== right.major) return left.major - right.major;
+  if (left.minor !== right.minor) return left.minor - right.minor;
+  if (left.patch !== right.patch) return left.patch - right.patch;
+  if (left.pre == null && right.pre == null) return 0;
+  if (left.pre == null) return 1;
+  if (right.pre == null) return -1;
+  return comparePreRelease(left.pre, right.pre);
+}
+
+function isNewerPin(installed, current) {
+  if (installed == null) return false;
+  const cmp = compareNpmVersions(installed, current);
+  return cmp != null && cmp > 0;
+}
+
+function shouldKeepExistingPlist(existing, version) {
+  if (existing === buildPlist(version)) return true;
+  return isNewerPin(extractPinnedVersion(existing), version);
+}
 
 function updateHooks() {
   // Only install hooks if the user has Claude Code configured.
@@ -49,6 +117,9 @@ function updateHooks() {
       managed[0].command === HOOK_COMMAND &&
       managed[0].hasMatcher
     ) continue;
+
+    // A leftover older package must not pin hooks backward over a newer CLI.
+    if (managed.some((m) => isNewerPin(extractPinnedVersion(m.command), pkg.version))) continue;
 
     // Remove every ccclub-managed hook while preserving unrelated commands
     // that happen to share the same group.
@@ -141,7 +212,8 @@ function updateHeartbeat() {
   if (!fs.existsSync(PLIST_PATH)) return;
 
   const plist = buildPlist(pkg.version);
-  if (fs.readFileSync(PLIST_PATH, "utf-8") === plist) return;
+  const existing = fs.readFileSync(PLIST_PATH, "utf-8");
+  if (shouldKeepExistingPlist(existing, pkg.version)) return;
 
   atomicWrite(PLIST_PATH, plist);
   // Reload so launchd picks up the new pin now; failures (SSH session, CI)
@@ -160,6 +232,15 @@ function main() {
   try { updateHeartbeat(); } catch { /* ignore */ }
 }
 
-module.exports = { buildPlist, updateHooks, updateHeartbeat, PLIST_NAME };
+module.exports = {
+  buildPlist,
+  updateHooks,
+  updateHeartbeat,
+  PLIST_NAME,
+  extractPinnedVersion,
+  compareNpmVersions,
+  isNewerPin,
+  shouldKeepExistingPlist,
+};
 
 if (require.main === module) main();

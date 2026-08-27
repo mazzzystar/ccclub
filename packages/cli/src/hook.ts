@@ -2,6 +2,7 @@ import { readFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { existsSync, readFileSync } from "node:fs";
+import { extractPinnedVersion, isNewerPin } from "./pin-version.js";
 import { getCurrentVersion } from "./version.js";
 import { atomicWriteFile } from "./fs-utils.js";
 
@@ -65,8 +66,36 @@ function eventHasCurrentHook(settings: ClaudeSettings, event: string, currentCom
   return currentCount === 1;
 }
 
-function hasAllHooks(settings: ClaudeSettings, currentCommand: string): boolean {
-  return HOOK_EVENTS.every((event) => eventHasCurrentHook(settings, event, currentCommand));
+function managedCommandsForEvent(settings: ClaudeSettings, event: string): string[] {
+  const hooks = settings.hooks?.[event];
+  if (!Array.isArray(hooks)) return [];
+
+  const commands: string[] = [];
+  for (const group of hooks) {
+    const g = (
+      group != null && typeof group === "object"
+        ? group
+        : {}
+    ) as { hooks?: Array<{ command?: string }> };
+    for (const hook of g.hooks ?? []) {
+      if (hook == null || typeof hook !== "object") continue;
+      if (!isManagedHookCommand(hook.command) || hook.command == null) continue;
+      commands.push(hook.command);
+    }
+  }
+  return commands;
+}
+
+function shouldRewriteEvent(
+  settings: ClaudeSettings,
+  event: string,
+  version: string,
+  currentCommand: string,
+): boolean {
+  if (eventHasCurrentHook(settings, event, currentCommand)) return false;
+  return !managedCommandsForEvent(settings, event).some((command) =>
+    isNewerPin(extractPinnedVersion(command), version),
+  );
 }
 
 function installEventHook(settings: ClaudeSettings, event: string, currentCommand: string): void {
@@ -106,9 +135,13 @@ export function updateManagedHooks(
   version = getCurrentVersion(),
 ): boolean {
   const currentCommand = hookCommand(version);
-  if (hasAllHooks(settings, currentCommand)) return false;
-  for (const event of HOOK_EVENTS) installEventHook(settings, event, currentCommand);
-  return true;
+  let changed = false;
+  for (const event of HOOK_EVENTS) {
+    if (!shouldRewriteEvent(settings, event, version, currentCommand)) continue;
+    installEventHook(settings, event, currentCommand);
+    changed = true;
+  }
+  return changed;
 }
 
 export async function installHook(): Promise<boolean> {
@@ -137,7 +170,9 @@ export function isHookInstalled(): boolean {
     if (!existsSync(CLAUDE_SETTINGS_PATH)) return false;
     const raw = readFileSync(CLAUDE_SETTINGS_PATH, "utf-8");
     const settings = JSON.parse(raw) as ClaudeSettings;
-    return hasAllHooks(settings, hookCommand(getCurrentVersion()));
+    const version = getCurrentVersion();
+    const currentCommand = hookCommand(version);
+    return HOOK_EVENTS.every((event) => !shouldRewriteEvent(settings, event, version, currentCommand));
   } catch {
     return false;
   }

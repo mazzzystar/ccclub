@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import { installHook, isHookInstalled, newerPinnedHookVersion } from "../hook.js";
+import { pinNotice } from "../pin-version.js";
 import { getCurrentVersion } from "../version.js";
 
 export async function hookCommand(): Promise<void> {
@@ -18,7 +19,8 @@ export async function hookCommand(): Promise<void> {
   const ok = await installHook({ force: true });
   if (ok) {
     console.log(chalk.green("  Auto-sync installed!"));
-    console.log(chalk.dim("  Usage will sync automatically when sessions end."));
+    const notice = pinNotice(pinnedAhead, version, true);
+    console.log(chalk.dim(notice ? `  ${notice}` : "  Usage will sync automatically when sessions end."));
   } else {
     console.log(chalk.red("  Failed to set up auto-sync."));
     console.log(chalk.dim("  Try running the command again, or see https://ccclub.dev for help."));

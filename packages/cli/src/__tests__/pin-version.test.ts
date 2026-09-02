@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createRequire } from "node:module";
-import { compareNpmVersions, extractPinnedVersion, isNewerPin } from "../pin-version.js";
+import { compareNpmVersions, extractPinnedVersion, isNewerPin, pinNotice } from "../pin-version.js";
 
 const require = createRequire(import.meta.url);
 const postinstall = require("../../scripts/postinstall.cjs") as {
@@ -57,5 +57,24 @@ describe("extractPinnedVersion", () => {
     expect(extractPinnedVersion("<string>ccclub@0.8.0</string>")).toBe("0.8.0");
     expect(extractPinnedVersion("ccclub sync --silent")).toBeNull();
     expect(postinstall.extractPinnedVersion("<string>ccclub@0.8.0</string>")).toBe("0.8.0");
+  });
+});
+
+describe("pinNotice", () => {
+  it("says nothing unless the on-disk pin is ahead of this CLI", () => {
+    expect(pinNotice(null, "0.9.4")).toBeNull();
+    expect(pinNotice(null, "0.9.4", true)).toBeNull();
+  });
+
+  it("names both versions and how to take the pin back", () => {
+    expect(pinNotice("0.9.5", "0.9.4")).toBe(
+      'Background sync stays on ccclub@0.9.5 (newer than this 0.9.4). Run "ccclub hook" to pin this version instead.',
+    );
+  });
+
+  it("reports what an explicit path moved instead of what it kept", () => {
+    expect(pinNotice("0.9.5", "0.9.4", true)).toBe(
+      "Background sync re-pinned from ccclub@0.9.5 to this 0.9.4.",
+    );
   });
 });

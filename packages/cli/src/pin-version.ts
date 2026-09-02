@@ -84,3 +84,19 @@ export function isNewerPin(installed: string | null, current: string): boolean {
   const cmp = compareNpmVersions(installed, current);
   return cmp != null && cmp > 0;
 }
+
+/**
+ * The one dim line to print when the on-disk pin is ahead of this CLI —
+ * otherwise the guard is silent and a user on an older binary has no way to
+ * tell why their background sync keeps running someone else's version.
+ *
+ * Pure on purpose: the keep/rewrite predicates never write to stdout, so the
+ * message decision is testable without a temp HOME. `forced` is for the
+ * explicit paths, which say what they moved instead of what they kept.
+ */
+export function pinNotice(pinned: string | null, running: string, forced = false): string | null {
+  if (pinned == null) return null;
+  return forced
+    ? `Background sync re-pinned from ccclub@${pinned} to this ${running}.`
+    : `Background sync stays on ccclub@${pinned} (newer than this ${running}). Run "ccclub hook" to pin this version instead.`;
+}

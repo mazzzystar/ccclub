@@ -18,8 +18,10 @@ import type { AgentSource, SyncRequest, SyncResponse, UsageBlock } from "@ccclub
 import { formatFetchError } from "../fetch-error.js";
 import { fetchUsageLimits } from "../usage-limits.js";
 import { acquireSyncLock } from "../sync-lock.js";
-import { installHook, isHookInstalled } from "../hook.js";
-import { installHeartbeat, isHeartbeatInstalled } from "../heartbeat.js";
+import { installHook, isHookInstalled, newerPinnedHookVersion } from "../hook.js";
+import { installHeartbeat, isHeartbeatInstalled, newerPinnedHeartbeatVersion } from "../heartbeat.js";
+import { pinNotice } from "../pin-version.js";
+import { getCurrentVersion } from "../version.js";
 import { maybeAutoEnableStatusline } from "../statusline-install.js";
 
 // Bump this when the block format or accounting semantics change. It forces a
@@ -107,6 +109,14 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
       isHookInstalled() ? Promise.resolve(true) : installHook(),
       isHeartbeatInstalled() ? Promise.resolve(true) : installHeartbeat(),
     ]);
+
+    // Refusing to re-pin is the right call but a silent one: say so once, so
+    // an older binary running here does not look like it simply lost.
+    if (!silent) {
+      const version = getCurrentVersion();
+      const notice = pinNotice(newerPinnedHeartbeatVersion(version) ?? newerPinnedHookVersion(version), version);
+      if (notice) console.log(chalk.dim(`  ${notice}`));
+    }
 
     // Statusline setup converges here too. Its original enable had exactly
     // one shot — first init/join, and only if `npm install -g` succeeded that

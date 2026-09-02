@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { createRequire } from "node:module";
 import { newestPinAheadOf, updateManagedHooks, type ClaudeSettings } from "../hook.js";
+
+const require = createRequire(import.meta.url);
+// The CJS postinstall script can't import the ESM hook module, so it carries
+// its own copy of the hook group. These tests pin the two together - a drifted
+// timeout is how a plain reinstall silently reinstated the 30s kill deadline.
+const postinstall = require("../../scripts/postinstall.cjs") as {
+  buildHookGroup: (version: string) => unknown;
+};
 
 const CURRENT_COMMAND = "npx --yes ccclub@0.6.13 sync --silent";
 
@@ -161,6 +170,17 @@ describe("updateManagedHooks", () => {
   });
 });
 
+describe("postinstall hook group", () => {
+  it("is byte-for-byte what installEventHook writes, timeout included", () => {
+    const settings: ClaudeSettings = {};
+
+    expect(updateManagedHooks(settings, "0.9.4")).toBe(true);
+    for (const event of ["SessionEnd", "Stop"]) {
+      expect(settings.hooks?.[event], event).toEqual([postinstall.buildHookGroup("0.9.4")]);
+    }
+  });
+});
+
 describe("updateManagedHooks force", () => {
   it("re-pins a newer hook only when an explicit path forces it", () => {
     const settings: ClaudeSettings = {
@@ -220,7 +240,7 @@ function pinnedGroup(version: string) {
       type: "command",
       command: `npx --yes ccclub@${version} sync --silent`,
       async: true,
-      timeout: 30,
+      timeout: 120,
     }],
   };
 }

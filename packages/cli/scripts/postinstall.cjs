@@ -96,6 +96,27 @@ function shouldKeepExistingPlist(existing, version) {
   return isNewerPin(extractPinnedVersion(existing), version);
 }
 
+// Mirror of the hook group installEventHook writes in src/hook.ts (an ESM
+// module this CJS script can't import). The timeout must equal that file's
+// HOOK_TIMEOUT_SECONDS: 30 killed a first cold scan before the scan cache was
+// written, so the next hook started from nothing and was killed again.
+// hook.test.ts asserts the two groups stay deep-equal.
+const HOOK_TIMEOUT_SECONDS = 120;
+
+function buildHookGroup(version) {
+  return {
+    matcher: "",
+    hooks: [
+      {
+        type: "command",
+        command: `npx --yes ccclub@${version} sync --silent`,
+        async: true,
+        timeout: HOOK_TIMEOUT_SECONDS,
+      },
+    ],
+  };
+}
+
 function updateHooks() {
   // Only install hooks if the user has Claude Code configured.
   if (!fs.existsSync(settingsPath)) return;
@@ -130,17 +151,7 @@ function updateHooks() {
       return hooks.length > 0 ? [{ ...g, hooks }] : [];
     });
 
-    settings.hooks[event].push({
-      matcher: "",
-      hooks: [
-        {
-          type: "command",
-          command: HOOK_COMMAND,
-          async: true,
-          timeout: 30,
-        },
-      ],
-    });
+    settings.hooks[event].push(buildHookGroup(pkg.version));
 
     changed = true;
   }
@@ -234,6 +245,7 @@ function main() {
 
 module.exports = {
   buildPlist,
+  buildHookGroup,
   updateHooks,
   updateHeartbeat,
   PLIST_NAME,

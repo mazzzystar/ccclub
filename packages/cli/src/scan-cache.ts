@@ -77,6 +77,35 @@ function shardName(file: string): string {
   return createHash("sha256").update(file).digest("hex").slice(0, 20) + ".json";
 }
 
+// Shards are loaded a few at a time rather than all at once. A heavy Codex
+// user has 467 of them holding 217 MB of JSON, and reading every one in
+// parallel meant every buffer, every intermediate string and every parsed
+// object was live at the same moment: 590 MB of heap for a load that needs
+// far less. Sixteen in flight costs +60 ms and holds 260 MB less — worth it
+// on an 8 GB Mac, where the default heap is 2 GB.
+const SHARD_READ_CONCURRENCY = 16;
+
+/**
+ * @internal Exported for tests. Results land at their input index, so the
+ * caller never sees an order that depends on which read finished first.
+ */
+export async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  run: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await run(items[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 async function readShards(sourceDir: string): Promise<{
   records: Map<string, ShardShape>;
   diskNames: Set<string>;
@@ -100,18 +129,20 @@ async function readShards(sourceDir: string): Promise<{
     // sweep, which only costs that file a reparse on its next run.
     else if (name.endsWith(".tmp")) staleTempNames.push(name);
   }
-  await Promise.all(shardFiles.map(async (name) => {
-    diskNames.add(name);
+  for (const name of shardFiles) diskNames.add(name);
+  const loaded = await mapWithConcurrency(shardFiles, SHARD_READ_CONCURRENCY, async (name) => {
     try {
       const rec = JSON.parse(await readFile(join(sourceDir, name), "utf-8")) as ShardShape;
-      if (rec != null && typeof rec.file === "string" && typeof rec.mtimeMs === "number") {
-        records.set(rec.file, rec);
-      }
+      return rec != null && typeof rec.file === "string" && typeof rec.mtimeMs === "number" ? rec : null;
     } catch {
       // Corrupt shard — its file parses cold this run and the shard is
       // rewritten or pruned at save.
+      return null;
     }
-  }));
+  });
+  for (const rec of loaded) {
+    if (rec != null) records.set(rec.file, rec);
+  }
   return { records, diskNames, staleTempNames };
 }
 

@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, readdir, rm, stat, writeFile, utimes } from "node:fs/pr
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { createScanCacheFactory } from "../scan-cache.js";
+import { createScanCacheFactory, mapWithConcurrency } from "../scan-cache.js";
 import { collectUsageEntries } from "../collector.js";
 
 const tempDirs: string[] = [];
@@ -334,5 +334,46 @@ describe("collector integration", () => {
       calculateCost: () => 2,
     });
     expect(repriced.entries[0].costUSD).toBe(2);
+  });
+});
+
+describe("mapWithConcurrency", () => {
+  it("keeps results at their input index and never exceeds the limit", async () => {
+    const items = Array.from({ length: 50 }, (_, i) => i);
+    let inFlight = 0;
+    let peak = 0;
+
+    const results = await mapWithConcurrency(items, 16, async (item) => {
+      inFlight++;
+      peak = Math.max(peak, inFlight);
+      // Finishing out of input order is the whole point of the check below.
+      await new Promise((resolve) => setTimeout(resolve, item % 7));
+      inFlight--;
+      return `item-${item}`;
+    });
+
+    expect(results).toEqual(items.map((item) => `item-${item}`));
+    expect(peak).toBe(16);
+  });
+
+  it("handles fewer items than the limit, and none at all", async () => {
+    expect(await mapWithConcurrency([1, 2], 16, async (n) => n * 2)).toEqual([2, 4]);
+    expect(await mapWithConcurrency([] as number[], 16, async (n) => n)).toEqual([]);
+  });
+});
+
+describe("shard loading", () => {
+  it("recovers every record when there are more shards than the read limit", async () => {
+    const dir = await makeTempDir();
+    const files = Array.from({ length: 40 }, (_, i) => `/session-${i}.jsonl`);
+
+    const writer = await createScanCacheFactory(dir)<string>("codex", "v1");
+    for (const file of files) writer.set(file, STAT_A, `parsed${file}`);
+    await writer.save();
+
+    const reader = await createScanCacheFactory(dir)<string>("codex", "v1");
+    expect(files.map((file) => reader.get(file, STAT_A))).toEqual(
+      files.map((file) => `parsed${file}`),
+    );
   });
 });

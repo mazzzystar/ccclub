@@ -36,7 +36,7 @@ describe("updateManagedHooks", () => {
           type: "command",
           command: CURRENT_COMMAND,
           async: true,
-          timeout: 30,
+          timeout: 120,
         }],
       },
     ]);
@@ -46,7 +46,7 @@ describe("updateManagedHooks", () => {
         type: "command",
         command: CURRENT_COMMAND,
         async: true,
-        timeout: 30,
+        timeout: 120,
       }],
     }]);
   });
@@ -58,7 +58,7 @@ describe("updateManagedHooks", () => {
         type: "command",
         command: CURRENT_COMMAND,
         async: true,
-        timeout: 30,
+        timeout: 120,
       }],
     };
     const settings: ClaudeSettings = {
@@ -71,6 +71,32 @@ describe("updateManagedHooks", () => {
 
     expect(updateManagedHooks(settings, "0.6.13")).toBe(false);
     expect(settings).toEqual(before);
+  });
+
+  it("re-pins an older timeout only when the version-pinned command changes", () => {
+    // Only the command and matcher are compared, so raising the timeout does
+    // not rewrite anybody's settings on its own. Existing installs pick the
+    // new value up on the next release, through the normal re-pin path.
+    const settings: ClaudeSettings = {
+      hooks: {
+        SessionEnd: [{ matcher: "", hooks: [{ type: "command", command: CURRENT_COMMAND, async: true, timeout: 30 }] }],
+        Stop: [{ matcher: "", hooks: [{ type: "command", command: CURRENT_COMMAND, async: true, timeout: 30 }] }],
+      },
+    };
+
+    expect(updateManagedHooks(settings, "0.6.13")).toBe(false);
+    expect(JSON.stringify(settings)).toContain('"timeout":30');
+
+    expect(updateManagedHooks(settings, "0.6.14")).toBe(true);
+    expect(settings.hooks?.Stop).toEqual([{
+      matcher: "",
+      hooks: [{
+        type: "command",
+        command: "npx --yes ccclub@0.6.14 sync --silent",
+        async: true,
+        timeout: 120,
+      }],
+    }]);
   });
 
   it("tolerates null and non-object entries inside a group's hooks array", () => {

@@ -18,6 +18,16 @@ const LEGACY_HOOK_COMMANDS = new Set([
 const VERSIONED_HOOK_COMMAND = /^npx --yes ccclub@[0-9A-Za-z][0-9A-Za-z.+-]* sync --silent$/u;
 const HOOK_EVENTS = ["SessionEnd", "Stop"] as const;
 
+/**
+ * The hook runs async, so this is a kill deadline, not a wait the user feels.
+ * Thirty seconds was under what a first sync of a large history needs: the
+ * cold scan is killed before the scan cache is written, so the next hook
+ * starts from nothing and is killed again — a machine that never gets past
+ * its first sync. It bites hardest away from macOS, where there is no
+ * LaunchAgent heartbeat to do the cold scan out of band.
+ */
+const HOOK_TIMEOUT_SECONDS = 120;
+
 export interface ClaudeSettings {
   hooks?: Record<string, unknown[]>;
   [key: string]: unknown;
@@ -84,7 +94,7 @@ function installEventHook(settings: ClaudeSettings, event: string, currentComman
         type: "command",
         command: currentCommand,
         async: true,
-        timeout: 30,
+        timeout: HOOK_TIMEOUT_SECONDS,
       },
     ],
   });

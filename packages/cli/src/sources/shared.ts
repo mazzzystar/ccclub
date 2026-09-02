@@ -92,16 +92,34 @@ export function asString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value : undefined;
 }
 
+// The canonical ISO form Date#toISOString emits while the year fits four
+// digits: exactly `YYYY-MM-DDTHH:mm:ss.sssZ`, 24 characters, fixed width.
+const MIN_CANONICAL_MS = -62_167_219_200_000; // 0000-01-01T00:00:00.000Z
+const MAX_CANONICAL_MS = 253_402_300_799_999; // 9999-12-31T23:59:59.999Z
+
+/**
+ * Every entry and turn timestamp the CLI produces is minted here, and the
+ * sorts downstream lean on that: fixed-width canonical ISO strings compare
+ * lexically exactly the way they compare chronologically. Outside the
+ * four-digit-year range Date switches to its extended form
+ * (`+055840-11-08T22:13:20.000Z`), whose leading `+` sorts before every real
+ * timestamp — one such value would reorder the whole corpus around it. A log
+ * carrying microseconds where milliseconds were expected is enough to mint
+ * one, so those values are rejected at the source instead of being left to
+ * corrupt the ordering of everything else.
+ */
+function canonicalIso(ms: number): string | null {
+  return ms >= MIN_CANONICAL_MS && ms <= MAX_CANONICAL_MS ? new Date(ms).toISOString() : null;
+}
+
 export function toIsoTimestamp(value: unknown): string | null {
   if (typeof value === "string") {
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+    // NaN fails both comparisons, so an unparsable date returns null.
+    return canonicalIso(new Date(value).getTime());
   }
 
   if (typeof value === "number" && Number.isFinite(value)) {
-    const ms = value < 10_000_000_000 ? value * 1000 : value;
-    const date = new Date(ms);
-    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+    return canonicalIso(value < 10_000_000_000 ? value * 1000 : value);
   }
 
   return null;

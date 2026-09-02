@@ -58,6 +58,22 @@ describe("extractPinnedVersion", () => {
     expect(extractPinnedVersion("ccclub sync --silent")).toBeNull();
     expect(postinstall.extractPinnedVersion("<string>ccclub@0.8.0</string>")).toBe("0.8.0");
   });
+
+  it("ignores a ccclub@ that is not one of the two pinned entrypoints", () => {
+    const decoy = "<string>/Users/me/ccclub@99.0.0/sync.log</string>";
+    expect(extractPinnedVersion(decoy)).toBeNull();
+    expect(postinstall.extractPinnedVersion(decoy)).toBeNull();
+
+    // A decoy sharing the file must not outrank the real pin, or the guard
+    // would keep a version nobody installed.
+    const plist = `${decoy}\n<string>ccclub@0.9.3</string>`;
+    expect(extractPinnedVersion(plist)).toBe("0.9.3");
+    expect(postinstall.extractPinnedVersion(plist)).toBe("0.9.3");
+
+    const command = "npx --yes ccclub@0.9.3 sync --silent # was ccclub@99.0.0";
+    expect(extractPinnedVersion(command)).toBe("0.9.3");
+    expect(postinstall.extractPinnedVersion(command)).toBe("0.9.3");
+  });
 });
 
 describe("pinNotice", () => {

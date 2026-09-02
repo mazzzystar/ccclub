@@ -7,11 +7,19 @@
  * pin-version.test.ts asserts the two comparators stay in lockstep.
  */
 
-const PINNED_PACKAGE = /ccclub@([0-9A-Za-z][0-9A-Za-z.+-]*)/;
+// Anchored to the only two shapes ccclub writes a pin in: a plist
+// ProgramArguments entry and the npx hook command. A bare `ccclub@` match read
+// a version out of anything that merely contained one — a log path, a comment,
+// an unrelated hook — and a decoy that parsed higher would make the guard
+// refuse to re-pin over a version nobody ever installed.
+const PINNED_PACKAGE =
+  /<string>ccclub@([0-9A-Za-z][0-9A-Za-z.+-]*)<\/string>|npx --yes ccclub@([0-9A-Za-z][0-9A-Za-z.+-]*) sync/;
 const VERSION = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/;
 
 export function extractPinnedVersion(text: string): string | null {
-  return text.match(PINNED_PACKAGE)?.[1] ?? null;
+  const match = text.match(PINNED_PACKAGE);
+  if (match == null) return null;
+  return match[1] ?? match[2] ?? null;
 }
 
 type ParsedVersion = {

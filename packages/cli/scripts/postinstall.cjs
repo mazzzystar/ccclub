@@ -26,7 +26,10 @@ const HOOK_EVENTS = ["SessionEnd", "Stop"];
 const PLIST_NAME = "dev.ccclub.sync";
 const PLIST_PATH = path.join(os.homedir(), "Library", "LaunchAgents", `${PLIST_NAME}.plist`);
 
-const PINNED_PACKAGE = /ccclub@([0-9A-Za-z][0-9A-Za-z.+-]*)/;
+// Anchored to the plist ProgramArguments entry and the npx hook command only;
+// see the note on PINNED_PACKAGE in src/pin-version.ts.
+const PINNED_PACKAGE =
+  /<string>ccclub@([0-9A-Za-z][0-9A-Za-z.+-]*)<\/string>|npx --yes ccclub@([0-9A-Za-z][0-9A-Za-z.+-]*) sync/;
 const VERSION = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/;
 
 const isManagedHookCommand = (command) =>
@@ -38,7 +41,8 @@ const isManagedHookCommand = (command) =>
 // loop this script exists to close on `npm i -g`.
 function extractPinnedVersion(text) {
   const match = typeof text === "string" ? text.match(PINNED_PACKAGE) : null;
-  return match ? match[1] : null;
+  if (match == null) return null;
+  return match[1] != null ? match[1] : match[2] != null ? match[2] : null;
 }
 
 function parseNpmVersion(version) {

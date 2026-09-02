@@ -44,7 +44,12 @@ export async function globFiles(directories: string[], pattern: string): Promise
   const groups = await Promise.all(
     directories.map((cwd) => glob(pattern, { cwd, absolute: true }).catch(() => [])),
   );
-  return groups.flat().sort();
+  // Roots nest: with CLAUDE_CONFIG_DIR set, both <dir>/projects and <dir> are
+  // offered as roots, so `**/*.jsonl` matches every log twice and the whole
+  // corpus is read, parsed and cached twice. Dedup collapses the two matches
+  // to one absolute path — dedup downstream already made the second pass
+  // produce nothing but cost.
+  return Array.from(new Set(groups.flat())).sort();
 }
 
 export async function readJsonFile(file: string): Promise<unknown | null> {

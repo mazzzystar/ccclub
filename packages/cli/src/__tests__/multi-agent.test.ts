@@ -104,6 +104,27 @@ describe("multi-agent collection", () => {
     expect(blocks[0].costUSD).toBeCloseTo(17);
   });
 
+  it("reads each Claude log once when CLAUDE_CONFIG_DIR nests a projects dir", async () => {
+    const claudeHome = await makeTempDir();
+    const projectsDir = join(claudeHome, "projects");
+    await mkdir(projectsDir, { recursive: true });
+    await writeFile(join(projectsDir, "session.jsonl"), JSON.stringify({
+      type: "assistant",
+      timestamp: "2026-05-01T00:00:01.000Z",
+      sessionId: "session-a",
+      requestId: "req-a",
+      message: { id: "msg-a", model: "claude-opus-4-6", usage: { input_tokens: 1, output_tokens: 1 } },
+    }));
+    // Both <dir>/projects and <dir> are offered as glob roots, so the same
+    // file matches twice unless globFiles dedups the absolute paths.
+    vi.stubEnv("CLAUDE_CONFIG_DIR", claudeHome);
+
+    const result = await collectUsageEntries({ sources: ["claude"] });
+
+    expect(result.sources[0].files).toBe(1);
+    expect(result.entries).toHaveLength(1);
+  });
+
   it("keeps Claude parent usage when sidechain replays a message with a new request ID", async () => {
     const claudeHome = await makeTempDir();
     const projectsDir = join(claudeHome, "projects");

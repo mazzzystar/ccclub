@@ -55,6 +55,54 @@ async function chipHelpers(): Promise<ChipApi> {
   return cachedApi;
 }
 
+type ScoreApi = {
+  weekWinnersHTML: (days: unknown) => string;
+  activeSplitHTML: (rows: unknown, now: number) => string;
+};
+
+/**
+ * The same trick as the chip helpers, for the two lines above the table: run
+ * the builders here so the scoreline is asserted rather than eyeballed.
+ */
+function loadScoreHelpers(script: string): ScoreApi {
+  const start = script.indexOf("var AGENT_ORDER");
+  const end = script.indexOf('document.querySelectorAll(".periods');
+  expect(start).toBeGreaterThan(-1);
+  expect(end).toBeGreaterThan(start);
+  return new Function(
+    "esc",
+    "ACTIVE_THRESHOLD_MS",
+    script.slice(start, end) +
+      "\nreturn { weekWinnersHTML: weekWinnersHTML, activeSplitHTML: activeSplitHTML };",
+  )(esc, 15 * 60 * 1000) as ScoreApi;
+}
+
+let cachedScoreApi: ScoreApi | null = null;
+async function scoreHelpers(): Promise<ScoreApi> {
+  if (!cachedScoreApi) cachedScoreApi = loadScoreHelpers(inlineScripts(await dashboardPage()).join("\n"));
+  return cachedScoreApi;
+}
+
+/** What a reader actually sees on the line, markup stripped. */
+function readable(html: string): string {
+  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/** One resolved day, winners derived the way the worker derives them. */
+function dayOf(date: string, counts: Array<[string, number]>) {
+  const top = Math.max(...counts.map(([, users]) => users));
+  return {
+    day: date,
+    winners: counts.filter(([, users]) => users === top).map(([source]) => source),
+    counts: counts.map(([source, users]) => ({ source, users })),
+  };
+}
+
+/** A member last seen a minute ago, working in `source`. */
+function activeRow(source: string, now: number, agoMs = 60_000) {
+  return { lastActiveAt: new Date(now - agoMs).toISOString(), lastActiveSource: source, agents: [source] };
+}
+
 describe("dashboard inline script", () => {
   it("parses — a stray backslash in the template would corrupt it", async () => {
     for (const script of inlineScripts(await dashboardPage())) {
@@ -129,5 +177,101 @@ describe("project chips", () => {
     expect((projectsHTML({ projects: many }).match(/project-chip/g) || []).length).toBe(5);
     expect(projectsHTML({ projects: [] })).toBe("");
     expect(projectsHTML({})).toBe("");
+  });
+});
+
+describe("week winner votes", () => {
+  it("spells today's vote out instead of leaving it in a tooltip", async () => {
+    const { weekWinnersHTML } = await scoreHelpers();
+    const html = weekWinnersHTML([
+      dayOf("2026-08-17", [["claude", 21], ["codex", 18]]),
+      dayOf("2026-08-18", [["claude", 23], ["codex", 16]]),
+    ]);
+    expect(readable(html)).toContain("Claude Code 23 : 16 Codex");
+    expect(readable(html)).toContain("by main agent today");
+    // The tooltip that used to be the only place the counts lived stays put.
+    expect(html).toContain('title="Tue Aug 18 \u00b7 Claude Code 23, Codex 16"');
+  });
+
+  it("lists every agent that got a vote once there are more than two", async () => {
+    const { weekWinnersHTML } = await scoreHelpers();
+    const html = weekWinnersHTML([
+      dayOf("2026-08-17", [["claude", 23], ["codex", 16], ["pi", 1], ["grok", 1]]),
+    ]);
+    expect(readable(html)).toContain("Claude Code 23 \u00b7 Codex 16 \u00b7 Pi 1 \u00b7 Grok 1");
+  });
+
+  it("names the day when today has not been decided yet", async () => {
+    const { weekWinnersHTML } = await scoreHelpers();
+    const html = weekWinnersHTML([
+      dayOf("2026-08-17", [["claude", 4], ["codex", 2]]),
+      { day: "2026-08-18", winners: [], counts: [] },
+    ]);
+    expect(readable(html)).toContain("by main agent Mon");
+  });
+
+  it("shows a 20:20 day as a draw, both icons in the slot", async () => {
+    const { weekWinnersHTML } = await scoreHelpers();
+    const html = weekWinnersHTML([dayOf("2026-08-17", [["claude", 20], ["codex", 20]])]);
+    const slot = /<span class="ww-slot today tie"[^>]*>([\s\S]*?)<\/span>/.exec(html);
+    expect(slot).not.toBeNull();
+    expect(slot![1]).toContain("claude.svg");
+    expect(slot![1]).toContain("codex.svg");
+    expect(readable(html)).toContain("Claude Code 20 : 20 Codex");
+  });
+
+  it("shrinks the icons rather than overflowing a three-way draw", async () => {
+    const { weekWinnersHTML } = await scoreHelpers();
+    const html = weekWinnersHTML([dayOf("2026-08-17", [["claude", 1], ["codex", 1], ["grok", 1]])]);
+    const slot = /<span class="ww-slot today tie tie-many"[^>]*>([\s\S]*?)<\/span>/.exec(html);
+    expect(slot).not.toBeNull();
+    expect((slot![1].match(/<img/g) || []).length).toBe(3);
+  });
+
+  it("still says nothing about a week nobody coded", async () => {
+    const { weekWinnersHTML } = await scoreHelpers();
+    expect(weekWinnersHTML([{ day: "2026-08-17", winners: [], counts: [] }])).toBe("");
+    expect(weekWinnersHTML([])).toBe("");
+  });
+});
+
+describe("active split", () => {
+  it("says what the scoreline counted", async () => {
+    const { activeSplitHTML } = await scoreHelpers();
+    const now = Date.now();
+    const rows = [
+      ...Array.from({ length: 8 }, () => activeRow("claude", now)),
+      ...Array.from({ length: 11 }, () => activeRow("codex", now)),
+      // Yesterday's member is not part of "active".
+      activeRow("codex", now, 60 * 60_000),
+    ];
+    expect(readable(activeSplitHTML(rows, now))).toBe("Claude 8 : 11 Codex by last activity");
+  });
+
+  it("gives the scoreline to any two agents, not only Claude Code and Codex", async () => {
+    const { activeSplitHTML } = await scoreHelpers();
+    const now = Date.now();
+    const rows = [
+      ...Array.from({ length: 3 }, () => activeRow("claude", now)),
+      ...Array.from({ length: 2 }, () => activeRow("grok", now)),
+    ];
+    expect(readable(activeSplitHTML(rows, now))).toBe("Claude 3 : 2 Grok by last activity");
+  });
+
+  it("keeps a third agent on the line instead of rounding it away", async () => {
+    const { activeSplitHTML } = await scoreHelpers();
+    const now = Date.now();
+    const rows = [
+      ...Array.from({ length: 5 }, () => activeRow("claude", now)),
+      ...Array.from({ length: 3 }, () => activeRow("codex", now)),
+      activeRow("pi", now),
+    ];
+    expect(readable(activeSplitHTML(rows, now))).toBe("Claude 5 \u00b7 Codex 3 \u00b7 Pi 1 by last activity");
+  });
+
+  it("shows nothing when nobody is active", async () => {
+    const { activeSplitHTML } = await scoreHelpers();
+    const now = Date.now();
+    expect(activeSplitHTML([activeRow("claude", now, 60 * 60_000)], now)).toBe("");
   });
 });

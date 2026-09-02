@@ -566,6 +566,8 @@ function dashboardHTML(
       color: var(--success); font-weight: 650; font-variant-numeric: tabular-nums;
     }
     .active-score-sep { color: var(--faint); }
+    /* Says what a scoreline counted, so 8 : 11 is not read as anything else. */
+    .split-note { color: var(--faint); font-size: 11px; }
     .week-winners {
       display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
       margin-top: 9px; min-height: 22px;
@@ -582,6 +584,8 @@ function dashboardHTML(
     }
     .ww-slot img { width: 13px; height: 13px; display: block; object-fit: contain; }
     .ww-slot.tie img { width: 10px; height: 10px; }
+    /* Three agents on one vote each still has to fit the slot. */
+    .ww-slot.tie-many img { width: 6px; height: 6px; }
     .ww-slot.quiet { background: transparent; border-style: dashed; }
     .ww-slot.pending { background: transparent; border-color: var(--line-soft); opacity: 0.45; }
     .ww-slot.today { border-color: var(--success); box-shadow: 0 0 0 2px rgba(99,180,134,0.15); }
@@ -937,8 +941,12 @@ function dashboardHTML(
       }
       return '<span class="active-badge" title="' + esc(label + " active") + '">' + icon + '<span>active</span></span>';
     }
-    function activeSourceScoreHTML(source, count, countFirst) {
+    // One "<icon> Claude 8" chip. countFirst mirrors it, so on a head-to-head
+    // the two counts meet either side of the colon.
+    function sourceScoreHTML(source, count, countFirst, opts) {
+      opts = opts || {};
       var label = AGENT_LABELS[source] || source;
+      var shown = opts.fullLabel ? label : (source === "claude" ? "Claude" : label);
       var icon = "";
       if (AGENT_ICONS[source]) {
         icon = '<img src="' + AGENT_ICONS[source] + '" alt="">';
@@ -946,10 +954,27 @@ function dashboardHTML(
         icon = '<span class="fallback">' + esc((label || "?").charAt(0).toUpperCase()) + '</span>';
       }
       var countHTML = '<span class="score-count">' + count + '</span>';
-      var labelHTML = '<span>' + esc(source === "claude" ? "Claude" : label) + '</span>';
-      return '<span class="active-source-score" title="' + esc(label + " active") + '">' +
-        (countFirst ? countHTML + icon + labelHTML : icon + labelHTML + countHTML) +
+      var labelHTML = '<span>' + esc(shown) + '</span>';
+      return '<span class="active-source-score" title="' + esc(label + " " + (opts.noun || "active")) + '">' +
+        (countFirst ? countHTML + labelHTML + icon : icon + labelHTML + countHTML) +
         '</span>';
+    }
+    // "Claude 8 : 11 Codex" while two agents are in it, "Claude 8 \u00b7 Codex 5
+    // \u00b7 Grok 1" once a third shows up: a scoreline reads as a contest, and a
+    // contest has exactly two sides. Nobody is dropped either way.
+    function scoreSplitHTML(entries, opts) {
+      if (!entries || entries.length === 0) return "";
+      var inner;
+      if (entries.length === 2) {
+        inner = sourceScoreHTML(entries[0].source, entries[0].count, false, opts) +
+          '<span class="active-score-sep">:</span>' +
+          sourceScoreHTML(entries[1].source, entries[1].count, true, opts);
+      } else {
+        inner = entries.map(function(entry) {
+          return sourceScoreHTML(entry.source, entry.count, false, opts);
+        }).join('<span class="active-score-sep">·</span>');
+      }
+      return '<span class="active-split">' + inner + '</span>';
     }
     var WEEK_DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     var MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -963,6 +988,32 @@ function dashboardHTML(
         return '<img src="' + AGENT_ICONS[source] + '" alt="' + esc(AGENT_LABELS[source] || source) + '">';
       }
       return '<span class="fallback">' + esc((AGENT_LABELS[source] || source || "?").charAt(0)) + '</span>';
+    }
+    function weekDayShort(day) {
+      var d = new Date(day + "T00:00:00Z");
+      if (isNaN(d.getTime())) return day;
+      return WEEK_DAY_NAMES[d.getUTCDay()];
+    }
+    // The election behind the last decided slot, spelled out. Seven icons
+    // cannot tell a 23:16 day from a walkover, and the counts were already
+    // there \u2014 buried in a tooltip almost nobody hovers.
+    function weekVotesHTML(days) {
+      var latest = null;
+      var latestIndex = -1;
+      for (var i = days.length - 1; i >= 0; i--) {
+        if (days[i] && days[i].counts && days[i].counts.length > 0) {
+          latest = days[i];
+          latestIndex = i;
+          break;
+        }
+      }
+      if (!latest) return "";
+      var entries = latest.counts.map(function(c) {
+        return { source: c.source, count: c.users };
+      });
+      var when = latestIndex === days.length - 1 ? "today" : weekDayShort(latest.day);
+      return scoreSplitHTML(entries, { fullLabel: true, noun: "votes" }) +
+        '<span class="split-note">by main agent ' + esc(when) + '</span>';
     }
     // One slot per weekday, Monday first. Elapsed days carry the winning
     // agent; the rest stay empty so the row reads as a week in progress.
@@ -981,6 +1032,7 @@ function dashboardHTML(
         if (i === days.length - 1) cls += " today";
         if (winners.length === 0) cls += " quiet";
         if (winners.length > 1) cls += " tie";
+        if (winners.length > 2) cls += " tie-many";
 
         var detail = (day.counts || []).map(function(c) {
           return (AGENT_LABELS[c.source] || c.source) + " " + c.users;
@@ -988,7 +1040,7 @@ function dashboardHTML(
         var title = weekDayLabel(day.day) + " · " + (detail || "no coding");
 
         slots += '<span class="' + cls + '" title="' + esc(title) + '">' +
-          winners.map(weekSlotIconHTML).join("") + '</span>';
+          winners.slice(0, 3).map(weekSlotIconHTML).join("") + '</span>';
         if (winners.length > 0) wins++;
       }
 
@@ -996,22 +1048,8 @@ function dashboardHTML(
       if (wins === 0) return "";
 
       return '<span class="ww-label">Week Winner</span>' +
-        '<span class="ww-track">' + slots + '</span>';
-    }
-    function claudeCodexActiveSplitHTML(claudeCount, codexCount) {
-      return '<span class="active-split">' +
-        '<span class="active-source-score" title="Claude Code active">' +
-          '<img src="' + AGENT_ICONS.claude + '" alt="">' +
-          '<span>Claude</span>' +
-          '<span class="score-count">' + claudeCount + '</span>' +
-        '</span>' +
-        '<span class="active-score-sep">:</span>' +
-        '<span class="active-source-score" title="Codex active">' +
-          '<span class="score-count">' + codexCount + '</span>' +
-          '<span>Codex</span>' +
-          '<img src="' + AGENT_ICONS.codex + '" alt="">' +
-        '</span>' +
-      '</span>';
+        '<span class="ww-track">' + slots + '</span>' +
+        weekVotesHTML(days);
     }
     function activeSplitHTML(rows, now) {
       var counts = {};
@@ -1024,12 +1062,10 @@ function dashboardHTML(
       var sources = AGENT_ORDER.filter(function(source) { return counts[source] > 0; })
         .concat(Object.keys(counts).filter(function(source) { return AGENT_ORDER.indexOf(source) === -1; }));
       if (sources.length === 0) return "";
-      if (sources.length === 2 && counts.claude && counts.codex) {
-        return claudeCodexActiveSplitHTML(counts.claude, counts.codex);
-      }
-      return '<span class="active-split">' + sources.map(function(source) {
-        return activeSourceScoreHTML(source, counts[source], false);
-      }).join('<span class="active-score-sep">·</span>') + '</span>';
+      var entries = sources.map(function(source) {
+        return { source: source, count: counts[source] };
+      });
+      return scoreSplitHTML(entries) + '<span class="split-note">by last activity</span>';
     }
 
     document.querySelectorAll(".periods button[data-period]").forEach(function(btn) {

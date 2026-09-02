@@ -9,6 +9,7 @@ import {
   parseCursorEventsPage,
   type CursorEvent,
 } from "./cursor-parse.js";
+import { byTimestamp } from "./shared.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -175,9 +176,7 @@ export function eventsToCollection(events: CursorEvent[], context: CollectorCont
   const seenConversations = new Set<string>();
   let withoutReportedCost = 0;
 
-  const sorted = [...events].sort(
-    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-  );
+  const sorted = [...events].sort(byTimestamp);
 
   for (const event of sorted) {
     const requestId = [

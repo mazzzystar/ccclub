@@ -8,6 +8,7 @@ import { cursorCollector } from "./cursor.js";
 import { grokCollector } from "./grok.js";
 import { openCodeCollector } from "./opencode.js";
 import { piCollector } from "./pi.js";
+import { byTimestamp } from "./shared.js";
 import type { AgentSourceCollector, CollectorContext, SourceCollection, UsageTurn } from "./types.js";
 
 export type { CollectorContext, UsageTurn, SourceCollection } from "./types.js";
@@ -111,12 +112,11 @@ export async function collectAllUsageEntries(options?: {
     }),
   );
 
-  const entries = results.flatMap((result) => result.entries).sort(
-    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-  );
-  const humanTurns = results.flatMap((result) => result.turns).sort(
-    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-  );
+  // Turns must stay globally sorted: aggregateToBlocks re-sorts entries per
+  // source but sweeps turns with a monotonic cursor, so this is the only sort
+  // that puts them in order.
+  const entries = results.flatMap((result) => result.entries).sort(byTimestamp);
+  const humanTurns = results.flatMap((result) => result.turns).sort(byTimestamp);
   const warnings = results.flatMap((result) => result.warnings);
 
   return { entries, humanTurns, sources: results, warnings };

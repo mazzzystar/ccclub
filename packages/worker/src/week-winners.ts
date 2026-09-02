@@ -7,8 +7,9 @@
 // both totals approach the head count and the margin becomes noise. A single
 // vote for the member's main agent measures preference instead of exposure.
 //
-// Volume never decides the day directly, so one member running a huge job
-// cannot speak for everybody — it only breaks a tie between equal votes.
+// Volume never decides the day, so one member running a huge job cannot speak
+// for everybody. It orders the day's row and nothing more: an equal vote is a
+// draw, and says so, rather than being settled behind the scenes by spend.
 //
 // A member's main agent is measured the same way their own row's "Claude Code
 // (71%), Codex (29%)" split is: by cost, falling back to total tokens when a
@@ -24,7 +25,7 @@ const DAY_MS = 86_400_000;
 
 interface SourceStanding {
   votes: number;
-  /** Weight behind this source's voters — tie-break only. */
+  /** Weight behind this source's voters — orders the row, never decides it. */
   cost: number;
   tokens: number;
 }
@@ -215,10 +216,12 @@ export function resolveWeekWinners(tally: WeekTally, days: number[]): DayWinner[
 
     if (ranked.length === 0) return { day, winners: [], counts: [] };
 
+    // Votes alone decide the day. Cost and tokens rank the row for display,
+    // but requiring them to match too meant a genuine 20:20 draw was settled
+    // by whoever spent more and rendered as a clean win — the one shape of day
+    // most worth showing was the one the row could never show.
     const top = ranked[0];
-    const winners = ranked
-      .filter((row) => row.users === top.users && row.cost === top.cost && row.tokens === top.tokens)
-      .map((row) => row.source);
+    const winners = ranked.filter((row) => row.users === top.users).map((row) => row.source);
 
     return {
       day,

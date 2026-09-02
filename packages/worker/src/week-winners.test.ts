@@ -230,6 +230,17 @@ describe("isUncontested", () => {
     expect(isUncontested(days)).toBe(false);
   });
 
+  it("keeps a group whose days keep ending level", () => {
+    const tally: WeekTally = new Map();
+    for (const day of DAYS) {
+      for (let i = 0; i < 20; i++) member(tally, [[day, "claude", 900]]);
+      for (let i = 0; i < 20; i++) member(tally, [[day, "codex", 12]]);
+    }
+    const days = resolveWeekWinners(tally, DAYS.map((d) => idx(d)));
+    expect(days.every((d) => d.winners.length === 2)).toBe(true);
+    expect(isUncontested(days)).toBe(false);
+  });
+
   it("will not call a young group single-agent on thin evidence", () => {
     const tally: WeekTally = new Map();
     const short = DAYS.slice(0, 3);
@@ -270,19 +281,47 @@ describe("previousWeekDays", () => {
 });
 
 describe("resolveWeekWinners", () => {
-  it("breaks an equal vote count with the voters' token volume", () => {
+  it("ranks an equal vote by the weight behind it without calling a winner", () => {
     const tally: WeekTally = new Map();
     member(tally, [["2026-08-17", "claude", 100]]);
     member(tally, [["2026-08-17", "codex", 500]]);
-    expect(winnersOf(tally, "2026-08-17").winners).toEqual(["codex"]);
+    const day = winnersOf(tally, "2026-08-17");
+    // The heavier side leads the row; one vote each is still one vote each.
+    expect(day.counts.map((c) => c.source)).toEqual(["codex", "claude"]);
+    expect(day.winners).toEqual(["codex", "claude"]);
   });
 
-  it("reports every tied agent when votes and tokens both match", () => {
+  it("reports every agent on the top count, whatever weight is behind it", () => {
     const tally: WeekTally = new Map();
     member(tally, [["2026-08-17", "claude", 100]]);
     member(tally, [["2026-08-17", "codex", 100]]);
     member(tally, [["2026-08-17", "grok", 5]]);
+    expect(winnersOf(tally, "2026-08-17").winners).toEqual(["claude", "codex", "grok"]);
+  });
+
+  it("leaves an agent short of the top count out of the winners", () => {
+    const tally: WeekTally = new Map();
+    member(tally, [["2026-08-17", "claude", 10]]);
+    member(tally, [["2026-08-17", "claude", 10]]);
+    member(tally, [["2026-08-17", "codex", 10]]);
+    member(tally, [["2026-08-17", "codex", 10]]);
+    member(tally, [["2026-08-17", "grok", 900]]);
     expect(winnersOf(tally, "2026-08-17").winners).toEqual(["claude", "codex"]);
+  });
+
+  it("keeps a 20:20 day a draw however lopsided the spend behind it", () => {
+    const tally: WeekTally = new Map();
+    // The shape this row could never show: forty members, an even split, and
+    // Claude Code billing seventy-five times what Codex did. Ranking by cost
+    // used to hand it to Claude Code as an unremarkable clean win.
+    for (let i = 0; i < 20; i++) member(tally, [["2026-08-17", "claude", 900]]);
+    for (let i = 0; i < 20; i++) member(tally, [["2026-08-17", "codex", 12]]);
+    const day = winnersOf(tally, "2026-08-17");
+    expect(day.winners).toEqual(["claude", "codex"]);
+    expect(day.counts).toEqual([
+      { source: "claude", users: 20 },
+      { source: "codex", users: 20 },
+    ]);
   });
 
   it("keeps quiet days as explicit gaps in the row", () => {

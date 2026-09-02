@@ -6,6 +6,7 @@ import { resolveCollectSources } from "../sources/index.js";
 import { aggregateToBlocks } from "../aggregator.js";
 import { loadPricing } from "../pricing.js";
 import { createScanCacheFactory } from "../scan-cache.js";
+import { acquireSyncLock } from "../sync-lock.js";
 import { theme } from "../theme.js";
 import { isRankedSource, computeActivityStats, activityLevelFor } from "@ccclub/shared";
 import type { DayTotal, UsageBlock } from "@ccclub/shared";
@@ -138,12 +139,33 @@ export async function activityCommand(options: { json?: boolean } = {}): Promise
 
   const { calculateCost } = await loadPricing();
   const config = await loadConfig();
-  const { entries, humanTurns } = await collectUsageEntries({
-    sources: resolveCollectSources(config),
-    calculateCost,
-    openScanCache: createScanCacheFactory(),
-  });
-  const blocks = aggregateToBlocks(entries, humanTurns);
+
+  // Same lock sync and show-data take. Two processes scanning at once write
+  // the same shards and, on a large history, hold two copies of the entry
+  // stream — the case that pushes a machine into GC thrash. A heatmap is
+  // worth skipping for that.
+  const lock = await acquireSyncLock();
+  if (lock == null) {
+    if (spinner) spinner.stop();
+    const message = "A sync is already scanning local data. Try again in a moment.";
+    // --json owns stdout, so its skip notice goes to stderr and callers
+    // still parse whatever they receive.
+    if (options.json) console.error(message);
+    else console.log(theme.muted(`\n  ${message}\n`));
+    return;
+  }
+
+  let collection: Awaited<ReturnType<typeof collectUsageEntries>>;
+  try {
+    collection = await collectUsageEntries({
+      sources: resolveCollectSources(config),
+      calculateCost,
+      openScanCache: createScanCacheFactory(),
+    });
+  } finally {
+    await lock.release();
+  }
+  const blocks = aggregateToBlocks(collection.entries, collection.humanTurns);
   if (spinner) spinner.stop();
 
   const days = buildDayTotals(blocks);

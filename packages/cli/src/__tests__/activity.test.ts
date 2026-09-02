@@ -1,5 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import {
+  activityCommand,
   buildDayTotals,
   heatmapLines,
   formatTokensShort,
@@ -144,5 +148,32 @@ describe("formatTokensShort", () => {
     expect(formatTokensShort(2_060_000_000)).toBe("2.1B");
     expect(formatTokensShort(1_500_000)).toBe("1.5M");
     expect(formatTokensShort(950)).toBe("950");
+  });
+});
+
+describe("activityCommand", () => {
+  const tempDirs: string[] = [];
+
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+    await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+  });
+
+  it("skips the scan while a sync holds the lock", async () => {
+    const home = await mkdtemp(join(tmpdir(), "ccclub-activity-"));
+    tempDirs.push(home);
+    await mkdir(join(home, ".ccclub"), { recursive: true });
+    await writeFile(join(home, ".ccclub", "sync.lock"), "999999:held-by-a-sync");
+    vi.stubEnv("HOME", home);
+
+    const out = vi.spyOn(console, "log").mockImplementation(() => {});
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await activityCommand({ json: true });
+
+    // --json owns stdout: the skip notice must not land in the JSON stream.
+    expect(out).not.toHaveBeenCalled();
+    expect(err).toHaveBeenCalledWith(expect.stringContaining("already scanning"));
   });
 });

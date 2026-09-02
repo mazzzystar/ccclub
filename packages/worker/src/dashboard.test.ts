@@ -180,36 +180,7 @@ describe("project chips", () => {
   });
 });
 
-describe("week winner votes", () => {
-  it("spells today's vote out instead of leaving it in a tooltip", async () => {
-    const { weekWinnersHTML } = await scoreHelpers();
-    const html = weekWinnersHTML([
-      dayOf("2026-08-17", [["claude", 21], ["codex", 18]]),
-      dayOf("2026-08-18", [["claude", 23], ["codex", 16]]),
-    ]);
-    expect(readable(html)).toContain("Claude Code 23 : 16 Codex");
-    expect(readable(html)).toContain("by main agent today");
-    // The tooltip that used to be the only place the counts lived stays put.
-    expect(html).toContain('title="Tue Aug 18 \u00b7 Claude Code 23, Codex 16"');
-  });
-
-  it("lists every agent that got a vote once there are more than two", async () => {
-    const { weekWinnersHTML } = await scoreHelpers();
-    const html = weekWinnersHTML([
-      dayOf("2026-08-17", [["claude", 23], ["codex", 16], ["pi", 1], ["grok", 1]]),
-    ]);
-    expect(readable(html)).toContain("Claude Code 23 \u00b7 Codex 16 \u00b7 Pi 1 \u00b7 Grok 1");
-  });
-
-  it("names the day when today has not been decided yet", async () => {
-    const { weekWinnersHTML } = await scoreHelpers();
-    const html = weekWinnersHTML([
-      dayOf("2026-08-17", [["claude", 4], ["codex", 2]]),
-      { day: "2026-08-18", winners: [], counts: [] },
-    ]);
-    expect(readable(html)).toContain("by main agent Mon");
-  });
-
+describe("week winner row", () => {
   it("shows a 20:20 day as a draw, both icons in the slot", async () => {
     const { weekWinnersHTML } = await scoreHelpers();
     const html = weekWinnersHTML([dayOf("2026-08-17", [["claude", 20], ["codex", 20]])]);
@@ -217,7 +188,8 @@ describe("week winner votes", () => {
     expect(slot).not.toBeNull();
     expect(slot![1]).toContain("claude.svg");
     expect(slot![1]).toContain("codex.svg");
-    expect(readable(html)).toContain("Claude Code 20 : 20 Codex");
+    // The counts still live in the tooltip, which is where they belong.
+    expect(html).toContain('title="Mon Aug 17 \u00b7 Claude Code 20, Codex 20"');
   });
 
   it("shrinks the icons rather than overflowing a three-way draw", async () => {

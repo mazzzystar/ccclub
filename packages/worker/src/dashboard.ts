@@ -943,10 +943,9 @@ function dashboardHTML(
     }
     // One "<icon> Claude 8" chip. countFirst mirrors it, so on a head-to-head
     // the two counts meet either side of the colon.
-    function sourceScoreHTML(source, count, countFirst, opts) {
-      opts = opts || {};
+    function sourceScoreHTML(source, count, countFirst) {
       var label = AGENT_LABELS[source] || source;
-      var shown = opts.fullLabel ? label : (source === "claude" ? "Claude" : label);
+      var shown = source === "claude" ? "Claude" : label;
       var icon = "";
       if (AGENT_ICONS[source]) {
         icon = '<img src="' + AGENT_ICONS[source] + '" alt="">';
@@ -955,23 +954,23 @@ function dashboardHTML(
       }
       var countHTML = '<span class="score-count">' + count + '</span>';
       var labelHTML = '<span>' + esc(shown) + '</span>';
-      return '<span class="active-source-score" title="' + esc(label + " " + (opts.noun || "active")) + '">' +
+      return '<span class="active-source-score" title="' + esc(label + " active") + '">' +
         (countFirst ? countHTML + labelHTML + icon : icon + labelHTML + countHTML) +
         '</span>';
     }
     // "Claude 8 : 11 Codex" while two agents are in it, "Claude 8 \u00b7 Codex 5
     // \u00b7 Grok 1" once a third shows up: a scoreline reads as a contest, and a
     // contest has exactly two sides. Nobody is dropped either way.
-    function scoreSplitHTML(entries, opts) {
+    function scoreSplitHTML(entries) {
       if (!entries || entries.length === 0) return "";
       var inner;
       if (entries.length === 2) {
-        inner = sourceScoreHTML(entries[0].source, entries[0].count, false, opts) +
+        inner = sourceScoreHTML(entries[0].source, entries[0].count, false) +
           '<span class="active-score-sep">:</span>' +
-          sourceScoreHTML(entries[1].source, entries[1].count, true, opts);
+          sourceScoreHTML(entries[1].source, entries[1].count, true);
       } else {
         inner = entries.map(function(entry) {
-          return sourceScoreHTML(entry.source, entry.count, false, opts);
+          return sourceScoreHTML(entry.source, entry.count, false);
         }).join('<span class="active-score-sep">·</span>');
       }
       return '<span class="active-split">' + inner + '</span>';
@@ -988,32 +987,6 @@ function dashboardHTML(
         return '<img src="' + AGENT_ICONS[source] + '" alt="' + esc(AGENT_LABELS[source] || source) + '">';
       }
       return '<span class="fallback">' + esc((AGENT_LABELS[source] || source || "?").charAt(0)) + '</span>';
-    }
-    function weekDayShort(day) {
-      var d = new Date(day + "T00:00:00Z");
-      if (isNaN(d.getTime())) return day;
-      return WEEK_DAY_NAMES[d.getUTCDay()];
-    }
-    // The election behind the last decided slot, spelled out. Seven icons
-    // cannot tell a 23:16 day from a walkover, and the counts were already
-    // there \u2014 buried in a tooltip almost nobody hovers.
-    function weekVotesHTML(days) {
-      var latest = null;
-      var latestIndex = -1;
-      for (var i = days.length - 1; i >= 0; i--) {
-        if (days[i] && days[i].counts && days[i].counts.length > 0) {
-          latest = days[i];
-          latestIndex = i;
-          break;
-        }
-      }
-      if (!latest) return "";
-      var entries = latest.counts.map(function(c) {
-        return { source: c.source, count: c.users };
-      });
-      var when = latestIndex === days.length - 1 ? "today" : weekDayShort(latest.day);
-      return scoreSplitHTML(entries, { fullLabel: true, noun: "votes" }) +
-        '<span class="split-note">by main agent ' + esc(when) + '</span>';
     }
     // One slot per weekday, Monday first. Elapsed days carry the winning
     // agent; the rest stay empty so the row reads as a week in progress.
@@ -1048,8 +1021,7 @@ function dashboardHTML(
       if (wins === 0) return "";
 
       return '<span class="ww-label">Week Winner</span>' +
-        '<span class="ww-track">' + slots + '</span>' +
-        weekVotesHTML(days);
+        '<span class="ww-track">' + slots + '</span>';
     }
     function activeSplitHTML(rows, now) {
       var counts = {};

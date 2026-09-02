@@ -100,11 +100,12 @@ export function isNewerPin(installed: string | null, current: string): boolean {
  *
  * Pure on purpose: the keep/rewrite predicates never write to stdout, so the
  * message decision is testable without a temp HOME. `forced` is for the
- * explicit paths, which say what they moved instead of what they kept.
+ * explicit paths, which say what they moved instead of what they kept — and
+ * `ccclub hook` moves both entrypoints, so that wording names neither alone.
  */
 export function pinNotice(pinned: string | null, running: string, forced = false): string | null {
   if (pinned == null) return null;
   return forced
-    ? `Background sync re-pinned from ccclub@${pinned} to this ${running}.`
+    ? `Auto-sync re-pinned from ccclub@${pinned} to this ${running}.`
     : `Background sync stays on ccclub@${pinned} (newer than this ${running}). Run "ccclub hook" to pin this version instead.`;
 }

@@ -89,8 +89,10 @@ describe("pinNotice", () => {
   });
 
   it("reports what an explicit path moved instead of what it kept", () => {
+    // Names neither entrypoint: `ccclub hook` re-pins the hooks and the
+    // LaunchAgent in one go.
     expect(pinNotice("0.9.5", "0.9.4", true)).toBe(
-      "Background sync re-pinned from ccclub@0.9.5 to this 0.9.4.",
+      "Auto-sync re-pinned from ccclub@0.9.5 to this 0.9.4.",
     );
   });
 });

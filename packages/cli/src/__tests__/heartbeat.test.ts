@@ -87,3 +87,28 @@ describe("shouldKeepExistingPlist", () => {
     expect(postinstall.shouldKeepExistingPlist("not a plist", "0.9.3")).toBe(false);
   });
 });
+
+describe("shouldKeepExistingPlist force", () => {
+  it("re-pins a newer plist only when an explicit path forces it", () => {
+    const v095 = getPlist("0.9.5");
+
+    expect(shouldKeepExistingPlist(v095, "0.9.4")).toBe(true);
+    expect(shouldKeepExistingPlist(v095, "0.9.4", { force: true })).toBe(false);
+  });
+
+  it("stays a no-op on an identical template even under force", () => {
+    // Rewriting a byte-identical plist would churn a launchctl unload/load
+    // for nothing, so force must not reach past the equality check.
+    const same = getPlist("0.9.4");
+    expect(shouldKeepExistingPlist(same, "0.9.4", { force: true })).toBe(true);
+  });
+
+  it("leaves a newer pin with a drifted template to the explicit paths", () => {
+    // Deliberate trade-off: an older CLI cannot repair a broken newer pin on
+    // its own (that is the downgrade loop); only force takes it back.
+    const drifted = getPlist("0.9.5").replace(":/usr/bin:/bin", ":/opt/gone/bin:/bin");
+
+    expect(shouldKeepExistingPlist(drifted, "0.9.4")).toBe(true);
+    expect(shouldKeepExistingPlist(drifted, "0.9.4", { force: true })).toBe(false);
+  });
+});

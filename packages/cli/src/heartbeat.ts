@@ -3,7 +3,7 @@ import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 import { existsSync, readFileSync } from "node:fs";
 import { execFile } from "node:child_process";
-import { extractPinnedVersion, isNewerPin } from "./pin-version.js";
+import { extractPinnedVersion, isNewerPin, type PinOptions } from "./pin-version.js";
 import { getCurrentVersion } from "./version.js";
 
 const PLIST_NAME = "dev.ccclub.sync";
@@ -63,17 +63,45 @@ export function getPlist(version = getCurrentVersion()): string {
  * Keep the on-disk LaunchAgent when it already matches this CLI, or when it
  * is pinned to a newer release. Same-version PATH/template drift still
  * rewrites; an older binary must not treat a forward pin as stale.
+ *
+ * Deliberate trade-off: a NEWER pin whose template has drifted (a deleted
+ * nvm bin dir, a yanked release) is not repaired by an older CLI running on
+ * its own — only `options.force` from an explicit `ccclub init` / hook path
+ * takes it back. Repairing it automatically would reopen the downgrade loop.
  * @internal exported for regression tests and the postinstall lockstep check.
  */
-export function shouldKeepExistingPlist(existing: string, version = getCurrentVersion()): boolean {
+export function shouldKeepExistingPlist(
+  existing: string,
+  version = getCurrentVersion(),
+  options: PinOptions = {},
+): boolean {
+  // Identical template is a no-op with or without force: rewriting it would
+  // only churn a launchctl unload/load for a byte-identical file.
   if (existing === getPlist(version)) return true;
+  if (options.force) return false;
   return isNewerPin(extractPinnedVersion(existing), version);
 }
 
-function isCurrentPlist(): boolean {
+/**
+ * The version the on-disk LaunchAgent is pinned to when it is ahead of this
+ * CLI — i.e. the pin the guard above just refused to rewrite. Null when
+ * there is no plist, no readable pin, or the pin is not ahead. Callers print
+ * the notice; the predicates stay silent.
+ */
+export function newerPinnedHeartbeatVersion(version = getCurrentVersion()): string | null {
+  if (!existsSync(PLIST_PATH)) return null;
+  try {
+    const pinned = extractPinnedVersion(readFileSync(PLIST_PATH, "utf-8"));
+    return pinned != null && isNewerPin(pinned, version) ? pinned : null;
+  } catch {
+    return null;
+  }
+}
+
+function isCurrentPlist(force = false): boolean {
   if (!existsSync(PLIST_PATH)) return false;
   try {
-    return shouldKeepExistingPlist(readFileSync(PLIST_PATH, "utf-8"));
+    return shouldKeepExistingPlist(readFileSync(PLIST_PATH, "utf-8"), getCurrentVersion(), { force });
   } catch {
     return false;
   }
@@ -85,7 +113,7 @@ async function launchctl(args: string[]): Promise<void> {
   });
 }
 
-export async function installHeartbeat(): Promise<boolean> {
+export async function installHeartbeat(options: PinOptions = {}): Promise<boolean> {
   // Only support macOS for now
   if (process.platform !== "darwin") {
     return false;
@@ -95,7 +123,7 @@ export async function installHeartbeat(): Promise<boolean> {
   // here (unwritable LaunchAgents dir, plist path occupied by a directory)
   // used to propagate into doSync and silently abort the entire sync.
   try {
-    if (isCurrentPlist()) {
+    if (isCurrentPlist(options.force)) {
       return true; // already installed
     }
 

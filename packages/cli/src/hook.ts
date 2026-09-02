@@ -2,7 +2,7 @@ import { readFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { existsSync, readFileSync } from "node:fs";
-import { extractPinnedVersion, isNewerPin } from "./pin-version.js";
+import { extractPinnedVersion, isNewerPin, type PinOptions } from "./pin-version.js";
 import { getCurrentVersion } from "./version.js";
 import { atomicWriteFile } from "./fs-utils.js";
 
@@ -91,11 +91,48 @@ function shouldRewriteEvent(
   event: string,
   version: string,
   currentCommand: string,
+  force = false,
 ): boolean {
+  // Exactly this command already: nothing to write, force or not. Keeping
+  // this ahead of the force check is what stops `ccclub hook` from churning
+  // settings.json (and the launchctl reload on the heartbeat side).
   if (eventHasCurrentHook(settings, event, currentCommand)) return false;
+  if (force) return true;
+  // Trade-off: any newer managed command leaves the WHOLE event alone, so a
+  // legacy duplicate sitting next to a newer pin survives until the user runs
+  // the explicit `ccclub hook`. Rewriting the event to clean it up is exactly
+  // the backward re-pin this guard exists to prevent.
   return !managedCommandsForEvent(settings, event).some((command) =>
     isNewerPin(extractPinnedVersion(command), version),
   );
+}
+
+/**
+ * The highest managed hook pin that is ahead of this CLI, or null when none
+ * is — i.e. what an automatic path just refused to rewrite.
+ * @internal Pure; exported so the notice decision is testable without disk.
+ */
+export function newestPinAheadOf(settings: ClaudeSettings, version: string): string | null {
+  let newest: string | null = null;
+  for (const event of HOOK_EVENTS) {
+    for (const command of managedCommandsForEvent(settings, event)) {
+      const pinned = extractPinnedVersion(command);
+      if (pinned == null || !isNewerPin(pinned, version)) continue;
+      if (newest == null || isNewerPin(pinned, newest)) newest = pinned;
+    }
+  }
+  return newest;
+}
+
+/** Disk-reading wrapper around newestPinAheadOf. Never throws. */
+export function newerPinnedHookVersion(version = getCurrentVersion()): string | null {
+  try {
+    if (!existsSync(CLAUDE_SETTINGS_PATH)) return null;
+    const settings = JSON.parse(readFileSync(CLAUDE_SETTINGS_PATH, "utf-8")) as ClaudeSettings;
+    return newestPinAheadOf(settings, version);
+  } catch {
+    return null;
+  }
 }
 
 function installEventHook(settings: ClaudeSettings, event: string, currentCommand: string): void {
@@ -133,18 +170,19 @@ function installEventHook(settings: ClaudeSettings, event: string, currentComman
 export function updateManagedHooks(
   settings: ClaudeSettings,
   version = getCurrentVersion(),
+  options: PinOptions = {},
 ): boolean {
   const currentCommand = hookCommand(version);
   let changed = false;
   for (const event of HOOK_EVENTS) {
-    if (!shouldRewriteEvent(settings, event, version, currentCommand)) continue;
+    if (!shouldRewriteEvent(settings, event, version, currentCommand, options.force)) continue;
     installEventHook(settings, event, currentCommand);
     changed = true;
   }
   return changed;
 }
 
-export async function installHook(): Promise<boolean> {
+export async function installHook(options: PinOptions = {}): Promise<boolean> {
   try {
     if (!existsSync(CLAUDE_SETTINGS_DIR)) {
       await mkdir(CLAUDE_SETTINGS_DIR, { recursive: true });
@@ -156,7 +194,7 @@ export async function installHook(): Promise<boolean> {
       settings = JSON.parse(raw);
     }
 
-    if (!updateManagedHooks(settings)) return true;
+    if (!updateManagedHooks(settings, getCurrentVersion(), options)) return true;
 
     await atomicWriteFile(CLAUDE_SETTINGS_PATH, JSON.stringify(settings, null, 2) + "\n");
     return true;

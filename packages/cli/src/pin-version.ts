@@ -66,6 +66,19 @@ export function compareNpmVersions(a: string, b: string): number | null {
   return comparePreRelease(left.pre, right.pre);
 }
 
+export interface PinOptions {
+  /**
+   * Re-pin the background entrypoints to the running version even when the
+   * on-disk pin is newer. Only explicit, user-initiated paths set it
+   * (`ccclub init`, `ccclub hook`): it is the escape hatch for a newer pin
+   * whose template is broken — a deleted nvm bin dir, a yanked release, a
+   * version that crashes on start. Automatic paths (sync, rank) never do.
+   * It bypasses the newer-pin guard only; an identical template stays a
+   * no-op, so forcing never churns launchctl or settings.json for nothing.
+   */
+  force?: boolean;
+}
+
 export function isNewerPin(installed: string | null, current: string): boolean {
   if (installed == null) return false;
   const cmp = compareNpmVersions(installed, current);

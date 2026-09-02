@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { updateManagedHooks, type ClaudeSettings } from "../hook.js";
+import { newestPinAheadOf, updateManagedHooks, type ClaudeSettings } from "../hook.js";
 
 const CURRENT_COMMAND = "npx --yes ccclub@0.6.13 sync --silent";
 
@@ -158,6 +158,58 @@ describe("updateManagedHooks", () => {
     expect(settings.hooks?.SessionEnd).toEqual([pinnedGroup("0.9.3")]);
     expect(JSON.stringify(settings.hooks?.Stop)).toContain("ccclub@0.9.3");
     expect(JSON.stringify(settings.hooks?.Stop)).not.toContain("ccclub@0.8.0");
+  });
+});
+
+describe("updateManagedHooks force", () => {
+  it("re-pins a newer hook only when an explicit path forces it", () => {
+    const settings: ClaudeSettings = {
+      hooks: {
+        SessionEnd: [pinnedGroup("0.9.5")],
+        Stop: [pinnedGroup("0.9.5")],
+      },
+    };
+
+    expect(updateManagedHooks(settings, "0.9.4")).toBe(false);
+    expect(JSON.stringify(settings.hooks)).toContain("ccclub@0.9.5");
+
+    expect(updateManagedHooks(settings, "0.9.4", { force: true })).toBe(true);
+    expect(JSON.stringify(settings.hooks)).toContain("ccclub@0.9.4");
+    expect(JSON.stringify(settings.hooks)).not.toContain("ccclub@0.9.5");
+  });
+
+  it("stays a no-op on the current command even under force", () => {
+    const settings: ClaudeSettings = {
+      hooks: {
+        SessionEnd: [pinnedGroup("0.9.4")],
+        Stop: [pinnedGroup("0.9.4")],
+      },
+    };
+    const before = structuredClone(settings);
+
+    expect(updateManagedHooks(settings, "0.9.4", { force: true })).toBe(false);
+    expect(settings).toEqual(before);
+  });
+});
+
+describe("newestPinAheadOf", () => {
+  it("reports the highest pin ahead of this CLI, and null when none is", () => {
+    const ahead: ClaudeSettings = {
+      hooks: {
+        SessionEnd: [pinnedGroup("0.9.5")],
+        Stop: [pinnedGroup("0.10.0")],
+      },
+    };
+    expect(newestPinAheadOf(ahead, "0.9.4")).toBe("0.10.0");
+
+    const behind: ClaudeSettings = {
+      hooks: {
+        SessionEnd: [pinnedGroup("0.8.0")],
+        Stop: [pinnedGroup("0.9.4")],
+      },
+    };
+    expect(newestPinAheadOf(behind, "0.9.4")).toBeNull();
+    expect(newestPinAheadOf({}, "0.9.4")).toBeNull();
   });
 });
 

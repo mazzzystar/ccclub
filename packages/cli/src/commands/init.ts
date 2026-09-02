@@ -18,14 +18,16 @@ export async function initCommand(): Promise<void> {
     console.log(chalk.yellow("Already initialized!"));
     console.log(`  User: ${existing.displayName}`);
     console.log(`  Groups: ${existing.groups.join(", ") || "(none)"}`);
-    // Ensure hook is installed for users who initialized before hook support
-    if (!isHookInstalled()) {
-      const hookOk = await installHook();
-      if (hookOk) console.log(chalk.green("  Auto-sync hook installed!"));
+    // Ensure hook is installed for users who initialized before hook support.
+    // Typing `ccclub init` is explicit, so it force-repins over a NEWER pin
+    // too — the way back when that release is yanked or its template broke.
+    const hadHook = isHookInstalled();
+    if (await installHook({ force: true }) && !hadHook) {
+      console.log(chalk.green("  Auto-sync hook installed!"));
     }
-    if (!isHeartbeatInstalled()) {
-      const heartbeatOk = await installHeartbeat();
-      if (heartbeatOk) console.log(chalk.green("  Background sync installed!"));
+    const hadHeartbeat = isHeartbeatInstalled();
+    if (await installHeartbeat({ force: true }) && !hadHeartbeat) {
+      console.log(chalk.green("  Background sync installed!"));
     }
     // ...and the statusline, whose one-shot enable at first init/join is
     // easy to have missed (e.g. the global install failed that day).
@@ -89,8 +91,8 @@ export async function initCommand(): Promise<void> {
 
     // Install Claude Code hook and background sync (silent, best-effort)
     const [hookOk, heartbeatOk] = await Promise.all([
-      installHook(),
-      installHeartbeat(),
+      installHook({ force: true }),
+      installHeartbeat({ force: true }),
     ]);
     spinner.succeed("ccclub initialized!");
 

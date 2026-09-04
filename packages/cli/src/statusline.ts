@@ -10,11 +10,16 @@ import type { UsageSnapshot } from "@ccclub/shared";
 // line. All cache refreshing happens in `ccclub sync`, which the Stop /
 // SessionEnd hooks and the heartbeat already run while Claude Code is in use.
 
-// Show usage limits only while reasonably fresh; an idle machine's last
-// snapshot says nothing about the current 5-hour window.
+// Two ages bound the caches. Past USAGE_MAX_AGE_MS a snapshot no longer
+// describes the current 5-hour window, but hiding it outright is worse than
+// showing it: the LaunchAgent's 5-minute interval is suppressed while the
+// laptop sleeps, so a slept-through night used to make the limits segment
+// vanish for hours with nothing to explain why. Stale numbers render dim with
+// a trailing `~` instead — visibly not live, still better than nothing.
 export const USAGE_MAX_AGE_MS = 3 * 60 * 60 * 1000;
-// Rank shows *today's* cost, so besides an age cap it must be from today.
-const RANK_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+// Past this, nothing renders: half a day on, the 5-hour window has turned
+// over completely and the numbers would be a lie rather than a stale truth.
+const MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
 // Raw ANSI (no chalk): the statusline binary avoids external imports to keep
 // startup latency low. Colors mirror theme.ts / cc-costline conventions.
@@ -100,28 +105,40 @@ function validAge(fetchedAt: number | null, now: number, maxAgeMs: number): numb
   return age >= 0 && age <= maxAgeMs ? age : null;
 }
 
-function readUsageCache(path: string, now: number): UsageSnapshot | null {
+/** A usable cache value; `stale` marks one past USAGE_MAX_AGE_MS. */
+interface CacheRead<T> {
+  value: T;
+  stale: boolean;
+}
+
+function readUsageCache(path: string, now: number): CacheRead<UsageSnapshot> | null {
   const raw = readJsonFile(path);
   const snapshot = raw?.snapshot as UsageSnapshot | undefined;
+  const age = validAge(asFiniteNumber(raw?.fetchedAt), now, MAX_AGE_MS);
   if (
     snapshot == null ||
-    validAge(asFiniteNumber(raw?.fetchedAt), now, USAGE_MAX_AGE_MS) == null ||
+    age == null ||
     asFiniteNumber(snapshot.fiveHour) == null ||
     asFiniteNumber(snapshot.sevenDay) == null
   ) {
     return null;
   }
-  return snapshot;
+  return { value: snapshot, stale: age > USAGE_MAX_AGE_MS };
 }
 
-function readModelWeekly(path: string, now: number): ModelWeekly | null {
+function readModelWeekly(path: string, now: number): CacheRead<ModelWeekly> | null {
   const raw = readJsonFile(path);
   const percent = asFiniteNumber(raw?.percent);
-  if (percent == null || validAge(asFiniteNumber(raw?.fetchedAt), now, USAGE_MAX_AGE_MS) == null) return null;
+  const age = validAge(asFiniteNumber(raw?.fetchedAt), now, MAX_AGE_MS);
+  if (percent == null || age == null) return null;
   // A malformed entry drops just this segment; an out-of-range percent is
   // clamped rather than rendered raw.
   const label = printable(raw?.label, 20);
-  return label ? { label, percent: Math.max(0, Math.min(100, percent)) } : null;
+  if (!label) return null;
+  return {
+    value: { label, percent: Math.max(0, Math.min(100, percent)) },
+    stale: age > USAGE_MAX_AGE_MS,
+  };
 }
 
 function isSameLocalDay(a: number, b: number): boolean {
@@ -148,7 +165,8 @@ function readRankCache(path: string, now: number): RankCacheEntry | null {
   const costUSD = asFiniteNumber(raw?.costUSD);
   const fetchedAt = asFiniteNumber(raw?.fetchedAt);
   if (rank == null || total == null || costUSD == null || fetchedAt == null) return null;
-  if (validAge(fetchedAt, now, RANK_MAX_AGE_MS) == null || !isSameLocalDay(fetchedAt, now)) return null;
+  // Rank shows *today's* cost, so besides the age cap it must be from today.
+  if (validAge(fetchedAt, now, MAX_AGE_MS) == null || !isSameLocalDay(fetchedAt, now)) return null;
   const url = typeof raw?.url === "string" && SAFE_URL.test(raw.url) ? raw.url : undefined;
   return { rank, total, costUSD, fetchedAt, url };
 }
@@ -188,6 +206,7 @@ function rankColor(rank: number): string {
  * Segments degrade independently: anything unavailable is silently omitted.
  *
  * Example: ` Fable 5 xhigh | 5h: 15% / 7d: 43% / Fable: 8% | #11/67 $19.0`
+ * Stale limits keep their place, dimmed: ` … | 5h: 15% / 7d: 43% ~ | …`
  */
 export function renderStatusline(
   input: string,
@@ -226,18 +245,22 @@ export function renderStatusline(
 
   const usage = readUsageCache(options.usageCachePath ?? getUsageCachePath(), now);
   if (usage) {
-    const five = Math.round(usage.fiveHour);
-    const seven = Math.round(usage.sevenDay);
+    // Stale parts lose their threshold color: dim numbers plus one trailing
+    // `~` say "last known" without spending a second character on it.
+    const color = (pct: number, stale: boolean) => (stale ? DIM : percentColor(pct));
+    const five = Math.round(usage.value.fiveHour);
+    const seven = Math.round(usage.value.sevenDay);
     let seg =
-      `${DIM}5h:${RESET} ${percentColor(five)}${five}%${RESET} ${DIM}/${RESET} ` +
-      `${DIM}7d:${RESET} ${percentColor(seven)}${seven}%${RESET}`;
+      `${DIM}5h:${RESET} ${color(five, usage.stale)}${five}%${RESET} ${DIM}/${RESET} ` +
+      `${DIM}7d:${RESET} ${color(seven, usage.stale)}${seven}%${RESET}`;
     const modelWeekly = readModelWeekly(options.modelWeeklyPath ?? getModelWeeklyPath(), now);
     if (modelWeekly) {
-      const pct = Math.round(modelWeekly.percent);
+      const pct = Math.round(modelWeekly.value.percent);
       seg +=
-        ` ${DIM}/${RESET} ${DIM}${modelWeekly.label}:${RESET} ` +
-        `${percentColor(pct)}${pct}%${RESET}`;
+        ` ${DIM}/${RESET} ${DIM}${modelWeekly.value.label}:${RESET} ` +
+        `${color(pct, modelWeekly.stale)}${pct}%${RESET}`;
     }
+    if (usage.stale || modelWeekly?.stale) seg += ` ${DIM}~${RESET}`;
     segments.push(seg);
   }
 

@@ -92,8 +92,35 @@ describe("renderStatusline", () => {
     expect(line).toBe(" Fable 5");
   });
 
-  it("omits usage limits older than three hours", async () => {
+  it("dims usage limits older than three hours and marks them with a tilde", async () => {
+    // The bug this converges away from: a laptop that slept through the
+    // heartbeat's 5-minute interval woke with a 3-12h old cache, and the whole
+    // limits segment silently disappeared. Stale beats absent.
     const options = await setUpCaches(await makeTempDir(), { usageAgeMs: 4 * 60 * 60 * 1000 });
+    const line = renderStatusline(STDIN_JSON, options);
+    expect(stripAnsi(line)).toBe(" Fable 5 | 5h: 15% / 7d: 43% ~ | #11/67 $19.0");
+    expect(line).toContain("\x1b[38;5;102m15%"); // dim, not the fresh green
+    expect(line).not.toContain("\x1b[38;2;99;180;134m15%");
+  });
+
+  it("keeps the threshold colors and drops the marker while fresh", async () => {
+    const options = await setUpCaches(await makeTempDir(), {
+      usageAgeMs: 2 * 60 * 60 * 1000, // still inside the freshness bound
+      modelWeekly: { label: "Fable", percent: 8 },
+    });
+    const line = renderStatusline(STDIN_JSON, options);
+    expect(stripAnsi(line)).toBe(" Fable 5 | 5h: 15% / 7d: 43% / Fable: 8% | #11/67 $19.0");
+    expect(line).toContain("\x1b[38;2;99;180;134m15%"); // green
+  });
+
+  it("omits usage limits older than twelve hours", async () => {
+    // Past half a day the 5-hour window has turned over completely, so there
+    // is no honest way to render the numbers — dim or otherwise.
+    const options = await setUpCaches(await makeTempDir(), {
+      usageAgeMs: 13 * 60 * 60 * 1000,
+      modelWeekly: { label: "Fable", percent: 8 },
+      modelWeeklyAgeMs: 13 * 60 * 60 * 1000,
+    });
     const line = stripAnsi(renderStatusline(STDIN_JSON, options));
     expect(line).toBe(" Fable 5 | #11/67 $19.0");
   });
@@ -235,13 +262,23 @@ describe("renderStatusline", () => {
     expect(line).toBe(" Fable 5 | 5h: 17% / 7d: 11% / Fable: 21% | #11/67 $19.0");
   });
 
-  it("drops the model-scoped segment once it ages out", async () => {
-    const options = await setUpCaches(await makeTempDir(), {
+  it("dims and marks a stale model-scoped segment, then drops it past twelve hours", async () => {
+    const stale = await setUpCaches(await makeTempDir(), {
       modelWeekly: { label: "Fable", percent: 21 },
       modelWeeklyAgeMs: 4 * 60 * 60 * 1000, // past the 3h freshness bound
     });
-    const line = stripAnsi(renderStatusline(STDIN_JSON, options));
-    expect(line).toBe(" Fable 5 | 5h: 15% / 7d: 43% | #11/67 $19.0");
+    const line = renderStatusline(STDIN_JSON, stale);
+    // Only the aged half is dimmed; the fresh 5h/7d numbers keep their color.
+    expect(stripAnsi(line)).toBe(" Fable 5 | 5h: 15% / 7d: 43% / Fable: 21% ~ | #11/67 $19.0");
+    expect(line).toContain("\x1b[38;5;102m21%");
+    expect(line).toContain("\x1b[38;2;99;180;134m15%");
+
+    const ancient = await setUpCaches(await makeTempDir(), {
+      modelWeekly: { label: "Fable", percent: 21 },
+      modelWeeklyAgeMs: 13 * 60 * 60 * 1000,
+    });
+    expect(stripAnsi(renderStatusline(STDIN_JSON, ancient)))
+      .toBe(" Fable 5 | 5h: 15% / 7d: 43% | #11/67 $19.0");
   });
 
   it("omits the model-scoped segment when the file is absent", async () => {

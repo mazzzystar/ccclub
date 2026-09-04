@@ -68,19 +68,24 @@ const THROTTLE_MS = 5 * 60 * 1000;
 export async function syncCommand(options: { silent?: boolean; full?: boolean }): Promise<void> {
   // When called silently (from hook), skip if last sync was < 5 minutes ago
   const timePath = getLastSyncTimePath();
-  if (options.silent && !options.full) {
-    if (existsSync(timePath)) {
-      try {
-        const ts = parseInt(readFileSync(timePath, "utf-8").trim(), 10);
-        if (Date.now() - ts < THROTTLE_MS) return;
-      } catch { /* proceed with sync */ }
-    }
-    // Write timestamp NOW to prevent concurrent hook invocations from also syncing
-    try { writeFileSync(timePath, String(Date.now())); } catch { /* dir may not exist yet */ }
+  const throttled = Boolean(options.silent) && !options.full;
+  if (throttled && existsSync(timePath)) {
+    try {
+      const ts = parseInt(readFileSync(timePath, "utf-8").trim(), 10);
+      if (Date.now() - ts < THROTTLE_MS) return;
+    } catch { /* proceed with sync */ }
   }
 
   try {
-    await doSync(options.full || false, options.silent);
+    const outcome = await doSync(options.full || false, options.silent);
+    // Stamp after the fact, and only for a run that actually held the lock. A
+    // run that found it held did no work, and stamping for it would silence
+    // the next five minutes of hook syncs on the strength of somebody else's
+    // — the exact way a woken machine used to stay stale for hours. Guarding
+    // against concurrent invocations is the lock's job, not this stamp's.
+    if (throttled && outcome === "synced") {
+      try { writeFileSync(timePath, String(Date.now())); } catch { /* dir may not exist yet */ }
+    }
   } catch {
     // If sync failed, clear throttle so next Stop event retries sooner
     if (options.silent) {
@@ -89,14 +94,21 @@ export async function syncCommand(options: { silent?: boolean; full?: boolean })
   }
 }
 
-export async function doSync(firstSync = false, silent = false): Promise<void> {
+/**
+ * "synced" means this process held the sync lock and ran the sync through —
+ * warnings, an empty upload and a server-side no-op all count. "skipped" means
+ * it never got that far: no config, or another process was already syncing.
+ */
+export type SyncOutcome = "synced" | "skipped";
+
+export async function doSync(firstSync = false, silent = false): Promise<SyncOutcome> {
   const config = silent ? await loadConfig() : await requireConfig();
-  if (!config) return; // Not initialized — nothing to sync
+  if (!config) return "skipped"; // Not initialized — nothing to sync
 
   const lock = await acquireSyncLock();
   if (lock == null) {
     if (!silent) console.log(chalk.dim("  Sync already running; skipping duplicate."));
-    return;
+    return "skipped";
   }
 
   try {
@@ -126,6 +138,7 @@ export async function doSync(firstSync = false, silent = false): Promise<void> {
     await maybeAutoEnableStatusline({ retryThrottleMs: 24 * 60 * 60 * 1000 });
 
     await performSync(config, firstSync, silent);
+    return "synced";
   } finally {
     await lock.release();
   }

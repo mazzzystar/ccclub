@@ -8,7 +8,9 @@ import type { UsageSnapshot } from "@ccclub/shared";
 // The render path is executed by Claude Code on every turn, so it must stay
 // fast and side-effect free: read stdin + two small cache files, print one
 // line. All cache refreshing happens in `ccclub sync`, which the Stop /
-// SessionEnd hooks and the heartbeat already run while Claude Code is in use.
+// SessionEnd hooks and the heartbeat already run while Claude Code is in use —
+// and which statusline-cli.ts may start once the line has been printed, when
+// those two have been asleep (see statusline-refresh.ts).
 
 // Two ages bound the caches. Past USAGE_MAX_AGE_MS a snapshot no longer
 // describes the current 5-hour window, but hiding it outright is worse than

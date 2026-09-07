@@ -122,7 +122,7 @@ export async function initCommand(): Promise<void> {
     // miss here is no longer final — background sync retries.
     const statusline = await maybeAutoEnableStatusline({ checkGlobal: async () => globalOk });
     if (statusline === "enabled") {
-      console.log(chalk.dim('  ✓ Claude Code statusline enabled — model · 5h/7d limits · rank ("ccclub statusline off" to remove)'));
+      console.log(chalk.dim('  ✓ Claude Code statusline enabled — model · 5h/7d limits · rank · online ("ccclub statusline off" to remove)'));
     }
 
     printQuickStart();

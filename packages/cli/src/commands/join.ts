@@ -112,14 +112,14 @@ export async function joinCommand(rawCode: string): Promise<void> {
     // A miss here (global install failed) is no longer final — sync retries.
     const statusline = await maybeAutoEnableStatusline({ checkGlobal: async () => globalOk });
     if (statusline === "enabled") {
-      console.log(chalk.dim('  ✓ Claude Code statusline enabled — model · 5h/7d limits · rank ("ccclub statusline off" to remove)'));
+      console.log(chalk.dim('  ✓ Claude Code statusline enabled — model · 5h/7d limits · rank · online ("ccclub statusline off" to remove)'));
     }
   } else {
     // Repeat joiners from before the statusline (or whose first enable was
     // missed) get another chance here.
     const statusline = await maybeAutoEnableStatusline();
     if (statusline === "enabled") {
-      console.log(chalk.dim('  ✓ Claude Code statusline enabled — model · 5h/7d limits · rank ("ccclub statusline off" to remove)'));
+      console.log(chalk.dim('  ✓ Claude Code statusline enabled — model · 5h/7d limits · rank · online ("ccclub statusline off" to remove)'));
     } else if (statusline === "no-global") {
       console.log(chalk.dim('  Statusline needs a global install — run "npm install -g ccclub" and it will enable itself.'));
     }

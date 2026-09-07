@@ -28,7 +28,7 @@ export async function statuslineCommand(action?: string): Promise<void> {
       }
       await clearOptOut();
       if (await installStatusline()) {
-        console.log(theme.success("\n  ✓ Statusline enabled") + chalk.dim(" — model · 5h/7d limits · rank"));
+        console.log(theme.success("\n  ✓ Statusline enabled") + chalk.dim(" — model · 5h/7d limits · rank · online"));
         console.log(chalk.dim("  Open a new Claude Code session to see it.\n"));
       } else {
         console.log(theme.danger("\n  Could not update ~/.claude/settings.json (invalid JSON?).\n"));

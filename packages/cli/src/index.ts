@@ -155,7 +155,7 @@ sources
 program
   .command("statusline")
   .argument("[action]", "on | off")
-  .description("Claude Code statusline: model · 5h/7d limits · rank · online")
+  .description("Claude Code statusline: model · 5h/7d limits · rank")
   .action(statuslineCommand);
 
 // Internal — auto-installed, users don't need to run this

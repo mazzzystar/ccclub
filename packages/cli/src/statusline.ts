@@ -23,18 +23,6 @@ export const USAGE_MAX_AGE_MS = 3 * 60 * 60 * 1000;
 // over completely and the numbers would be a lie rather than a stale truth.
 const MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
-// How recently a member must have been active to count as online. Same value
-// and same comparison as the group dashboard (ACTIVE_THRESHOLD_MS +
-// isRecentlyActive in worker/src/dashboard.ts, and isEntryActive in
-// commands/rank.ts), so the statusline shows the number the board shows.
-const ONLINE_WINDOW_MS = 15 * 60 * 1000;
-// The cache keeps a wider window than it renders, so the count can be aged
-// forward between syncs: members drop off on their own as time passes.
-const ONLINE_CACHE_WINDOW_MS = 60 * 60 * 1000;
-// A group is unbounded, the render path is not: only the most recent stamps
-// are kept, and only that many are ever parsed back.
-const ONLINE_CACHE_MAX = 500;
-
 // Raw ANSI (no chalk): the statusline binary avoids external imports to keep
 // startup latency low. Colors mirror theme.ts / cc-costline conventions.
 const MODEL = "\x1b[38;2;212;147;94m"; // theme.brand
@@ -84,11 +72,6 @@ interface RankCacheEntry {
   fetchedAt: number;
   /** Group dashboard URL; the rank segment becomes a terminal hyperlink. */
   url?: string;
-  /**
-   * Last-activity epoch-ms of the members active around fetch time, newest
-   * first. Absent on caches written before the online segment existed.
-   */
-  activeAt?: number[];
 }
 
 function readJsonFile(path: string): Record<string, unknown> | null {
@@ -187,39 +170,7 @@ function readRankCache(path: string, now: number): RankCacheEntry | null {
   // Rank shows *today's* cost, so besides the age cap it must be from today.
   if (validAge(fetchedAt, now, MAX_AGE_MS) == null || !isSameLocalDay(fetchedAt, now)) return null;
   const url = typeof raw?.url === "string" && SAFE_URL.test(raw.url) ? raw.url : undefined;
-  // Bounded before it is filtered: a cache file that somehow grew a huge array
-  // must not cost the render path a full pass over it.
-  const activeAt = Array.isArray(raw?.activeAt)
-    ? (raw.activeAt as unknown[]).slice(0, ONLINE_CACHE_MAX).filter((at): at is number => asFiniteNumber(at) != null)
-    : undefined;
-  return { rank, total, costUSD, fetchedAt, url, activeAt };
-}
-
-/**
- * The last-activity stamps worth caching, newest first and bounded: everyone
- * whose activity lands inside the cache window. Mirrors the dashboard's
- * activeTime(row) — lastActiveAt, falling back to lastSync. Future-dated
- * stamps (a member's clock running fast) are kept, exactly as the dashboard
- * keeps them; the cache's own 15-minute freshness rule bounds the damage.
- */
-export function buildActiveAt(
-  rankings: Array<{ lastActiveAt?: string; lastSync?: string }>,
-  now = Date.now(),
-): number[] {
-  const stamps: number[] = [];
-  for (const entry of rankings) {
-    const value = entry?.lastActiveAt || entry?.lastSync;
-    if (typeof value !== "string") continue;
-    const at = new Date(value).getTime();
-    if (!Number.isFinite(at) || now - at > ONLINE_CACHE_WINDOW_MS) continue;
-    stamps.push(at);
-  }
-  return stamps.sort((a, b) => b - a).slice(0, ONLINE_CACHE_MAX);
-}
-
-/** Strict `<`, as in the dashboard's isRecentlyActive. */
-function countOnline(activeAt: number[], now: number): number {
-  return activeAt.reduce((count, at) => (now - at < ONLINE_WINDOW_MS ? count + 1 : count), 0);
+  return { rank, total, costUSD, fetchedAt, url };
 }
 
 /**
@@ -256,7 +207,7 @@ function rankColor(rank: number): string {
  * Build the statusline from Claude Code's stdin JSON plus local caches.
  * Segments degrade independently: anything unavailable is silently omitted.
  *
- * Example: ` Fable 5 xhigh | 5h: 15% / 7d: 43% / Fable: 8% | #11/67 $19.0 | 4 online`
+ * Example: ` Fable 5 xhigh | 5h: 15% / 7d: 43% / Fable: 8% | #11/67 $19.0`
  * Stale limits keep their place, dimmed: ` … | 5h: 15% / 7d: 43% ~ | …`
  */
 export function renderStatusline(
@@ -322,16 +273,6 @@ export function renderStatusline(
       `${GOLD}${formatCost(rank.costUSD)}${RESET}`,
       rank.url,
     ));
-
-    // Counted against `now`, not against the cache: members drop off between
-    // syncs on their own. The stamps are a snapshot, though, and one older
-    // than the window itself can only ever produce a zero — a zero that would
-    // mean "nobody has synced lately", not "nobody is coding". So the segment
-    // renders only while the snapshot is inside the same 15 minutes it
-    // measures; inside it, `0 online` is an honest zero and worth showing.
-    if (rank.activeAt != null && now - rank.fetchedAt < ONLINE_WINDOW_MS) {
-      segments.push(`${GREEN}${countOnline(rank.activeAt, now)}${RESET} ${DIM}online${RESET}`);
-    }
   }
 
   if (segments.length === 0) return "";
@@ -344,7 +285,7 @@ export function renderStatusline(
  * a plain write truncates first, so a read could land on an empty file.
  */
 export async function writeRankCache(
-  entry: { rank: number; total: number; costUSD: number; url?: string; activeAt?: number[] },
+  entry: { rank: number; total: number; costUSD: number; url?: string },
   cachePath = getRankCachePath(),
 ): Promise<void> {
   const tmp = `${cachePath}.${process.pid}.tmp`;
@@ -376,9 +317,7 @@ export async function refreshRankCache(
       { signal: AbortSignal.timeout(5_000) },
     );
     if (!res.ok) return;
-    const data = (await res.json()) as {
-      rankings?: Array<{ userId?: string; rank?: number; costUSD?: number; lastActiveAt?: string; lastSync?: string }>;
-    };
+    const data = (await res.json()) as { rankings?: Array<{ userId?: string; rank?: number; costUSD?: number }> };
     const rankings = Array.isArray(data.rankings) ? data.rankings : [];
     const me = rankings.find((entry) => entry.userId === config.userId);
     if (me == null || asFiniteNumber(me.rank) == null || asFiniteNumber(me.costUSD) == null) return;
@@ -389,9 +328,6 @@ export async function refreshRankCache(
         total: rankings.length,
         costUSD: me.costUSD as number,
         url: `${config.apiUrl}/g/${encodeURIComponent(code)}`,
-        // Every group member is in this response, whether or not they spent
-        // anything today, so the count covers the whole group.
-        activeAt: buildActiveAt(rankings),
       },
       cachePath,
     );

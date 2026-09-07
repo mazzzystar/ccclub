@@ -97,10 +97,10 @@ ccclub statusline on|off           # Claude Code statusline toggle
 
 ## Claude Code Statusline
 
-Setup also enables a statusline inside Claude Code — current model and reasoning effort, 5-hour/7-day usage limits (plus the model-scoped weekly cap when your plan has one), today's rank, and how many of your group are coding right now:
+Setup also enables a statusline inside Claude Code — current model and reasoning effort, 5-hour/7-day usage limits (plus the model-scoped weekly cap when your plan has one), and today's rank:
 
 ```
- Fable 5 xhigh | 5h: 15% / 7d: 43% / Fable: 8% | #11/67 $19.0 | 12 online
+ Fable 5 xhigh | 5h: 15% / 7d: 43% / Fable: 8% | #11/67 $19.0
 ```
 
 It is only enabled when **no other statusline is configured**: if you use [cc-costline](https://github.com/Ventuss-OvO/cc-costline) (a richer statusline that already shows your ccclub rank) or any custom command, ccclub never touches it. Toggle anytime:

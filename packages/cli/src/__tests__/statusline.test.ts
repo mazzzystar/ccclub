@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach } from "vitest";
-import { buildActiveAt, formatCost, renderStatusline, writeRankCache } from "../statusline.js";
+import { formatCost, renderStatusline, writeRankCache } from "../statusline.js";
 import { getStatuslineState, installStatusline, uninstallStatusline, maybeAutoEnableStatusline, STATUSLINE_COMMAND } from "../statusline-install.js";
 
 const NOW = new Date("2026-07-13T12:00:00").getTime(); // local noon: same-day checks stay same-day
@@ -40,8 +40,6 @@ interface CacheSetup {
   /** Contents of model-weekly.json; omit to leave the file absent. */
   modelWeekly?: Record<string, unknown>;
   modelWeeklyAgeMs?: number;
-  /** Online stamps in the rank cache; omit for a pre-online-segment cache. */
-  activeAt?: number[];
 }
 
 async function setUpCaches(dir: string, setup: CacheSetup = {}): Promise<{
@@ -66,7 +64,6 @@ async function setUpCaches(dir: string, setup: CacheSetup = {}): Promise<{
     total: 67,
     costUSD: 19.02,
     fetchedAt: NOW - (setup.rankAgeMs ?? 60_000),
-    ...(setup.activeAt === undefined ? {} : { activeAt: setup.activeAt }),
   }));
   if (setup.modelWeekly !== undefined) {
     await writeFile(modelWeeklyPath, JSON.stringify({
@@ -336,123 +333,6 @@ describe("rank hyperlink", () => {
   });
 });
 
-describe("online count", () => {
-  const MINUTE = 60_000;
-  // Three inside the 15-minute window the dashboard uses, two outside it.
-  const ACTIVE_AT = [
-    NOW - MINUTE,
-    NOW - 5 * MINUTE,
-    NOW - 14 * MINUTE,
-    NOW - 20 * MINUTE,
-    NOW - 45 * MINUTE,
-  ];
-
-  it("counts the members active within the dashboard's fifteen minutes", async () => {
-    const options = await setUpCaches(await makeTempDir(), { activeAt: ACTIVE_AT });
-    const line = renderStatusline(STDIN_JSON, options);
-    expect(stripAnsi(line)).toBe(" Fable 5 | 5h: 15% / 7d: 43% | #11/67 $19.0 | 3 online");
-    expect(line).toContain("\x1b[38;2;99;180;134m3\x1b[0m"); // green count, as on the board
-    expect(line).toContain("\x1b[38;5;102monline"); // dim label
-  });
-
-  it("ages members off between syncs, without a new fetch", async () => {
-    // Same snapshot, a later render: the one-minute-old stamp is still inside
-    // the window, the fourteen-minute-old one has just fallen out of it.
-    const options = await setUpCaches(await makeTempDir(), {
-      rankAgeMs: MINUTE,
-      activeAt: [NOW - MINUTE, NOW - 14 * MINUTE],
-    });
-    expect(stripAnsi(renderStatusline(STDIN_JSON, options))).toContain("| 2 online");
-    const later = stripAnsi(renderStatusline(STDIN_JSON, { ...options, now: NOW + 2 * MINUTE }));
-    expect(later).toContain("| 1 online");
-  });
-
-  it("shows an honest zero while the snapshot is fresh", async () => {
-    const options = await setUpCaches(await makeTempDir(), { activeAt: [NOW - 30 * MINUTE] });
-    expect(stripAnsi(renderStatusline(STDIN_JSON, options))).toBe(
-      " Fable 5 | 5h: 15% / 7d: 43% | #11/67 $19.0 | 0 online",
-    );
-  });
-
-  it("hides the count once the snapshot is older than the window it measures", async () => {
-    // Twenty minutes on, every stamp in the file is necessarily outside the
-    // window, so a zero would report "nobody synced", not "nobody is coding".
-    // The rank segment itself is still valid and stays.
-    const options = await setUpCaches(await makeTempDir(), { activeAt: ACTIVE_AT });
-    const line = stripAnsi(renderStatusline(STDIN_JSON, { ...options, now: NOW + 20 * MINUTE }));
-    expect(line).toBe(" Fable 5 | 5h: 15% / 7d: 43% | #11/67 $19.0");
-    expect(line).not.toContain("online");
-  });
-
-  it("omits the count for a cache written before the segment existed", async () => {
-    const options = await setUpCaches(await makeTempDir()); // no activeAt key
-    expect(stripAnsi(renderStatusline(STDIN_JSON, options))).toBe(
-      " Fable 5 | 5h: 15% / 7d: 43% | #11/67 $19.0",
-    );
-  });
-
-  it("goes with the rank segment when the rank cache ages out", async () => {
-    const options = await setUpCaches(await makeTempDir(), {
-      rankAgeMs: 13 * 60 * 60 * 1000,
-      activeAt: [NOW - MINUTE],
-    });
-    expect(stripAnsi(renderStatusline(STDIN_JSON, options))).toBe(" Fable 5 | 5h: 15% / 7d: 43%");
-  });
-
-  it("ignores a malformed activeAt without dropping the rank segment", async () => {
-    const dir = await makeTempDir();
-    const options = await setUpCaches(dir);
-    await writeFile(options.rankCachePath, JSON.stringify({
-      rank: 11, total: 67, costUSD: 19.02, fetchedAt: NOW - 60_000,
-      activeAt: ["nope", null, NOW - 60_000],
-    }));
-    expect(stripAnsi(renderStatusline(STDIN_JSON, options))).toBe(
-      " Fable 5 | 5h: 15% / 7d: 43% | #11/67 $19.0 | 1 online",
-    );
-  });
-});
-
-describe("buildActiveAt", () => {
-  const MINUTE = 60_000;
-  const iso = (ms: number) => new Date(ms).toISOString();
-
-  it("keeps the last hour only, newest first", () => {
-    const rankings = [
-      { lastActiveAt: iso(NOW - 45 * MINUTE) },
-      { lastActiveAt: iso(NOW - 2 * MINUTE) },
-      { lastActiveAt: iso(NOW - 61 * MINUTE) }, // outside the cache window
-      { lastActiveAt: iso(NOW - 30 * MINUTE) },
-    ];
-    expect(buildActiveAt(rankings, NOW)).toEqual([
-      NOW - 2 * MINUTE,
-      NOW - 30 * MINUTE,
-      NOW - 45 * MINUTE,
-    ]);
-  });
-
-  it("falls back to lastSync and skips members with neither", () => {
-    // Same precedence as the dashboard's activeTime(row).
-    const rankings = [
-      { lastActiveAt: iso(NOW - MINUTE), lastSync: iso(NOW - 50 * MINUTE) },
-      { lastSync: iso(NOW - 3 * MINUTE) },
-      {},
-      { lastActiveAt: "not a date" },
-    ];
-    expect(buildActiveAt(rankings, NOW)).toEqual([NOW - MINUTE, NOW - 3 * MINUTE]);
-  });
-
-  it("caps a very large group at the most recent five hundred", () => {
-    const rankings = Array.from({ length: 900 }, (_, i) => ({
-      lastActiveAt: iso(NOW - (i + 1) * 1000),
-    }));
-    const stamps = buildActiveAt(rankings, NOW);
-    expect(stamps).toHaveLength(500);
-    expect(stamps[0]).toBe(NOW - 1000); // newest kept
-    expect(stamps[499]).toBe(NOW - 500 * 1000); // oldest kept is the 500th newest
-    expect(stamps).toEqual([...stamps].sort((a, b) => b - a));
-  });
-});
-
 describe("formatCost", () => {
   it("scales precision with magnitude", () => {
     expect(formatCost(3.456)).toBe("$3.46");
@@ -470,14 +350,6 @@ describe("writeRankCache", () => {
     const stored = JSON.parse(await readFile(path, "utf-8"));
     expect(stored).toMatchObject({ rank: 2, total: 5, costUSD: 7.5 });
     expect(Math.abs(stored.fetchedAt - Date.now())).toBeLessThan(5_000);
-  });
-
-  it("stores the online stamps alongside the rank", async () => {
-    const dir = await makeTempDir();
-    const path = join(dir, "rank-cache.json");
-    const activeAt = [NOW - 60_000, NOW - 600_000];
-    await writeRankCache({ rank: 2, total: 5, costUSD: 7.5, activeAt }, path);
-    expect(JSON.parse(await readFile(path, "utf-8")).activeAt).toEqual(activeAt);
   });
 });
 

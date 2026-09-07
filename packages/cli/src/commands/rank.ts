@@ -11,7 +11,7 @@ import { installHeartbeat, isHeartbeatInstalled } from "../heartbeat.js";
 import { getUpdateResult } from "../update-check.js";
 import { fetchUsageLimits } from "../usage-limits.js";
 import { maybeAutoEnableStatusline } from "../statusline-install.js";
-import { buildActiveAt, writeRankCache } from "../statusline.js";
+import { writeRankCache } from "../statusline.js";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -251,9 +251,6 @@ export async function rankCommand(options: RankCommandOptions): Promise<void> {
             total: rankData.rankings.length,
             costUSD: me.costUSD,
             url: `${config.apiUrl}/g/${encodeURIComponent(code)}`,
-            // Same rows the "N active" line above counts, so the statusline
-            // and the board agree without a second request.
-            activeAt: buildActiveAt(rankData.rankings),
           });
         }
       }
@@ -271,7 +268,7 @@ export async function rankCommand(options: RankCommandOptions): Promise<void> {
     }
 
     if (await statuslineEnabledPromise) {
-      console.log(theme.success("\n  ✓ Claude Code statusline enabled") + theme.muted(' — model · 5h/7d limits · rank · online. Run "') + theme.text("ccclub statusline off") + theme.muted('" to remove.'));
+      console.log(theme.success("\n  ✓ Claude Code statusline enabled") + theme.muted(' — model · 5h/7d limits · rank. Run "') + theme.text("ccclub statusline off") + theme.muted('" to remove.'));
     }
 
     // Only ask for the profile when the board doesn't already list you —

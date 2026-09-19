@@ -623,7 +623,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
       <ul>
         <li><strong>Want the world to see your rank?</strong> viberank or ccgather — that's exactly what they're for.</li>
         <li><strong>Want a board for people you actually know?</strong> ccclub — private groups with auto-sync were the design goal.</li>
-        <li><strong>Don't want a leaderboard at all?</strong> You may just want usage reports — see <a href="/claude-code-usage">how to check Claude Code usage</a> or <a href="https://ccusage.com" rel="noopener">ccusage</a>.</li>
+        <li><strong>Don't want a leaderboard at all?</strong> You may just want usage reports — see <a href="/how-to-check-claude-code-usage">how to check Claude Code usage</a> or <a href="https://ccusage.com" rel="noopener">ccusage</a>.</li>
       </ul>
 
       <p>A fair caveat that applies to all of these, ours included: token count measures activity, not productivity. Leaderboards are for curiosity and fun — treat them that way.</p>

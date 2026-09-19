@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import worker from "./index.js";
+import { GUIDE_PAGES } from "./guides.js";
+import { BLOG_POSTS } from "./blog-posts.js";
+import { LANDING_LANGS } from "./landing-i18n.js";
 import type { Env } from "./types.js";
 
 /** KV is never touched by the static SEO routes; a null store keeps them pure. */
@@ -69,6 +72,51 @@ describe("llms.txt is declared, not just served", () => {
       encodingFormat: "text/plain",
     });
   });
+});
+
+/** Every page a search engine is allowed to index. */
+export const INDEXABLE_PATHS = [
+  "/",
+  ...LANDING_LANGS.filter((l) => l !== "en").map((l) => `/${l}`),
+  "/guides",
+  ...GUIDE_PAGES.map((g) => `/${g.slug}`),
+  "/blog",
+  ...BLOG_POSTS.map((p) => `/blog/${p.slug}`),
+  "/g/global",
+];
+
+/** Undo hono's escaping: a serp counts characters, not entities. */
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
+export async function headOf(path: string): Promise<{ title: string; description: string }> {
+  const body = await (await fetchPath(path)).text();
+  return {
+    title: decodeEntities(body.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? ""),
+    description: decodeEntities(
+      body.match(/<meta name="description" content="([\s\S]*?)" \/>/)?.[1] ?? "",
+    ),
+  };
+}
+
+describe("titles and descriptions fit a search result", () => {
+  for (const path of INDEXABLE_PATHS) {
+    it(`${path} stays within 60 / 155 characters`, async () => {
+      const { title, description } = await headOf(path);
+      expect(title.length).toBeGreaterThan(0);
+      expect(description.length).toBeGreaterThan(0);
+      // Google truncates past roughly these widths; longer is a snippet
+      // the searcher never reads in full.
+      expect(title.length, `title too long: ${title}`).toBeLessThanOrEqual(60);
+      expect(description.length, `description too long: ${description}`).toBeLessThanOrEqual(155);
+    });
+  }
 });
 
 describe("the machine-readable documents are reachable", () => {

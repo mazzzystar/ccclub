@@ -98,7 +98,7 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
   },
   {
     slug: "claude-code-limits",
-    metaTitle: "Claude Code Limits: 5-Hour Window, Weekly Caps & Reset Times (2026)",
+    metaTitle: "Claude Code Limits: 5-Hour Window, Weekly Caps & Reset Times",
     h1: "Claude Code limits, explained",
     description:
       "How Claude Code rate limits work on Pro and Max — the 5-hour rolling window, weekly caps, when each one resets — and how to see exactly where you stand.",
@@ -197,7 +197,7 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
     metaTitle: "Codex Usage: How to Check Limits, Logs and Costs (2026)",
     h1: "How to track Codex usage",
     description:
-      "Check Codex usage with /status, find the local session logs in ~/.codex/sessions/, and see the tools that report Codex token usage — including alongside Claude Code.",
+      "Check Codex usage with /status, find the session logs in ~/.codex/sessions/, and see the tools that report Codex tokens — alongside Claude Code.",
     datePublished: "2026-07-07",
     dateModified: "2026-08-04",
     body: `
@@ -316,7 +316,7 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
   },
   {
     slug: "claude-code-leaderboards",
-    metaTitle: "Claude Code Leaderboards Compared: viberank, ccgather, ccclub (2026)",
+    metaTitle: "Claude Code Leaderboards Compared: viberank, ccgather",
     h1: "Claude Code leaderboards, compared",
     description:
       "viberank, ccgather, tokenleaders, and ccclub take different approaches to ranking coding-agent usage. What each does, and how to pick. (We build ccclub.)",

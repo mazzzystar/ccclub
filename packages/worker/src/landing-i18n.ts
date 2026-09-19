@@ -49,7 +49,7 @@ export const LANDING_T: Record<LandingLang, LandingT> = {
     htmlLang: "en",
     title: "ccclub — Claude Code & Codex Leaderboard Among Friends",
     description:
-      "Claude Code and Codex leaderboard among friends. Track coding agent token usage, costs, and active status across Claude Code, Codex, OpenCode, Amp, Grok, Pi, and Cursor.",
+      "Claude Code and Codex leaderboard among friends. Track token usage, cost, and active status across Claude Code, Codex, OpenCode, Amp, Grok, Pi, Cursor.",
     ogDescription:
       "Track Claude Code, Codex, OpenCode, Amp, Grok, Pi, and Cursor token usage, costs, and active status with friends.",
     eyebrow: "Among friends",

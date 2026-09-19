@@ -623,6 +623,8 @@ from Cursor's dashboard API instead of reading a file.
 - Not affiliated with Anthropic or OpenAI.
 
 Full documentation: https://ccclub.dev/llms-full.txt
+
+Last verified: 2026-09-19
 `;
 
 app.get("/prompt.txt", (c) => {
@@ -633,7 +635,7 @@ app.get("/prompt.txt", (c) => {
 
 const COMPARISONS_MD = `# Coding-agent usage tools compared
 
-Last updated: 2026-07. Descriptions are based on each project's public
+Last verified: 2026-09-19. Descriptions are based on each project's public
 documentation; check the linked sites for current details.
 
 These tools solve related but different problems. Short version: ccusage is
@@ -643,7 +645,7 @@ leaderboard for a group of friends.
 
 | Tool | What it does | Sharing model | Account needed |
 |------|--------------|---------------|----------------|
-| [ccusage](https://ccusage.com) | CLI reports of your own local usage (daily / monthly / per-session / billing blocks) across many coding CLIs | None — local only | No |
+| [ccusage](https://ccusage.com) | CLI reports of your own local usage (daily / monthly / per-session / billing blocks); its README lists 18 sources | None — its README documents no upload of your usage | No |
 | [Claude-Code-Usage-Monitor](https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor) | Real-time terminal monitor with limit predictions and warnings | None — local only | No |
 | [viberank](https://www.viberank.app) | Public community leaderboard; you submit your usage data | Public ranking | Yes (GitHub) |
 | [ccgather](https://ccgather.com) | Public community leaderboard with country/global stats | Public ranking | Yes |
@@ -666,6 +668,10 @@ leaderboard for a group of friends.
   that.
 
 ccclub is open source (MIT): https://github.com/mazzzystar/ccclub
+
+Sources read on 2026-09-19: ccusage README at
+https://github.com/ccusage/ccusage (the older ryoppippi/ccusage URL
+redirects there), and each other project's own site linked above.
 `;
 
 app.get("/comparisons.md", (c) => {

@@ -63,14 +63,78 @@ describe("llms.txt is declared, not just served", () => {
   });
 
   it("the SoftwareApplication graph links it as subjectOf", async () => {
-    const body = await (await fetchPath("/")).text();
-    const blocks = [...body.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
-    const app = blocks.map((m) => JSON.parse(m[1])).find((o) => o["@type"] === "SoftwareApplication");
-    expect(app.subjectOf).toEqual({
+    const nodes = await landingGraph("/");
+    const app = nodes.find((o) => o["@type"] === "SoftwareApplication");
+    expect(app).toBeDefined();
+    expect(app?.subjectOf).toEqual({
       "@type": "DigitalDocument",
       url: "https://ccclub.dev/llms.txt",
       encodingFormat: "text/plain",
     });
+  });
+});
+
+/** The nodes of the landing page's single `@graph`, one block per page. */
+async function landingGraph(path: string): Promise<Array<Record<string, any>>> {
+  const body = await (await fetchPath(path)).text();
+  const blocks = [...body.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
+  expect(blocks).toHaveLength(1);
+  const doc = JSON.parse(blocks[0][1]);
+  expect(doc["@context"]).toBe("https://schema.org");
+  return doc["@graph"];
+}
+
+describe("the landing pages describe one site, not three loose objects", () => {
+  for (const path of ["/", "/zh", "/ja", "/de", "/ru"]) {
+    it(`${path} emits Organization, WebSite and SoftwareApplication in one graph`, async () => {
+      const nodes = await landingGraph(path);
+      expect(nodes.map((n) => n["@type"])).toEqual([
+        "Organization",
+        "WebSite",
+        "SoftwareApplication",
+      ]);
+      const [org, site, app] = nodes;
+      // Stable ids, identical in every language, so five pages describe the
+      // same three entities rather than fifteen.
+      expect(org["@id"]).toBe("https://ccclub.dev/#organization");
+      expect(site["@id"]).toBe("https://ccclub.dev/#website");
+      expect(app["@id"]).toBe("https://ccclub.dev/#software");
+      expect(site.publisher).toEqual({ "@id": org["@id"] });
+      expect(app.publisher).toEqual({ "@id": org["@id"] });
+      expect(app.isPartOf).toEqual({ "@id": site["@id"] });
+      expect(app.subjectOf.url).toBe("https://ccclub.dev/llms.txt");
+    });
+  }
+});
+
+describe("favicon and social cards", () => {
+  for (const path of ["/favicon.ico", "/favicon.svg"]) {
+    it(`${path} serves a real icon instead of a 404`, async () => {
+      const res = await fetchPath(path);
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Content-Type")).toContain("image/svg+xml");
+      expect(res.headers.get("Cache-Control")).toContain("max-age=86400");
+      expect(await res.text()).toContain("<svg");
+    });
+  }
+
+  it("every indexable page declares the fetchable icon, not only the data URI", async () => {
+    for (const path of ["/", "/zh", "/guides", "/claude-code-cost", "/blog"]) {
+      const body = await (await fetchPath(path)).text();
+      expect(body).toContain('<link rel="icon" href="/favicon.svg" type="image/svg+xml" />');
+    }
+  });
+
+  it("/blog shares with a card like its posts do", async () => {
+    const body = await (await fetchPath("/blog")).text();
+    expect(body).toContain('<meta property="og:image" content="https://ccclub.dev/og.png" />');
+    expect(body).toContain('<meta property="og:url" content="https://ccclub.dev/blog" />');
+    expect(body).toContain('<meta name="twitter:card" content="summary_large_image" />');
+  });
+
+  it("dates the blog index by its own last edit, not its newest post", async () => {
+    const xml = await (await fetchPath("/sitemap.xml")).text();
+    expect(xml).toContain("<loc>https://ccclub.dev/blog</loc><lastmod>2026-09-19</lastmod>");
   });
 });
 

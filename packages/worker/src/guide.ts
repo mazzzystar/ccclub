@@ -16,6 +16,11 @@ const HOMEPAGE_UPDATED = "2026-09-19";
 // the one thing the field must not say.
 const GLOBAL_BOARD_UPDATED = "2026-09-19";
 
+// Bump when the blog index page itself changes — its own head and layout, not
+// the posts. Without this the index could only ever claim the date of its
+// newest post, which says nothing about an edit to the page around them.
+const BLOG_INDEX_UPDATED = "2026-09-19";
+
 // Bump when llms.txt / prompt.txt / comparisons.md change meaningfully.
 // Their `Last verified` lines and this date are the same claim.
 const MACHINE_DOCS_UPDATED = "2026-09-19";
@@ -40,7 +45,12 @@ app.get("/sitemap.xml", (c) => {
       changefreq: "weekly",
       priority: "0.3",
     })),
-    { loc: `${SITE}/blog`, lastmod: latestPost, changefreq: "weekly", priority: "0.8" },
+    {
+      loc: `${SITE}/blog`,
+      lastmod: [latestPost, BLOG_INDEX_UPDATED].sort().reverse()[0],
+      changefreq: "weekly",
+      priority: "0.8",
+    },
     ...BLOG_POSTS.map((p) => ({
       loc: `${SITE}/blog/${p.slug}`,
       lastmod: postLastmod(p),
@@ -136,6 +146,24 @@ ${items}
 </rss>`;
   return c.body(xml, 200, { "Content-Type": "application/rss+xml; charset=utf-8", "Cache-Control": "public, max-age=3600" });
 });
+
+// ── favicon ──────────────────────────────────────────────────
+// The same trophy the pages have always declared inline, served as a real
+// file. A data: URI is not something a crawler can fetch, and /favicon.ico
+// is the one path every client asks for whether or not the page says so —
+// it was answering 404. Google accepts an SVG icon, so both paths return
+// the same document and .ico is a filename here, not a format.
+
+const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">\u{1F3C6}</text></svg>`;
+
+for (const path of ["/favicon.ico", "/favicon.svg"]) {
+  app.get(path, (c) =>
+    c.body(FAVICON_SVG, 200, {
+      "Content-Type": "image/svg+xml; charset=utf-8",
+      "Cache-Control": "public, max-age=86400",
+    }),
+  );
+}
 
 // ── IndexNow key file ────────────────────────────────────────
 

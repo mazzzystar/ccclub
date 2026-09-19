@@ -680,6 +680,7 @@ function headCommon(opts: { title: string; description: string; canonical: strin
   <link rel="alternate" type="application/rss+xml" title="ccclub blog" href="https://ccclub.dev/rss.xml" />
   <link rel="alternate" type="text/plain" href="https://ccclub.dev/llms.txt" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 
   <meta property="og:type" content="article" />
   <meta property="og:url" content="${opts.canonical}" />

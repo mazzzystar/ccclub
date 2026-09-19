@@ -282,29 +282,61 @@ const LANG_LABELS: Record<LandingLang, string> = {
   ru: "\u0420\u0443\u0441\u0441\u043a\u0438\u0439",
 };
 
+/** Stable node identifiers for the site-wide graph; never page URLs. */
+const ORG_ID = "https://ccclub.dev/#organization";
+const SITE_ID = "https://ccclub.dev/#website";
+const APP_ID = "https://ccclub.dev/#software";
+
 function landingHTML(lang: LandingLang, demoBoard: string | null = null) {
   const t = LANDING_T[lang];
   const url = `https://ccclub.dev${landingPath(lang)}`;
+  // One graph, emitted once per page, with stable @ids so the five language
+  // versions describe the same three entities rather than five copies of
+  // each. Everything that used to name the publisher inline now points at
+  // the Organization node instead.
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: "ccclub",
-    applicationCategory: "DeveloperApplication",
-    operatingSystem: "macOS, Linux, Windows",
-    url: "https://ccclub.dev",
-    inLanguage: t.htmlLang,
-    description: t.description,
-    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-    author: { "@type": "Person", name: "Ke Fang", url: "https://github.com/mazzzystar" },
-    license: "https://opensource.org/licenses/MIT",
-    screenshot: "https://ccclub.dev/og.png",
-    // The machine-readable statement of what ccclub is and isn't, so an
-    // assistant that reads the graph knows there is a plain-text source.
-    subjectOf: {
-      "@type": "DigitalDocument",
-      url: "https://ccclub.dev/llms.txt",
-      encodingFormat: "text/plain",
-    },
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": `${ORG_ID}`,
+        name: "ccclub",
+        url: "https://ccclub.dev",
+        logo: "https://raw.githubusercontent.com/mazzzystar/ccclub/main/assets/icon.png",
+        sameAs: ["https://github.com/mazzzystar/ccclub", "https://discord.gg/6QbGWJUVHq"],
+      },
+      {
+        "@type": "WebSite",
+        "@id": `${SITE_ID}`,
+        url: "https://ccclub.dev",
+        name: "ccclub",
+        inLanguage: t.htmlLang,
+        publisher: { "@id": ORG_ID },
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": `${APP_ID}`,
+        name: "ccclub",
+        applicationCategory: "DeveloperApplication",
+        operatingSystem: "macOS, Linux, Windows",
+        url: "https://ccclub.dev",
+        inLanguage: t.htmlLang,
+        description: t.description,
+        offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+        author: { "@type": "Person", name: "Ke Fang", url: "https://github.com/mazzzystar" },
+        publisher: { "@id": ORG_ID },
+        isPartOf: { "@id": SITE_ID },
+        license: "https://opensource.org/licenses/MIT",
+        screenshot: "https://ccclub.dev/og.png",
+        // The machine-readable statement of what ccclub is and isn't, so an
+        // assistant that reads the graph knows there is a plain-text source.
+        subjectOf: {
+          "@type": "DigitalDocument",
+          url: "https://ccclub.dev/llms.txt",
+          encodingFormat: "text/plain",
+        },
+      },
+    ],
   };
   return html`<!DOCTYPE html>
 <html lang="${t.htmlLang}">
@@ -342,6 +374,7 @@ function landingHTML(lang: LandingLang, demoBoard: string | null = null) {
 
   <script type="application/ld+json">${raw(JSON.stringify(jsonLd))}</script>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-RG2RD9V66M"></script>

@@ -25,74 +25,77 @@ export type GuidePage = {
 export const GUIDE_PAGES: GuidePage[] = [
   {
     slug: "claude-code-usage",
-    metaTitle: "How to Check Claude Code Usage: Every Method (2026)",
-    h1: "How to check Claude Code usage",
+    metaTitle: "Claude Code Usage: Tokens, Cost and Cache Explained",
+    h1: "Claude Code usage, explained",
     description:
-      "Built-in commands (/usage, /stats), local JSONL logs, and open-source tools for tracking Claude Code token usage and costs — for yourself or a whole team.",
+      "What a Claude Code usage number counts — input, output and cache tokens — why cache dominates the total, and how to read it per day, week or agent.",
     datePublished: "2026-07-07",
-    dateModified: "2026-08-04",
+    dateModified: "2026-09-19",
     body: `
-      <p>Claude Code records everything it does, but the numbers are spread across a few places: two built-in commands, a directory of local log files, and (for API users) the Anthropic Console. This guide covers each layer and the open-source tools built on top of them.</p>
+      <p>Usage is one word for at least four different numbers: how many tokens a session moved, how many of those were cache, what those tokens would have cost at list price, and how many times you actually pressed Enter. Two honest trackers can report totals an order of magnitude apart for the same week simply because they headline different columns. This page takes the numbers apart — what each one counts, which are measured and which are estimated, and where to look for a per-day, per-week or per-agent view. For the shortest route to a figure on your own machine, see the <a href="/how-to-check-claude-code-usage">step-by-step walkthrough</a>.</p>
 
-      <h2>Built-in commands</h2>
+      <h2>The four counters behind every total</h2>
 
-      <p><code>/usage</code> shows your plan's rate-limit status — how much of the current session window and weekly cap you've consumed. If you're on Pro or Max, this is the source of truth for "how close am I to the limit."</p>
+      <p>Each assistant response Claude Code appends to its transcript carries a usage record, and ccclub's collector lifts four fields out of it: input tokens, output tokens, cache-creation tokens, and cache-read tokens — plus the subset of cache writes made with a one-hour lifetime, where the record reports one. Those columns are stored exactly as found and then summed; every token figure ccclub displays anywhere is a sum of them and nothing else. A fifth counter, reasoning tokens, exists for agents that report thinking separately. Claude Code's records do not, so for Claude Code that column is always zero.</p>
 
-      <p><code>/stats</code> opens a usage dashboard: sessions, token totals, a model breakdown, and an activity heatmap. It's the quickest way to get a historical picture without installing anything.</p>
+      <p>The buckets behave nothing alike. Output tokens are the model writing. Input tokens are the genuinely new part of a request. The two cache counters are your conversation being re-sent: written once, then read back on every turn that follows. Past the first few exchanges of a session, they are most of the traffic.</p>
 
-      <p>If you pay per token with an API key, <code>/cost</code> reports what the current session has spent, and the <a href="https://console.anthropic.com" rel="noopener">Anthropic Console</a> has account-level cost history.</p>
+      <h2>Why cache tokens dominate Claude Code token usage</h2>
 
-      <h2>The local logs everything else builds on</h2>
+      <p>A coding agent re-sends its whole working context on each turn — instructions, file contents, tool results, the transcript so far. Prompt caching means that bulk is charged at a fraction of the input rate rather than the full one, but it is still counted, and it is counted again every turn. A total-tokens headline therefore grows with the length of the session squared, while the part you would recognise as your own typing barely moves at all.</p>
 
-      <p>Claude Code writes JSONL session logs under <code>~/.claude/projects/</code> (or <code>~/.config/claude/projects/</code>). Each entry includes the model, input/output/cache token counts, and timestamps. No third-party service is involved — every tool below works by reading these files.</p>
+      <p>That is why ccclub keeps two token views instead of one. The default total includes cache; <code>ccclub --no-cache</code> in the terminal, and the <em>Include cache</em> switch on a group's dashboard, drop to input plus output. Neither is the honest one and the other a fiction — those cached tokens really were sent. They answer different questions. The cache-inclusive total tracks what a bill would reflect; the non-cache total tracks how much distinct material actually passed through the model, which is the fairer comparison between someone running one long session and someone running twenty short ones.</p>
 
-      <h2>CLI reports: ccusage</h2>
+      <h2>Tokens, cost and turns measure different things</h2>
 
-      <p><a href="https://ccusage.com" rel="noopener">ccusage</a> is the most widely used reporting tool. It reads your local logs and prints daily, monthly, per-session, or 5-hour-block tables, with cost estimated at public API pricing:</p>
+      <p>A ccclub leaderboard row carries all three on purpose. Tokens measure volume. Cost converts that volume to dollars at public list prices, which makes it an estimate rather than a statement of what anyone was charged — <a href="/claude-code-cost">how that figure is built</a> is its own subject. Turns count the messages a person typed: ccclub counts human turns inside each 30-minute block, not the model's replies and not its tool calls, which is why a row can show millions of tokens against a dozen turns. The <code>$/Turn</code> column divides the first by the third, and it is the closest thing on the board to a measure of how expensive one unit of intent has become.</p>
 
-      <pre><code>npx ccusage            # daily report
-npx ccusage monthly    # monthly totals
-npx ccusage blocks     # 5-hour billing windows</code></pre>
+      <h2>A usage dashboard for today, 7 days, 30 days or all time</h2>
 
-      <p>It works from your local data and documents no upload of your usage. If all you want is your own numbers, ccusage plus the built-in commands is a complete setup.</p>
+      <p>Everything in ccclub is scoped to a period. Bare <code>ccclub</code> prints today; <code>ccclub -d 1</code> is yesterday, <code>-d 7</code> the last seven days, <code>-d 30</code> the last thirty, and <code>-d all</code> everything that has ever been synced. The same five periods appear as a selector on each group's web page at <code>ccclub.dev/g/CODE</code>, next to an activity chart. Boundaries follow your machine's timezone, which the CLI sends with the request, so "today" means your today rather than UTC's.</p>
 
-      <h2>Real-time limit monitoring</h2>
+      <p>For a longer horizon there is <code>ccclub activity</code>: a GitHub-style heatmap of the last 53 weeks, computed entirely from local logs. It makes no network call, so it works before you have joined any group and keeps working offline.</p>
 
-      <p>For a live view while you work — burn rate, predicted time until you hit the session limit — <a href="https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor" rel="noopener">Claude Code Usage Monitor</a> runs a terminal dashboard with predictions and warnings. A custom <a href="https://code.claude.com/docs/en/statusline" rel="noopener">status line</a> can also surface token counts in the Claude Code UI itself. If you run several sessions in parallel, <a href="https://github.com/t-soda/claude-code-park" rel="noopener">claude-code-park</a> ("ccpark") visualizes them all on one live dashboard with per-agent token and call stats — local-only, like everything above.</p>
+      <h2>A per-agent breakdown when you run more than one</h2>
 
-      <h2>Seeing usage across a group</h2>
+      <p>Most people tracking this now have more than one agent installed. ccclub reads Claude Code, Codex, OpenCode, Amp, Grok and Pi from their local logs by default, and Cursor through an explicit opt-in, because Cursor writes no local usage files at all. Each usage block is tagged with the agent that produced it, so the board can show an Agents column with each member's mix and a split of who is currently active in which tool. That tagging is also what makes <code>ccclub --no-cache</code> behave correctly across agents: the non-cache figure follows each source's own output and reasoning conventions instead of assuming everyone reports tokens the way Claude Code does.</p>
 
-      <p>The layers above are single-machine. To see usage across people, there are two routes:</p>
+      <h2>What Claude Code reports about itself</h2>
 
-      <ul>
-        <li><strong>Team / Enterprise plans</strong> have admin usage analytics in the Claude console — per-member usage by product and model. The official option if your org pays for seats.</li>
-        <li><strong><a href="/">ccclub</a></strong> (our project) is the informal option: everyone runs <code>npx ccclub init</code> / <code>join</code>, and the group shares one leaderboard of tokens, estimated cost, and agent mix — covering Codex, OpenCode, Amp, Grok, Pi, and Cursor too. Only aggregated numeric summaries are uploaded (no prompts, code, or file paths; <code>ccclub show-data</code> shows the exact payload). It's the right tool for friends comparing usage, not for compliance reporting.</li>
-      </ul>
+      <p><code>/usage</code> inside Claude Code is the first-party view. Anthropic's documentation describes it as showing session cost, plan usage limits and activity stats, with <code>/cost</code> and <code>/stats</code> documented as aliases for the same screen. On a Pro, Max, Team or Enterprise plan it adds a breakdown of what is driving your limits, and <kbd>d</kbd> / <kbd>w</kbd> switch that breakdown between the last 24 hours and the last 7 days. Two caveats come straight from the same page: the figures are approximate, and they are computed from the session history on that machine, so work done on another laptop or on claude.ai is not in them. (<a href="https://code.claude.com/docs/en/costs" rel="noopener">code.claude.com/docs/en/costs</a>, read 2026-09-19.)</p>
 
-      <h2>A note on "cost" when you're on a subscription</h2>
+      <h2>Where the raw records live</h2>
 
-      <p>On Pro/Max you don't pay per token, so every tool that shows dollars (ccusage, ccclub, and others) is showing the <em>API-equivalent value</em> of your tokens at public pricing — useful for comparing against your subscription price, but it is not a bill.</p>
+      <p>Claude Code keeps one JSONL transcript per session under <code>~/.claude/projects/</code>, one directory per project, as its own file-layout reference sets out. Those files hold the entire conversation — that is the point of them — which is why local reporting tools parse the usage fields and leave the message bodies untouched. ccclub aggregates its four counters into 30-minute blocks before anything is uploaded, together with model names, the cost estimate, and call and turn counts. <code>ccclub show-data</code> prints that payload on your screen before it is sent anywhere, and is the honest way to check the claim rather than take it.</p>
+
+      <h2>Comparing your usage with other people's</h2>
+
+      <p>A single-machine figure tells you how much, never whether that is a lot. The official answer for organisations is the admin analytics that come with Team and Enterprise seats. The informal answer is a shared board: everyone runs <code>npx ccclub init</code> or <code>join</code>, and the group sees one ranking of tokens, estimated cost and agent mix, updated without anyone exporting anything. It is built for curiosity among people who know each other, not for reporting — token counts measure activity and spend, and nothing about whether the work was any good.</p>
     `,
     faq: [
       {
         q: "How do I see my Claude Code usage quickly?",
-        a: "Run /usage inside Claude Code for your current rate-limit status, or /stats for a dashboard of sessions, token totals, and a model breakdown. Neither requires installing anything.",
+        a: "Run /usage inside Claude Code: its documentation describes the screen as session cost, plan usage limits and activity stats, with /cost and /stats as aliases. Nothing needs installing, and on a paid plan the same screen breaks down what is driving your limits.",
       },
       {
         q: "Where does Claude Code store usage logs locally?",
-        a: "In JSONL files under ~/.claude/projects/ (or ~/.config/claude/projects/). Each entry records the model and token counts. Tools like ccusage and ccclub read these files locally.",
+        a: "In JSONL session transcripts under ~/.claude/projects/, one directory per project. Each assistant response carries its model and token counts, which is what tools like ccusage and ccclub read — they never need the message text.",
+      },
+      {
+        q: "Why is my total token count so much larger than what I typed?",
+        a: "Because cache tokens are counted too. A coding agent re-sends its working context every turn, so cache reads and writes accumulate with the length of the session and quickly dwarf your own input. Use ccclub --no-cache, or the Include cache switch on the dashboard, to see input plus output only.",
       },
       {
         q: "How can I see Claude Code costs if I'm on Pro or Max?",
-        a: "Subscriptions don't bill per token, so tools estimate the API-equivalent value of your usage at public API pricing. ccusage reports it locally; ccclub additionally shows how that value compares to your plan price (Monthly ROI).",
+        a: "Subscriptions don't bill per token, so every tool showing dollars is estimating the API-equivalent value of your tokens at public pricing. ccusage reports it locally; ccclub additionally shows how that value compares with your plan price as a Monthly ROI column.",
       },
       {
         q: "Can I see my teammates' Claude Code usage?",
-        a: "On Team/Enterprise plans, admins get official usage analytics. Otherwise, each person can opt into a shared leaderboard: ccclub syncs aggregated numeric summaries from local logs into a private group board — no accounts, and no prompts or code are uploaded.",
+        a: "Team and Enterprise plans include official admin usage analytics. Failing that, each person can opt into a shared board: ccclub syncs aggregated numeric summaries from local logs into a group leaderboard, with no accounts and no upload of prompts or code.",
       },
       {
         q: "Do usage-tracking tools upload my code or prompts?",
-        a: "The local log files do contain conversation data, but reporting tools only read the usage metadata. ccusage never uploads anything. ccclub uploads only numeric summaries (tokens, estimated cost, model names, turn counts) — you can verify with ccclub show-data.",
+        a: "The local transcripts do contain conversation data, but reporting tools read only the usage metadata beside it. ccusage documents no upload of your usage at all. ccclub sends numeric summaries — tokens, estimated cost, model names, turn counts — and ccclub show-data prints exactly that payload first.",
       },
     ],
   },
@@ -103,92 +106,95 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
     description:
       "How Claude Code rate limits work on Pro and Max — the 5-hour rolling window, weekly caps, when each one resets — and how to see exactly where you stand.",
     datePublished: "2026-07-07",
-    dateModified: "2026-08-04",
+    dateModified: "2026-09-19",
     body: `
-      <p>If you use Claude Code on a Pro or Max subscription, your usage is governed by rolling limits rather than a per-token bill. The mechanics are simple once laid out, but they're spread across several docs. Here's the short version, plus how to track where you stand. (Details as of July 2026 — Anthropic adjusts limits over time, so treat <code>/usage</code> as the source of truth.)</p>
+      <p>On a subscription, Claude Code meters you with rolling allowances rather than a per-token bill, and there is more than one of them running at once. The mechanics are simple once laid side by side; what confuses people is that three separate ceilings can each stop a request, for different reasons, with different ways out. Everything below about Anthropic's behaviour is read from its own documentation, cited where it matters and checked on 2026-09-19 — limits change, and <code>/usage</code> is always the authority for your account.</p>
 
-      <h2>The 5-hour session window</h2>
+      <h2>The rolling 5-hour session window</h2>
 
-      <p>Usage is metered in rolling 5-hour sessions: your first message starts a window, and everything you send in the next five hours counts against it. Hit the session cap and you wait for the window to reset. Both the Claude app and Claude Code draw from the same pool — a heavy afternoon of chat also eats your coding budget.</p>
+      <p>The shortest ceiling is a session window: a rolling five-hour allowance that starts with your first message and carries everything you send until it expires. It is not a daily quota. If you work in bursts, several complete windows fit inside one day, and a window you opened at 09:14 is gone by 14:14 whether or not you used any of it. Claude Code's status-line payload exposes this window as <code>rate_limits.five_hour</code>, carrying a percentage from 0 to 100 and a <code>resets_at</code> timestamp in epoch seconds.</p>
 
-      <h2>Weekly caps</h2>
+      <h2>The weekly window on top of it</h2>
 
-      <p>On top of the session window, subscriptions have weekly caps that reset every seven days: one covering all models, and on Max plans a separate one for Opus. These mostly matter to heavy users — if you regularly hit session limits, the weekly cap is the next ceiling you'll meet.</p>
+      <p>Behind the session window sits a seven-day one, exposed in the same payload as <code>rate_limits.seven_day</code>. The two are consumed simultaneously, not in sequence, and Anthropic's error reference is direct about the consequence: a single burst of heavy activity — a large workflow fanout, say — can exhaust the weekly allowance before the session window has even reset. That is the case where waiting five hours does nothing for you, and it surprises people who have only ever met the shorter limit.</p>
 
-      <h2>When do limits reset?</h2>
+      <p>Both of these are shared across models. Switching from one model to another does not restore access to either, because neither is scoped to a model in the first place.</p>
 
-      <p>Two different clocks, and neither is tied to the calendar day:</p>
+      <h2>The per-model weekly limit</h2>
 
-      <ul>
-        <li><strong>Session:</strong> the 5-hour window starts at your first message and resets five hours after that — not at midnight, and not on some fixed server schedule. Start at 9:14, reset at 14:14.</li>
-        <li><strong>Weekly:</strong> caps reset on a rolling 7-day schedule specific to your account.</li>
-      </ul>
+      <p>The third ceiling is scoped. Anthropic's usage API reports it as a weekly limit attached to a particular model family, labelled with that model's display name, and the corresponding error messages name the family directly — the documented examples are "You've hit your Opus limit" and "You've hit your Sonnet limit". Unlike the session and weekly windows, this one has an escape hatch that costs nothing: switching to a model outside that family with <code>/model</code> keeps you working. The documentation notes the price of doing so, which is that each model keeps its own prompt cache, so the first request after the switch re-reads the whole conversation with no cache hits.</p>
 
-      <p><code>/usage</code> shows the exact reset time for both. And no, the session limit is not a daily quota — if you work in bursts, several full windows can fit in one day.</p>
+      <p>Because the label comes from the API rather than from a hard-coded list, ccclub renders whatever family name it is handed. If Anthropic scopes a weekly limit to a model that did not exist when your copy of ccclub was published, the segment still appears with the right name.</p>
+
+      <h2>What hitting a limit looks like</h2>
+
+      <p>The messages are specific, and each one carries its own reset time — "You've hit your session limit · resets 3:45pm", "You've hit your weekly limit · resets Mon 12:00am". Claude Code blocks further requests until that moment. Recent versions can also warn you on the way down, with a line such as "You've used 85% of your session limit", and can hold an interactive session open and continue the interrupted task shortly after the reset rather than making you come back to it. (<a href="https://code.claude.com/docs/en/errors" rel="noopener">code.claude.com/docs/en/errors</a>, read 2026-09-19.)</p>
+
+      <h2>When the limits reset</h2>
+
+      <p>Neither clock is tied to the calendar. The session window resets five hours after the message that opened it; the weekly window runs on your account's own seven-day schedule. Both reset times are in <code>/usage</code>, and both are in the status-line payload as Unix timestamps, which is what lets a status line count down to them. If the usage endpoint is itself rate limited when you ask, Anthropic's documentation says <code>/usage</code> falls back to the last bars it loaded on that machine within the past hour and labels them as last-known rather than pretending they are live.</p>
 
       <h2>What the limits actually count</h2>
 
-      <p>Anthropic doesn't publish exact token quotas, and effective capacity varies with model choice and context size. Practically: Opus consumes your allowance several times faster than Sonnet, and long contexts (big files, long sessions) consume it faster than short ones.</p>
+      <p>Anthropic does not publish a token quota per window, and effective capacity is not a fixed number anyway: it moves with model choice and with how much context each request carries. The practical shape of it is that a heavyweight model consumes the allowance far faster than a small one, and that long conversations are expensive in a compounding way, because every turn re-sends what came before. The percentages in <code>/usage</code> are the only authoritative measure of where you stand.</p>
 
-      <h2>How to see where you stand</h2>
+      <h2>How ccclub reads your limits</h2>
 
-      <ul>
-        <li><code>/usage</code> in Claude Code — live session and weekly percentages. The authoritative number.</li>
-        <li>A <a href="https://code.claude.com/docs/en/statusline" rel="noopener">custom status line</a> can show rate-limit state persistently while you work.</li>
-        <li><a href="https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor" rel="noopener">Claude Code Usage Monitor</a> predicts when you'll hit the limit at your current burn rate.</li>
-        <li><code>npx ccusage blocks</code> groups your local usage into the same 5-hour windows the limit uses, so you can see your historical pattern.</li>
-      </ul>
+      <p>ccclub does not scrape <code>/usage</code> or guess from your logs. During a sync it asks Anthropic's own usage endpoint for your percentages, authenticating with the OAuth credentials Claude Code already stored in the macOS Keychain — no second login, and the token never leaves the machine. It reads the five-hour and seven-day utilisation figures from that response, plus any model-scoped weekly entry, and writes them to a small cache under <code>~/.ccclub/</code> with a five-minute freshness window. The <a href="/claude-code-statusline">Claude Code statusline</a> then renders that cache without ever making a request of its own.</p>
 
-      <h2>Stretching a limited budget</h2>
+      <p>Three honest limitations follow from that design. It is macOS-only, because the Keychain is where the credential lives. It covers Claude only — no other agent ccclub tracks exposes an equivalent endpoint. And it is a periodic reading rather than a live monitor: past three hours the numbers render dimmed with a trailing marker, and past twelve hours they disappear, because by then the five-hour window has turned over completely and a stale figure would be a lie rather than an old truth. If you want alerts or burn-rate predictions, a dedicated real-time monitor is the right tool, not this.</p>
+
+      <h2>What to do when you are close</h2>
 
       <ul>
-        <li><strong>Match the model to the task.</strong> Mechanical edits and simple questions don't need Opus. Model choice is the single biggest lever.</li>
-        <li><strong>Keep contexts small.</strong> Start new sessions for new tasks and use <code>/compact</code> — resending a huge conversation with every turn is what drains windows fastest.</li>
-        <li><strong>Batch related questions</strong> instead of many small turns; each turn re-sends context.</li>
-        <li><strong>API key as overflow.</strong> If you hit a wall mid-task, switching to pay-per-token API billing for the remainder is often cheaper than a plan upgrade you rarely need.</li>
-        <li><strong>Extra usage.</strong> Some plans can opt into extra usage that bills overflow at standard API rates once a cap is hit — see <code>/extra-usage</code> in Claude Code or your plan settings.</li>
+        <li><strong>Match the model to the task.</strong> Mechanical edits and lookups do not need your most capable model, and model choice is the single largest lever on how fast an allowance drains.</li>
+        <li><strong>Keep contexts short.</strong> Start a fresh session for an unrelated task and use <code>/compact</code>; re-sending an enormous conversation on every turn is what empties a window fastest.</li>
+        <li><strong>Batch related questions</strong> rather than trickling out many small turns, each of which pays the context cost again.</li>
+        <li><strong>Switch families if the limit is model-scoped.</strong> An Opus or Sonnet limit leaves the rest of the lineup available; a session or weekly limit does not.</li>
+        <li><strong>Buy or request usage credits.</strong> <code>/usage-credits</code> — previously named <code>/extra-usage</code> — turns on metered usage beyond the allowance on Pro and Max, or sends a request to an admin on Team and Enterprise.</li>
+        <li><strong>Let it wait.</strong> On recent versions Claude Code can hold the session and resume the interrupted task at the reset time, which is usually better than restarting the task cold.</li>
       </ul>
 
-      <h2>Tracking usage over time</h2>
+      <h2>Watching the pattern instead of the moment</h2>
 
-      <p>Limits are about the next five hours; habits show up over weeks. <code>/stats</code> gives you a personal dashboard, <a href="https://ccusage.com" rel="noopener">ccusage</a> gives you local reports, and if you're curious how your usage compares with friends, <a href="/">ccclub</a> (our project) puts a group on one leaderboard from the same local logs — see <a href="/claude-code-usage">all the ways to check usage</a>.</p>
+      <p>Limits are a question about the next five hours; habits are a question about the last five weeks. The two need different instruments. <code>/usage</code> and a status line cover the moment. For the pattern, <a href="/claude-code-usage">reading your own usage numbers</a> over 7 and 30 days shows whether the sessions that cost you the most are the ones you would have guessed, and a shared board with friends is a blunter version of the same signal — it tells you quickly whether your consumption is ordinary or unusual for the way you work.</p>
     `,
     faq: [
       {
         q: "How does the Claude Code 5-hour limit work?",
-        a: "Your first message starts a rolling 5-hour session window, and usage within that window counts against a session cap. When you hit it, you wait for the window to reset. Claude app usage and Claude Code usage share the same pool.",
+        a: "Your first message opens a rolling five-hour session window, and everything sent inside it counts against a session allowance. When that runs out, Claude Code blocks further requests until the reset time shown in the message. The session allowance is shared across models, so switching models does not restore access.",
       },
       {
         q: "When does the Claude Code limit reset?",
-        a: "The 5-hour session window resets five hours after the first message that started it — not at midnight or on a fixed server time. Weekly caps reset on your account's own 7-day schedule. /usage shows the exact reset time for both.",
+        a: "The session window resets five hours after the message that opened it — not at midnight and not on a fixed server schedule. The weekly window runs on your account's own seven-day cycle. /usage shows the exact reset time for both, and the status-line payload carries them as Unix timestamps.",
       },
       {
         q: "Is the Claude Code session limit daily?",
-        a: "No — it's a rolling 5-hour window, not a daily quota. Several full windows can fit in one day if you work in bursts. The longer-horizon ceilings are the weekly caps, which reset every seven days.",
+        a: "No — it is a rolling five-hour window, not a daily quota, so several complete windows can fit into one working day. The longer-horizon ceiling is the weekly window, which is consumed at the same time rather than afterwards.",
       },
       {
         q: "How many tokens do you get per 5-hour window?",
-        a: "Anthropic doesn't publish fixed token quotas, and effective capacity shifts with model choice and context size — Opus drains the allowance several times faster than Sonnet. The percentages in /usage are the only authoritative measure.",
+        a: "Anthropic's documentation publishes no fixed token quota, and effective capacity shifts with model choice and context size — a heavyweight model drains the allowance far faster than a small one. The percentages in /usage are the only authoritative measure.",
       },
       {
         q: "How do I check how close I am to my Claude Code limit?",
-        a: "Run /usage inside Claude Code — it shows live session and weekly usage. For continuous visibility, use a custom status line or a real-time monitor like Claude Code Usage Monitor.",
+        a: "Run /usage for the live percentages. For continuous visibility, a status line can display the rate_limits fields Claude Code passes it, or ccclub's statusline can show the 5h and 7d percentages it fetched from Anthropic's usage endpoint during the last sync.",
       },
       {
         q: "Can I keep working after hitting a limit?",
-        a: "Three options: wait for the window to reset (/usage shows when), switch the task to a pay-per-token API key, or use extra usage if your plan offers it (billed at API rates — see /extra-usage). ccusage blocks helps you see the historical pattern so you can plan around resets.",
+        a: "It depends which limit. A model-scoped Opus or Sonnet limit leaves other model families available via /model. A session or weekly limit does not: you wait for the reset, turn on usage credits with /usage-credits, or let Claude Code hold the session and continue automatically once the window resets.",
       },
       {
         q: "Why am I hitting Claude Code limits faster than before?",
-        a: "Effective capacity depends on model and context size: Opus drains the allowance several times faster than Sonnet, and long conversations resend context every turn. Anthropic has also adjusted limit levels over time — /usage reflects the current policy.",
+        a: "Capacity depends on model and context size, and long conversations re-send everything that came before on every turn, so the same amount of work costs more late in a session than early. Anthropic has also adjusted limit levels over time; /usage reflects the current policy rather than any figure published earlier.",
       },
       {
         q: "Do Claude Code weekly limits exist on every plan?",
-        a: "Pro and Max subscriptions have weekly caps in addition to the 5-hour window; Max plans also have a separate Opus cap. API-key (pay-per-token) usage has rate limits but no subscription-style weekly cap.",
+        a: "Subscription plans have a weekly window alongside the five-hour one, and separate model-scoped weekly limits exist too — the documented error messages name Opus and Sonnet. On Team and Enterprise the allowance is per seat and shared with Claude chat and Cowork. API pay-per-token usage has rate limits but no subscription-style weekly window.",
       },
       {
         q: "What's the best way to use less of my limit without working less?",
-        a: "Use smaller models for mechanical tasks, keep sessions short and contexts compact (/compact helps), and batch related questions. Model choice and context size dominate everything else.",
+        a: "Use smaller models for mechanical tasks, keep sessions short and contexts compact, and batch related questions instead of sending many small turns. Model choice and context size dominate everything else you could tune.",
       },
     ],
   },

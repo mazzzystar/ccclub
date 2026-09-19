@@ -256,6 +256,34 @@ describe("/u/:handle ships HTML, not a script full of HTML", () => {
   });
 });
 
+describe("HTML that never changes between deploys is cacheable at the edge", () => {
+  const cacheable = ["/guides", ...GUIDE_PAGES.map((g) => `/${g.slug}`), "/blog", ...BLOG_POSTS.map((p) => `/blog/${p.slug}`)];
+
+  for (const path of cacheable) {
+    it(`${path} asks shared caches for an hour and browsers for nothing`, async () => {
+      const res = await fetchPath(path);
+      expect(res.headers.get("Cache-Control")).toBe(
+        "public, max-age=0, s-maxage=3600, stale-while-revalidate=3600",
+      );
+    });
+  }
+
+  it("leaves per-user and live pages alone", async () => {
+    // Landing pages set a language cookie and embed the live demo board;
+    // group and profile pages are per-visitor. None may carry an s-maxage.
+    for (const path of ["/", "/zh", "/g/global", "/g/ABCDEF", "/u/someone"]) {
+      const res = await fetchPath(path);
+      expect(res.headers.get("Cache-Control") ?? "").not.toContain("s-maxage");
+    }
+  });
+
+  it("does not cache a blog 404 under the slug that produced it", async () => {
+    const res = await fetchPath("/blog/no-such-post");
+    expect(res.status).toBe(404);
+    expect(res.headers.get("Cache-Control") ?? "").not.toContain("s-maxage");
+  });
+});
+
 describe("the machine-readable documents are reachable", () => {
   it("sitemap.xml lists them with a real lastmod", async () => {
     const xml = await (await fetchPath("/sitemap.xml")).text();

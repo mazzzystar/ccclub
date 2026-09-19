@@ -2,14 +2,15 @@ import { Hono } from "hono";
 import { html, raw } from "hono/html";
 import type { Env } from "./types.js";
 import { BLOG_POSTS, getPost, postLastmod, sortedPosts, type BlogPost } from "./blog-posts.js";
+import { cacheStaticHTML } from "./edge-cache.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
-app.get("/blog", (c) => {
+app.get("/blog", cacheStaticHTML(), (c) => {
   return c.html(blogIndexHTML());
 });
 
-app.get("/blog/:slug", (c) => {
+app.get("/blog/:slug", cacheStaticHTML(), (c) => {
   const post = getPost(c.req.param("slug"));
   if (!post) return c.html(blogNotFoundHTML(), 404);
   return c.html(blogPostHTML(post));

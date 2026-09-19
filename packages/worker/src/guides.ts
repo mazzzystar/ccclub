@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { html, raw } from "hono/html";
 import type { Env } from "./types.js";
 import { BLOG_CSS } from "./blog.js";
+import { cacheStaticHTML } from "./edge-cache.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -652,10 +653,10 @@ export function getGuide(slug: string): GuidePage | undefined {
 
 // ── Routes ───────────────────────────────────────────────────
 
-app.get("/guides", (c) => c.html(guidesIndexHTML()));
+app.get("/guides", cacheStaticHTML(), (c) => c.html(guidesIndexHTML()));
 
 for (const page of GUIDE_PAGES) {
-  app.get(`/${page.slug}`, (c) => c.html(guideHTML(page)));
+  app.get(`/${page.slug}`, cacheStaticHTML(), (c) => c.html(guideHTML(page)));
 }
 
 // ── Rendering ────────────────────────────────────────────────

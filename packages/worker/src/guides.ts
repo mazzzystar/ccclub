@@ -414,6 +414,7 @@ function headCommon(opts: { title: string; description: string; canonical: strin
   <meta name="theme-color" content="#1a1816" />
   <link rel="canonical" href="${opts.canonical}" />
   <link rel="alternate" type="application/rss+xml" title="ccclub blog" href="https://ccclub.dev/rss.xml" />
+  <link rel="alternate" type="text/plain" href="https://ccclub.dev/llms.txt" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
 
   <meta property="og:type" content="article" />

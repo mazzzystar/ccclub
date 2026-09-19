@@ -78,7 +78,9 @@ const AI_CRAWLERS = [
 
 app.get("/robots.txt", (c) => {
   const aiSections = AI_CRAWLERS.map((ua) => `User-agent: ${ua}\nAllow: /\nDisallow: /api/`).join("\n\n");
-  return c.text(`User-agent: *
+  return c.text(`# Machine-readable facts: ${SITE}/llms.txt
+
+User-agent: *
 Allow: /
 Disallow: /api/
 

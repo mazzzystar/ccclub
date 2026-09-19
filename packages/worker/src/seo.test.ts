@@ -39,6 +39,38 @@ describe("/llms.txt", () => {
   });
 });
 
+const ALTERNATE_PLAIN = '<link rel="alternate" type="text/plain" href="https://ccclub.dev/llms.txt" />';
+
+describe("llms.txt is declared, not just served", () => {
+  const pages = ["/", "/zh", "/ja", "/de", "/ru", "/guides", "/claude-code-usage", "/blog"];
+  for (const path of pages) {
+    it(`${path} points at llms.txt from the head`, async () => {
+      const body = await (await fetchPath(path)).text();
+      expect(body).toContain(ALTERNATE_PLAIN);
+    });
+  }
+
+  it("robots.txt names it above the crawler rules", async () => {
+    const body = await (await fetchPath("/robots.txt")).text();
+    expect(body.startsWith("# Machine-readable facts: https://ccclub.dev/llms.txt")).toBe(true);
+    // The single wildcard block and the AI-bot allows both survive.
+    expect(body).toContain("User-agent: *\nAllow: /\nDisallow: /api/");
+    expect(body).toContain("User-agent: ClaudeBot");
+    expect(body).toContain("Sitemap: https://ccclub.dev/sitemap.xml");
+  });
+
+  it("the SoftwareApplication graph links it as subjectOf", async () => {
+    const body = await (await fetchPath("/")).text();
+    const blocks = [...body.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
+    const app = blocks.map((m) => JSON.parse(m[1])).find((o) => o["@type"] === "SoftwareApplication");
+    expect(app.subjectOf).toEqual({
+      "@type": "DigitalDocument",
+      url: "https://ccclub.dev/llms.txt",
+      encodingFormat: "text/plain",
+    });
+  });
+});
+
 describe("llms.txt product boundaries", () => {
   it("carries the sections an assistant needs to rule ccclub in or out", async () => {
     const body = await (await fetchPath("/llms.txt")).text();

@@ -298,6 +298,13 @@ function landingHTML(lang: LandingLang, demoBoard: string | null = null) {
     author: { "@type": "Person", name: "Ke Fang", url: "https://github.com/mazzzystar" },
     license: "https://opensource.org/licenses/MIT",
     screenshot: "https://ccclub.dev/og.png",
+    // The machine-readable statement of what ccclub is and isn't, so an
+    // assistant that reads the graph knows there is a plain-text source.
+    subjectOf: {
+      "@type": "DigitalDocument",
+      url: "https://ccclub.dev/llms.txt",
+      encodingFormat: "text/plain",
+    },
   };
   return html`<!DOCTYPE html>
 <html lang="${t.htmlLang}">
@@ -331,6 +338,7 @@ function landingHTML(lang: LandingLang, demoBoard: string | null = null) {
   )}
   <link rel="alternate" hreflang="x-default" href="https://ccclub.dev/" />
   <link rel="alternate" type="application/rss+xml" title="ccclub blog" href="https://ccclub.dev/rss.xml" />
+  <link rel="alternate" type="text/plain" href="https://ccclub.dev/llms.txt" />
 
   <script type="application/ld+json">${raw(JSON.stringify(jsonLd))}</script>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />

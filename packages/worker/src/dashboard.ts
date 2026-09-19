@@ -346,6 +346,7 @@ function dashboardHTML(
 
   <meta name="theme-color" content="#1a1816" />
   <link rel="canonical" href="https://ccclub.dev/g/${code}" />
+  ${opts.noindex ? "" : html`<link rel="alternate" type="text/plain" href="https://ccclub.dev/llms.txt" />`}
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
 
   <!-- Google tag (gtag.js) -->

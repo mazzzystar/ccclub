@@ -54,7 +54,7 @@ export const GUIDE_PAGES: GuidePage[] = [
 npx ccusage monthly    # monthly totals
 npx ccusage blocks     # 5-hour billing windows</code></pre>
 
-      <p>It's local-only: nothing is uploaded anywhere. If all you want is your own numbers, ccusage plus the built-in commands is a complete setup.</p>
+      <p>It works from your local data and documents no upload of your usage. If all you want is your own numbers, ccusage plus the built-in commands is a complete setup.</p>
 
       <h2>Real-time limit monitoring</h2>
 
@@ -213,7 +213,7 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
 
       <h2>Reports across time: ccusage</h2>
 
-      <p><a href="https://ccusage.com" rel="noopener">ccusage</a> supports Codex alongside Claude Code and other coding CLIs — daily/monthly/per-session tables with costs estimated at public API pricing. Local-only, no uploads.</p>
+      <p><a href="https://ccusage.com" rel="noopener">ccusage</a> supports Codex alongside Claude Code and other coding CLIs — daily/monthly/per-session tables with costs estimated at public API pricing. Local data in, terminal tables out — no upload documented.</p>
 
       <h2>Codex and Claude Code on one board</h2>
 
@@ -249,13 +249,13 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
     description:
       "ccusage reports your own local usage; ccclub is the ccusage alternative for a shared board — friends or a team ranked on one leaderboard, auto-synced.",
     datePublished: "2026-07-07",
-    dateModified: "2026-07-07",
+    dateModified: "2026-09-19",
     body: `
       <p>Short answer: they solve different problems, and plenty of people use both. <a href="https://ccusage.com" rel="noopener">ccusage</a> answers "what did <em>I</em> use?"; <a href="/">ccclub</a> answers "how does our <em>group</em> compare?". Disclosure up front: ccclub is our project — we'll try to be even-handed anyway.</p>
 
       <h2>What each tool does</h2>
 
-      <p><strong>ccusage</strong> is a reporting CLI. It reads local coding-agent logs and prints tables — daily, monthly, per-session, or 5-hour billing blocks — with cost estimated at API pricing. It supports a long list of coding CLIs, runs entirely offline, and uploads nothing. It has become the de-facto standard for personal usage reports.</p>
+      <p><strong>ccusage</strong> is a reporting CLI. It reads local coding-agent data and prints tables — daily, weekly, monthly, per-session, or Claude Code's 5-hour billing windows — with costs in USD. Its README lists 18 sources, from Claude Code and Codex through Gemini CLI, GitHub Copilot CLI, and Goose. Nothing in that README describes uploading your usage anywhere; the only network access it documents is fetching model prices, which <code>--offline</code> skips by using a pre-cached table. It has become the de-facto standard for personal usage reports.</p>
 
       <p><strong>ccclub</strong> is a shared leaderboard. Everyone in a group runs <code>npx ccclub init</code> or <code>join CODE</code>; after that, usage syncs automatically (a session-end hook for Claude Code, background sync for Codex, OpenCode, Amp, Grok, and Pi, and for Cursor once you enable it) and the group sees one ranking — in the terminal via <code>ccclub</code> or on a live web dashboard. It uploads aggregated numeric summaries only: token counts, estimated cost, model names, turn counts, in 30-minute blocks. No prompts, code, or file paths; <code>ccclub show-data</code> prints the exact payload.</p>
 
@@ -266,12 +266,12 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
         <thead><tr><th></th><th>ccusage</th><th>ccclub</th></tr></thead>
         <tbody>
           <tr><td>Core question</td><td>What did I use?</td><td>How does our group compare?</td></tr>
-          <tr><td>Data leaves your machine</td><td>Never</td><td>Numeric summaries only</td></tr>
+          <tr><td>Usage leaves your machine</td><td>No upload documented</td><td>Numeric summaries only</td></tr>
           <tr><td>Account required</td><td>No</td><td>No (6-letter invite code)</td></tr>
-          <tr><td>Report granularity</td><td>Daily / monthly / session / 5-hour blocks</td><td>Today / yesterday / 7d / 30d / all-time</td></tr>
-          <tr><td>Web dashboard</td><td>No (terminal tables)</td><td>Yes, live per group</td></tr>
+          <tr><td>Report granularity</td><td>Daily / weekly / monthly / session / 5-hour blocks</td><td>Today / yesterday / 7d / 30d / all-time</td></tr>
+          <tr><td>Web dashboard</td><td>No (terminal tables, plus a Claude Code statusline)</td><td>Yes, live per group</td></tr>
           <tr><td>Auto-sync</td><td>n/a (run on demand)</td><td>Yes (hook + background)</td></tr>
-          <tr><td>Agent coverage</td><td>Very broad (15+ CLIs)</td><td>Claude Code, Codex, OpenCode, Amp, Grok, Pi, Cursor</td></tr>
+          <tr><td>Agent coverage</td><td>18 sources listed in its README</td><td>Claude Code, Codex, OpenCode, Amp, Grok, Pi, Cursor</td></tr>
           <tr><td>License</td><td>MIT</td><td>MIT</td></tr>
         </tbody>
       </table>
@@ -280,8 +280,8 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
       <h2>Pick ccusage if…</h2>
       <ul>
         <li>You want reports for yourself and nobody else needs to see them.</li>
-        <li>You need coverage for an agent ccclub doesn't support yet.</li>
-        <li>You want fine-grained analysis (per-project, per-session, billing blocks).</li>
+        <li>You need coverage for an agent ccclub doesn't support yet — its source list is the longer one.</li>
+        <li>You want fine-grained analysis: per-session reports, 5-hour blocks, or Claude Code grouped by project with <code>--instances</code>.</li>
       </ul>
 
       <h2>Pick ccclub if…</h2>
@@ -294,6 +294,21 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
       <h2>Or use both</h2>
 
       <p>They read the same local logs and don't conflict. A common setup: ccusage for detailed personal analysis, ccclub for the group scoreboard. If you're deciding among leaderboard tools specifically, see the <a href="/claude-code-leaderboards">leaderboard comparison</a>.</p>
+
+      <h2>Methodology</h2>
+
+      <p>ccclub publishes this comparison; treat it as our argument, not a neutral review. Every claim about ccusage on this page was read from its own README and documentation site on 2026-09-19 — its source list, report granularity, pricing and offline behaviour, project grouping, and license. Where the README does not say something, this page does not claim it: it documents no upload of your usage, so that is how the table words it, rather than asserting on ccusage's behalf that nothing is ever sent.</p>
+
+      <p>The ccclub side is read from our own source: what the CLI collects, what the sync payload contains, and what the leaderboard computes. The boundaries are listed in machine-readable form at <a href="/llms.txt">llms.txt</a>.</p>
+
+      <h2>Sources</h2>
+
+      <ol>
+        <li>ccusage README — <a href="https://github.com/ccusage/ccusage/blob/main/apps/ccusage/README.md" rel="noopener">github.com/ccusage/ccusage</a> (read 2026-09-19). The older <code>github.com/ryoppippi/ccusage</code> URL redirects here.</li>
+        <li>ccusage documentation — <a href="https://ccusage.com" rel="noopener">ccusage.com</a>.</li>
+        <li>ccclub source and README — <a href="https://github.com/mazzzystar/ccclub" rel="noopener">github.com/mazzzystar/ccclub</a> (MIT).</li>
+        <li>ccclub boundaries, machine-readable — <a href="/llms.txt">ccclub.dev/llms.txt</a> and <a href="/llms-full.txt">ccclub.dev/llms-full.txt</a>.</li>
+      </ol>
     `,
     faq: [
       {
@@ -302,11 +317,11 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
       },
       {
         q: "Does ccclub upload more data than ccusage?",
-        a: "ccusage uploads nothing. ccclub uploads aggregated numeric summaries (tokens, estimated cost, model names, turn counts in 30-minute blocks) so the group board can update — never prompts, code, or file paths. Run ccclub show-data to see the exact payload.",
+        a: "Yes. ccusage documents no upload of your usage — it reads local data and prints reports. ccclub uploads aggregated numeric summaries (tokens, estimated cost, model names, turn counts in 30-minute blocks) so the group board can update — never prompts, code, or file paths. Run ccclub show-data to see the exact payload.",
       },
       {
         q: "Which supports more coding agents?",
-        a: "ccusage covers more CLIs overall. ccclub currently supports Claude Code, Codex, OpenCode, Amp, Grok, Pi, and Cursor — the ones it can sync into a shared leaderboard.",
+        a: "ccusage covers more: its README lists 18 sources. ccclub currently supports Claude Code, Codex, OpenCode, Amp, Grok, Pi, and Cursor — the ones it can sync into a shared leaderboard.",
       },
       {
         q: "Can I use ccclub just for myself?",

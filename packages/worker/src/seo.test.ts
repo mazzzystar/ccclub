@@ -146,6 +146,49 @@ describe("the pages that rank without being clicked", () => {
   });
 });
 
+describe("/ccusage-vs-ccclub shows its work", () => {
+  it("names who wrote it, what was checked, and when", async () => {
+    const body = await (await fetchPath("/ccusage-vs-ccclub")).text();
+    expect(body).toContain("<h2>Methodology</h2>");
+    expect(body).toContain("not a neutral review");
+    expect(body).toContain("2026-09-19");
+    expect(body).toContain("<h2>Sources</h2>");
+    // The repo moved out of ryoppippi/ into its own org; cite where it is.
+    expect(body).toContain("https://github.com/ccusage/ccusage/blob/main/apps/ccusage/README.md");
+    expect(body).toContain("https://ccusage.com");
+  });
+
+  it("claims nothing about ccusage that its README does not say", async () => {
+    const body = await (await fetchPath("/ccusage-vs-ccclub")).text();
+    expect(body).not.toContain("uploads nothing");
+    expect(body).toContain("no upload");
+  });
+});
+
+describe("guide FAQs render exactly what the JSON-LD claims", () => {
+  for (const page of GUIDE_PAGES) {
+    it(`/${page.slug} answers match its FAQPage`, async () => {
+      const body = await (await fetchPath(`/${page.slug}`)).text();
+      const faqLd = [...body.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
+        .map((m) => JSON.parse(m[1]))
+        .find((o) => o["@type"] === "FAQPage");
+      const questions = faqLd.mainEntity as Array<{
+        name: string;
+        acceptedAnswer: { text: string };
+      }>;
+      expect(questions).toHaveLength(page.faq.length);
+      const visible = decodeEntities(body);
+      for (const [i, q] of questions.entries()) {
+        expect(q.name).toBe(page.faq[i].q);
+        expect(q.acceptedAnswer.text).toBe(page.faq[i].a);
+        // Both the heading and the answer are on the page, not just in the graph.
+        expect(visible).toContain(`<h3>${q.name}</h3>`);
+        expect(visible).toContain(q.acceptedAnswer.text);
+      }
+    });
+  }
+});
+
 describe("the machine-readable documents are reachable", () => {
   it("sitemap.xml lists them with a real lastmod", async () => {
     const xml = await (await fetchPath("/sitemap.xml")).text();

@@ -359,7 +359,7 @@ ccclub reads **only** agent source, token counts, cost estimates, model names, a
 
 Run \`ccclub show-data\` to see exactly what gets uploaded.
 
-**The one exception is Cursor**, which is off by default for exactly this reason. Cursor keeps no local token or cost logs, so if you run \`ccclub sources enable cursor\`, ccclub reads the Cursor access token from your macOS Keychain and fetches your usage numbers from Cursor's own dashboard API over HTTPS. The token never leaves your machine, what syncs to ccclub is the same aggregated block summary as every other source, and \`ccclub sources disable cursor\` stops it.
+**The one exception is Cursor**, which is off by default for exactly this reason. Cursor keeps no local token or cost logs, so if you run \`ccclub sources enable cursor\`, ccclub reads the Cursor access token from your macOS Keychain and fetches your usage numbers from Cursor's own dashboard API over HTTPS. The token is sent only to Cursor, the service that issued it, and is never uploaded to ccclub; what syncs to ccclub is the same aggregated block summary as every other source, and \`ccclub sources disable cursor\` stops it.
 
 ---
 

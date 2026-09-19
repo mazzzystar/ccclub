@@ -300,9 +300,12 @@ describe("the single-intent pages are registered everywhere", () => {
 
   it("the landing footer links the hub and the three guides it kept", async () => {
     const landing = await (await fetchPath("/")).text();
-    expect(landing).toContain('href="/guides"');
+    // Scoped to the footer: the body's guidesNote links guides of its own,
+    // and trimming the footer was never meant to reach into the page.
+    const footer = landing.slice(landing.indexOf('<div class="footer">'));
+    expect(footer).toContain('href="/guides"');
     for (const slug of ["claude-code-usage", "claude-code-limits", "claude-code-cost"]) {
-      expect(landing).toContain(`href="/${slug}"`);
+      expect(footer).toContain(`href="/${slug}"`);
     }
     // Trimmed from the footer on purpose: eight links sat directly above the
     // one link that leads to all of them. These stay one click away.
@@ -313,7 +316,7 @@ describe("the single-intent pages are registered everywhere", () => {
       "ccusage-vs-ccclub",
       "claude-code-leaderboards",
     ]) {
-      expect(landing).not.toContain(`href="/${slug}"`);
+      expect(footer).not.toContain(`href="/${slug}"`);
     }
   });
 });

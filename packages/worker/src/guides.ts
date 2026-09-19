@@ -400,7 +400,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
 
       <p>Not from the payload Claude Code hands it. The renderer reads exactly two things out of that JSON — the model display name and the effort level — and takes everything else off disk. Limit percentages and rank live in small cache files under <code>~/.ccclub/</code>, written by <code>ccclub sync</code>: the sync asks Anthropic's usage endpoint for your own percentages, using the credential Claude Code already holds locally, and asks the ccclub API for your rank. The render path opens those files, formats a line and exits.</p>
 
-      <p>Sync runs often enough for that to work without anyone thinking about it. <code>ccclub init</code> installs Claude Code hooks that fire when a turn stops and when a session ends, and a background agent that syncs every five minutes. While you are actually using Claude Code, the cache is rarely more than a few minutes old.</p>
+      <p>Sync runs often enough for that to work without anyone thinking about it. <code>ccclub init</code> installs Claude Code hooks that fire when a turn stops and when a session ends, and on macOS a LaunchAgent that syncs every five minutes on top of them. On Linux and Windows there is no such agent: the hooks are the whole of the schedule, so the cache is as fresh as your last turn. Either way, while you are actually using Claude Code it is rarely more than a few minutes old.</p>
 
       <h2>What a slept-through night does to it</h2>
 
@@ -431,7 +431,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
       },
       {
         q: "Does the statusline slow down Claude Code or call the network?",
-        a: "The render path makes no network request. It reads the JSON payload on stdin plus three small cache files under ~/.ccclub/ and prints one line. The percentages are fetched separately by ccclub sync, which the session hooks and a five-minute background agent already run.",
+        a: "The render path makes no network request. It reads the JSON payload on stdin plus three small cache files under ~/.ccclub/ and prints one line. The percentages are fetched separately by ccclub sync, which the Claude Code session hooks already run — and on macOS a LaunchAgent runs it every five minutes as well.",
       },
       {
         q: "Why are my limit percentages dim with a tilde after them?",

@@ -865,22 +865,16 @@ function landingHTML(lang: LandingLang, demoBoard: string | null = null) {
     </div>
 
     <div class="footer">
+      <!-- Three guides and the hub. Listing all eight here put a wall of
+           links directly above the link that leads to all of them. -->
       <div class="footer-guides">
         <a href="/claude-code-usage">Claude Code usage</a>
-        &nbsp;\u00b7&nbsp;
-        <a href="/how-to-check-claude-code-usage">How to check it</a>
         &nbsp;\u00b7&nbsp;
         <a href="/claude-code-limits">Limits explained</a>
         &nbsp;\u00b7&nbsp;
         <a href="/claude-code-cost">What it costs</a>
         &nbsp;\u00b7&nbsp;
-        <a href="/claude-code-statusline">Statusline</a>
-        &nbsp;\u00b7&nbsp;
-        <a href="/codex-usage">Track Codex usage</a>
-        &nbsp;\u00b7&nbsp;
-        <a href="/ccusage-vs-ccclub">ccusage vs ccclub</a>
-        &nbsp;\u00b7&nbsp;
-        <a href="/claude-code-leaderboards">Leaderboards compared</a>
+        <a href="/guides">All guides</a>
       </div>
       <div class="footer-langs">
         ${LANDING_LANGS.map((l, i) =>
@@ -893,8 +887,6 @@ function landingHTML(lang: LandingLang, demoBoard: string | null = null) {
           }`,
         )}
       </div>
-      <a href="/guides">Guides</a>
-      &nbsp;\u00b7&nbsp;
       <a href="/blog">Blog</a>
       &nbsp;\u00b7&nbsp;
       <a href="https://discord.gg/6QbGWJUVHq">Discord</a>

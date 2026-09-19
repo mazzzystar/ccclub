@@ -291,10 +291,31 @@ describe("the single-intent pages are registered everywhere", () => {
       const guides = await (await fetchPath("/guides")).text();
       expect(guides).toContain(`href="/${slug}"`);
 
+      // The landing footer no longer lists every guide — it links three and
+      // the hub. Reachability from the homepage is the hub's job now.
       const landing = await (await fetchPath("/")).text();
-      expect(landing).toContain(`href="/${slug}"`);
+      expect(landing).toContain('href="/guides"');
     });
   }
+
+  it("the landing footer links the hub and the three guides it kept", async () => {
+    const landing = await (await fetchPath("/")).text();
+    expect(landing).toContain('href="/guides"');
+    for (const slug of ["claude-code-usage", "claude-code-limits", "claude-code-cost"]) {
+      expect(landing).toContain(`href="/${slug}"`);
+    }
+    // Trimmed from the footer on purpose: eight links sat directly above the
+    // one link that leads to all of them. These stay one click away.
+    for (const slug of [
+      "how-to-check-claude-code-usage",
+      "claude-code-statusline",
+      "codex-usage",
+      "ccusage-vs-ccclub",
+      "claude-code-leaderboards",
+    ]) {
+      expect(landing).not.toContain(`href="/${slug}"`);
+    }
+  });
 });
 
 describe("/ccusage-vs-ccclub shows its work", () => {

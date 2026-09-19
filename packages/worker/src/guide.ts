@@ -9,7 +9,12 @@ const app = new Hono<{ Bindings: Env }>();
 const SITE = "https://ccclub.dev";
 
 // Bump when the landing page content changes meaningfully.
-const HOMEPAGE_UPDATED = "2026-08-04";
+const HOMEPAGE_UPDATED = "2026-09-19";
+
+// Bump when the global board's page (not its live rows) changes. A lastmod
+// of `new Date()` would claim the page was edited on every crawl, which is
+// the one thing the field must not say.
+const GLOBAL_BOARD_UPDATED = "2026-09-19";
 
 // Bump when llms.txt / prompt.txt / comparisons.md change meaningfully.
 // Their `Last verified` lines and this date are the same claim.
@@ -23,7 +28,6 @@ export const INDEXNOW_KEY = "c687c21aa0a1bfc46acf13854a646199";
 
 app.get("/sitemap.xml", (c) => {
   const latestPost = BLOG_POSTS.map(postLastmod).sort().reverse()[0] ?? HOMEPAGE_UPDATED;
-  const today = new Date().toISOString().slice(0, 10);
   const urls: Array<{ loc: string; lastmod?: string; changefreq: string; priority: string }> = [
     { loc: `${SITE}/`, lastmod: HOMEPAGE_UPDATED, changefreq: "weekly", priority: "1.0" },
     ...LANDING_LANGS.filter((l) => l !== "en").map((l) => ({
@@ -46,7 +50,7 @@ app.get("/sitemap.xml", (c) => {
       changefreq: "monthly",
       priority: "0.9",
     })),
-    { loc: `${SITE}/g/global`, lastmod: today, changefreq: "daily", priority: "0.7" },
+    { loc: `${SITE}/g/global`, lastmod: GLOBAL_BOARD_UPDATED, changefreq: "daily", priority: "0.7" },
     { loc: `${SITE}/llms.txt`, lastmod: MACHINE_DOCS_UPDATED, changefreq: "weekly", priority: "0.6" },
     { loc: `${SITE}/llms-full.txt`, lastmod: MACHINE_DOCS_UPDATED, changefreq: "weekly", priority: "0.5" },
     { loc: `${SITE}/prompt.txt`, lastmod: MACHINE_DOCS_UPDATED, changefreq: "weekly", priority: "0.5" },

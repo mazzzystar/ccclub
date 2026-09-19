@@ -11,6 +11,10 @@ const app = new Hono<{ Bindings: Env }>();
 const GLOBAL_SSR_CACHE_KEY = "ssr_global:v1:weekly";
 
 app.get("/g/:code", async (c) => {
+  // The board lives at the lowercase URL, which is what the sitemap and the
+  // canonical declare. Only this one spelling redirects: every real group
+  // code is uppercase and must keep resolving where it is.
+  if (c.req.param("code") === "GLOBAL") return c.redirect("/g/global", 301);
   const code = sanitizeCode(c.req.param("code"));
   if (!code) return c.text("Invalid code", 400);
   const isGlobal = code.toLowerCase() === "global";
@@ -310,6 +314,9 @@ function dashboardHTML(
   opts: { noindex?: boolean; ssr?: { rankings: RankingEntry[]; memberCount: number } } = {},
 ) {
   const isGlobal = code.toLowerCase() === "global";
+  // sanitizeCode uppercases, which would publish /g/GLOBAL as the canonical
+  // while the sitemap says /g/global. One spelling, and it is the lowercase one.
+  const canonicalCode = isGlobal ? "global" : code;
   const ogTitle = isGlobal
     ? "Global Coding-Agent Leaderboard \u2014 ccclub"
     : groupName
@@ -334,18 +341,18 @@ function dashboardHTML(
   <meta property="og:type" content="website" />
   <meta property="og:title" content="${ogTitle}" />
   <meta property="og:description" content="${ogDesc}" />
-  <meta property="og:url" content="https://ccclub.dev/g/${code}" />
-  <meta property="og:image" content="https://ccclub.dev/g/${code}/og.png" />
+  <meta property="og:url" content="https://ccclub.dev/g/${canonicalCode}" />
+  <meta property="og:image" content="https://ccclub.dev/g/${canonicalCode}/og.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
 
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${ogTitle}" />
   <meta name="twitter:description" content="${ogDesc}" />
-  <meta name="twitter:image" content="https://ccclub.dev/g/${code}/og.png" />
+  <meta name="twitter:image" content="https://ccclub.dev/g/${canonicalCode}/og.png" />
 
   <meta name="theme-color" content="#1a1816" />
-  <link rel="canonical" href="https://ccclub.dev/g/${code}" />
+  <link rel="canonical" href="https://ccclub.dev/g/${canonicalCode}" />
   ${opts.noindex ? "" : html`<link rel="alternate" type="text/plain" href="https://ccclub.dev/llms.txt" />`}
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
 

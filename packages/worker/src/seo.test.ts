@@ -89,6 +89,32 @@ describe("the machine-readable documents are reachable", () => {
   });
 });
 
+describe("the global board has one URL", () => {
+  it("canonicalises to the lowercase spelling the sitemap declares", async () => {
+    const body = await (await fetchPath("/g/global")).text();
+    expect(body).toContain('<link rel="canonical" href="https://ccclub.dev/g/global" />');
+    expect(body).not.toContain("https://ccclub.dev/g/GLOBAL");
+  });
+
+  it("redirects the uppercase spelling Google indexed", async () => {
+    const res = await fetchPath("/g/GLOBAL");
+    expect(res.status).toBe(301);
+    expect(res.headers.get("Location")).toBe("/g/global");
+  });
+
+  it("leaves real group codes, which are uppercase, alone", async () => {
+    const res = await fetchPath("/g/ABCDEF");
+    expect(res.status).not.toBe(301);
+  });
+
+  it("dates it in the sitemap instead of stamping every crawl with today", async () => {
+    const xml = await (await fetchPath("/sitemap.xml")).text();
+    expect(xml).toContain("<loc>https://ccclub.dev/g/global</loc><lastmod>2026-09-19</lastmod>");
+    expect(xml).toContain("<loc>https://ccclub.dev/</loc><lastmod>2026-09-19</lastmod>");
+    expect(xml).not.toContain("/g/GLOBAL");
+  });
+});
+
 describe("llms.txt product boundaries", () => {
   it("carries the sections an assistant needs to rule ccclub in or out", async () => {
     const body = await (await fetchPath("/llms.txt")).text();

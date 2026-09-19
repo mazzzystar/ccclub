@@ -121,7 +121,7 @@ export const GUIDE_PAGES: GuidePage[] = [
 
       <h2>Step 2: get a written report out of it</h2>
 
-      <p>If you want something to read rather than a screen to squint at, the same documentation describes <code>/insights</code>: it analyses recent sessions on that machine and writes an HTML report to <code>~/.claude/usage-data/report.html</code>, keeping a timestamped copy of each run. Note what it is and is not — the report is about how you work, where requests went wrong and where time went, rather than a token ledger. It also costs tokens to produce, since the analysis runs through your own account.</p>
+      <p>If you want something to read rather than a screen to squint at, the same documentation describes <code>/insights</code>: it analyses recent sessions on that machine and writes an HTML report to <code>~/.claude/usage-data/report.html</code>, keeping a timestamped copy of each run. Note what it is and is not — the documentation calls it a report on how you work rather than how many tokens you have used, covering what you work on, friction points such as misunderstood requests or buggy code, and suggestions for using Claude Code more effectively. It also costs tokens to produce, since the analysis runs through your own account.</p>
 
       <p>For a number that is in front of you permanently instead of on demand, Claude Code passes its status line script a <code>rate_limits</code> object with your five-hour and seven-day percentages, for subscription accounts, after the first API response of a session. Writing that script is a small job, and <a href="/claude-code-statusline">ccclub ships one</a> if you would rather not.</p>
 
@@ -150,7 +150,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
 
       <h2>Step 5: check what leaves the machine, before it does</h2>
 
-      <p>Anything that compares you with other people has to send something. Run <code>ccclub show-data</code> and it prints the actual payload: the 30-minute blocks, their token counts, the estimated cost, model names, call and turn counts. That is the whole of it — no prompts, no code, no file paths, no project names. Reading that output takes a minute and is a better basis for trusting the tool than any sentence on this page.</p>
+      <p>Anything that compares you with other people has to send something. Run <code>ccclub show-data</code> and it prints the last five 30-minute blocks in full, field by field: token counts, the estimated cost, model names, call and turn counts, under a heading saying that is exactly what gets uploaded. Those five are a sample, not the payload — what follows them is a set of all-time totals. But the sample is the point: every other block carries the same fields, and nothing else is uploaded either. No prompts, no code, no file paths, no project names. Reading that output takes a minute and is a better basis for trusting the tool than any sentence on this page.</p>
 
       <h2>Step 6: read the number you got</h2>
 

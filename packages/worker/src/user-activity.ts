@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { html, raw } from "hono/html";
+import { html } from "hono/html";
 import type { Env } from "./types.js";
 import { isRankedSource, computeActivityStats, activityLevelFor, ACTIVITY_LEVEL_THRESHOLDS } from "@ccclub/shared";
 import type { UsageData, UsageBlock, GroupRecord, DayTotal } from "@ccclub/shared";
@@ -94,6 +94,14 @@ app.get("/api/user/:handle/activity", async (c) => {
 
 // ── Page ─────────────────────────────────────────────────────
 
+// Registered before /u/:handle so the literal path wins the match.
+app.get("/u/activity.js", (c) => {
+  return c.body(ACTIVITY_JS, 200, {
+    "Content-Type": "text/javascript; charset=utf-8",
+    "Cache-Control": "public, max-age=3600",
+  });
+});
+
 app.get("/u/:handle", async (c) => {
   const handle = c.req.param("handle");
   if (handle.length > 64) return c.notFound();
@@ -160,168 +168,12 @@ app.get("/u/:handle/og.png", async (c) => {
   }, { maxAge: 3600, staleWhileRevalidate: 86400, executionCtx: c.executionCtx });
 });
 
-function activityPageHTML(handle: string, ogTitle: string, ogDesc: string) {
-  const ogImage = `https://ccclub.dev/u/${encodeURIComponent(handle)}/og.png`;
-  return html`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${ogTitle}</title>
-  <meta name="description" content="${ogDesc}" />
-  <meta property="og:type" content="profile" />
-  <meta property="og:title" content="${ogTitle}" />
-  <meta property="og:description" content="${ogDesc}" />
-  <meta property="og:site_name" content="ccclub" />
-  <meta property="og:image" content="${ogImage}" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="${ogTitle}" />
-  <meta name="twitter:description" content="${ogDesc}" />
-  <meta name="twitter:image" content="${ogImage}" />
-  <meta name="robots" content="noindex" />
-  <meta name="theme-color" content="#1a1816" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
-
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-RG2RD9V66M"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-RG2RD9V66M');
-  </script>
-
-  <style>
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    :root {
-      --bg: #1a1816; --surface: #201e1c; --surface-soft: #24211f;
-      --line: #332f2b; --line-soft: #282521;
-      --text: #e8e4de; --title: #f1ede7; --muted: #8a8480; --faint: #5a5550;
-      --brand: #d4935e; --link: #7ab7c6; --success: #63b486;
-      --cell-0: #242019;
-      /* Three GitHub-style dim-to-bright ramps: hue = tier, depth = position. */
-      --cell-1: #164430; --cell-2: #1a6b3e; --cell-3: #2aa155; --cell-4: #46d371;    /* green  */
-      --cell-5: #4d3d12; --cell-6: #8a6a16; --cell-7: #c79b1d; --cell-8: #f7c72e;    /* gold   */
-      --cell-9: #372560; --cell-10: #57389c; --cell-11: #7e57d9; --cell-12: #a97fff; /* purple */
-    }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-      background: var(--bg); color: var(--text); min-height: 100vh;
-      -webkit-font-smoothing: antialiased; line-height: 1.6;
-    }
-    .wrap { max-width: 880px; margin: 0 auto; padding: 44px 24px; }
-    .top-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
-    .brand { display: flex; align-items: center; gap: 8px; color: var(--title); text-decoration: none; font-weight: 700; }
-    .brand img { width: 24px; height: 24px; border-radius: 5px; }
-    .back-link { color: var(--muted); font-size: 13px; text-decoration: none; }
-    .back-link:hover { color: var(--link); }
-
-    .profile { text-align: center; margin: 8px 0 28px; }
-    .big-avatar {
-      width: 84px; height: 84px; border-radius: 50%; margin: 0 auto 14px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 34px; font-weight: 700; color: #fff; overflow: hidden;
-      border: 2px solid var(--line);
-    }
-    .big-avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .profile h1 { font-size: 26px; color: var(--title); font-weight: 700; }
-    .profile .sub { color: var(--muted); font-size: 14px; margin-top: 4px; display: flex; gap: 8px; align-items: center; justify-content: center; }
-    .plan-badge {
-      display: inline-block; padding: 1px 9px; border-radius: 999px;
-      border: 1px solid var(--line); color: var(--brand); font-size: 12px; font-weight: 600;
-    }
-    .ext-link { color: var(--link); text-decoration: none; font-size: 13px; }
-    .ext-link:hover { text-decoration: underline; }
-
-    .stats {
-      display: grid; grid-template-columns: repeat(5, 1fr);
-      border: 1px solid var(--line-soft); border-radius: 14px; background: var(--surface);
-      padding: 18px 8px; margin-bottom: 28px;
-    }
-    .stat { text-align: center; padding: 2px 6px; border-left: 1px solid var(--line-soft); }
-    .stat:first-child { border-left: none; }
-    .stat .v { font-size: 21px; font-weight: 700; color: var(--title); }
-    .stat .k { font-size: 12px; color: var(--muted); margin-top: 2px; }
-    @media (max-width: 640px) {
-      .stats { grid-template-columns: repeat(2, 1fr); gap: 10px 0; }
-      .stat { border-left: none; }
-    }
-
-    .card { border: 1px solid var(--line-soft); border-radius: 14px; background: var(--surface); padding: 20px; }
-    .card + .card { margin-top: 20px; }
-    .card h2 { font-size: 15px; color: var(--title); margin-bottom: 14px; }
-    .mini-label { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
-
-    /* Cumulative curve. Its colors live here rather than on the SVG so the
-       chart follows the palette; presentation attributes can't read var(). */
-    .curve { display: block; width: 100%; height: auto; margin-top: 4px; }
-    .curve-grid { stroke: var(--line-soft); }
-    .curve-area { fill: url(#curveFade); }
-    .curve-fade-top { stop-color: var(--success); stop-opacity: 0.30; }
-    .curve-fade-bottom { stop-color: var(--success); stop-opacity: 0; }
-    .curve-line { fill: none; stroke: var(--success); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-    .curve-tick { fill: var(--muted); font-size: 11px; }
-    .curve-total { fill: var(--text); font-size: 12px; font-weight: 600; }
-    .curve-dot { fill: var(--success); stroke: var(--surface); stroke-width: 2; }
-    .curve-cross { stroke: var(--line); }
-    /* Name and URL travel together as one centered credit; on a narrow card
-       the pair wraps to two lines rather than squeezing the name out. */
-    .curve-caption {
-      display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline;
-      gap: 3px 12px; margin-top: 8px; font-size: 12px;
-    }
-    .curve-caption .who { color: var(--text); font-weight: 500; }
-    .curve-caption .where {
-      color: var(--muted);
-      min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .map-scroll { overflow-x: auto; padding-bottom: 4px; }
-    .map { display: inline-block; }
-    .months { display: flex; margin-left: 30px; font-size: 11px; color: var(--faint); height: 16px; }
-    .months span { position: relative; }
-    .grid-row { display: flex; }
-    .dow { width: 30px; font-size: 10px; color: var(--faint); line-height: 13px; }
-    .cell {
-      width: 11px; height: 11px; border-radius: 2.5px; margin: 1px;
-      background: var(--cell-0); flex: none;
-    }
-    .c1 { background: var(--cell-1); } .c2 { background: var(--cell-2); }
-    .c3 { background: var(--cell-3); } .c4 { background: var(--cell-4); }
-    .c5 { background: var(--cell-5); } .c6 { background: var(--cell-6); }
-    .c7 { background: var(--cell-7); } .c8 { background: var(--cell-8); }
-    .c9 { background: var(--cell-9); } .c10 { background: var(--cell-10); }
-    .c11 { background: var(--cell-11); } .c12 { background: var(--cell-12); }
-    .cell.future { background: transparent; }
-    .legend { display: flex; align-items: flex-start; gap: 14px; justify-content: flex-end; margin-top: 12px; font-size: 10px; color: var(--faint); }
-    .legend .tier { text-align: center; }
-    .legend .tier-cells { display: flex; justify-content: center; }
-    .legend .cell { margin: 0 1px; cursor: default; }
-    .legend .tier-label { margin-top: 2px; white-space: nowrap; }
-
-    .tip {
-      display: none; position: fixed; z-index: 10; pointer-events: none;
-      background: #2e2a26; color: var(--text); border: 1px solid var(--line);
-      border-radius: 7px; padding: 4px 10px; font-size: 12px; white-space: nowrap;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.4);
-    }
-    .loading, .error-box { text-align: center; color: var(--muted); padding: 60px 0; }
-    .footer { text-align: center; color: var(--faint); font-size: 12px; margin-top: 32px; }
-    .footer a { color: var(--muted); text-decoration: none; }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="top-nav">
-      <a href="/" class="brand"><img src="https://raw.githubusercontent.com/mazzzystar/ccclub/main/assets/icon.png" alt="" /><span>ccclub</span></a>
-      <a href="javascript:history.back()" class="back-link">← Back</a>
-    </div>
-    <div id="content"><div class="loading">Loading activity…</div></div>
-    <div class="footer"><a href="/">ccclub</a> — coding-agent leaderboard among friends</div>
-  </div>
-
-  <script>
-    var HANDLE = ${raw(JSON.stringify(handle))};
+// The page's client script. It lives out here, and is served as its own
+// file, so the SSR shell stays HTML: a JS string like "<h1>" + name +
+// "</h1>" inside the document is what a text extractor reads as the page's
+// heading.
+const ACTIVITY_JS = `
+    var HANDLE = decodeURIComponent(location.pathname.replace(/^\\/u\\//, ""));
     var AVATAR_COLORS = [
       "#c45c5c","#d4845a","#d4a03e","#8aaa5a","#5aad7d",
       "#4a9b8a","#4a8aaa","#5a7aaa","#7a6aaa","#9a5aaa",
@@ -348,7 +200,7 @@ function activityPageHTML(handle: string, ogTitle: string, ogDesc: string) {
 
     // Absolute log-spaced scale (mirrors @ccclub/shared): hue encodes the
     // magnitude tier, so two people's pages differ at a glance.
-    var THRESHOLDS = ${raw(JSON.stringify(ACTIVITY_LEVEL_THRESHOLDS))};
+    var THRESHOLDS = ${JSON.stringify(ACTIVITY_LEVEL_THRESHOLDS)};
     function levelFor(tokens) {
       var level = 0;
       for (var i = 0; i < THRESHOLDS.length; i++) {
@@ -366,8 +218,8 @@ function activityPageHTML(handle: string, ogTitle: string, ogDesc: string) {
 
     // Serialized straight out of activity-core.ts, where they are unit-tested:
     // the page can't import a module, and this maths deserves tests.
-    var cumulativeSeries = ${raw(String(cumulativeSeries))};
-    var gridTicks = ${raw(String(gridTicks))};
+    var cumulativeSeries = ${String(cumulativeSeries)};
+    var gridTicks = ${String(gridTicks)};
 
     function monthLabel(key) {
       return new Date(dayMs(key)).toLocaleString("en", { month: "short", year: "numeric", timeZone: "UTC" });
@@ -624,7 +476,169 @@ function activityPageHTML(handle: string, ogTitle: string, ogDesc: string) {
       .catch(function() {
         document.getElementById("content").innerHTML = '<div class="error-box">No activity found for this user.</div>';
       });
+`;
+
+function activityPageHTML(handle: string, ogTitle: string, ogDesc: string) {
+  const ogImage = `https://ccclub.dev/u/${encodeURIComponent(handle)}/og.png`;
+  return html`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${ogTitle}</title>
+  <meta name="description" content="${ogDesc}" />
+  <meta property="og:type" content="profile" />
+  <meta property="og:title" content="${ogTitle}" />
+  <meta property="og:description" content="${ogDesc}" />
+  <meta property="og:site_name" content="ccclub" />
+  <meta property="og:image" content="${ogImage}" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${ogTitle}" />
+  <meta name="twitter:description" content="${ogDesc}" />
+  <meta name="twitter:image" content="${ogImage}" />
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#1a1816" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-RG2RD9V66M"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-RG2RD9V66M');
   </script>
+
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #1a1816; --surface: #201e1c; --surface-soft: #24211f;
+      --line: #332f2b; --line-soft: #282521;
+      --text: #e8e4de; --title: #f1ede7; --muted: #8a8480; --faint: #5a5550;
+      --brand: #d4935e; --link: #7ab7c6; --success: #63b486;
+      --cell-0: #242019;
+      /* Three GitHub-style dim-to-bright ramps: hue = tier, depth = position. */
+      --cell-1: #164430; --cell-2: #1a6b3e; --cell-3: #2aa155; --cell-4: #46d371;    /* green  */
+      --cell-5: #4d3d12; --cell-6: #8a6a16; --cell-7: #c79b1d; --cell-8: #f7c72e;    /* gold   */
+      --cell-9: #372560; --cell-10: #57389c; --cell-11: #7e57d9; --cell-12: #a97fff; /* purple */
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      background: var(--bg); color: var(--text); min-height: 100vh;
+      -webkit-font-smoothing: antialiased; line-height: 1.6;
+    }
+    .wrap { max-width: 880px; margin: 0 auto; padding: 44px 24px; }
+    .top-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+    .brand { display: flex; align-items: center; gap: 8px; color: var(--title); text-decoration: none; font-weight: 700; }
+    .brand img { width: 24px; height: 24px; border-radius: 5px; }
+    .back-link { color: var(--muted); font-size: 13px; text-decoration: none; }
+    .back-link:hover { color: var(--link); }
+
+    .profile { text-align: center; margin: 8px 0 28px; }
+    .big-avatar {
+      width: 84px; height: 84px; border-radius: 50%; margin: 0 auto 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 34px; font-weight: 700; color: #fff; overflow: hidden;
+      border: 2px solid var(--line);
+    }
+    .big-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .profile h1 { font-size: 26px; color: var(--title); font-weight: 700; }
+    .profile .sub { color: var(--muted); font-size: 14px; margin-top: 4px; display: flex; gap: 8px; align-items: center; justify-content: center; }
+    .plan-badge {
+      display: inline-block; padding: 1px 9px; border-radius: 999px;
+      border: 1px solid var(--line); color: var(--brand); font-size: 12px; font-weight: 600;
+    }
+    .ext-link { color: var(--link); text-decoration: none; font-size: 13px; }
+    .ext-link:hover { text-decoration: underline; }
+
+    .stats {
+      display: grid; grid-template-columns: repeat(5, 1fr);
+      border: 1px solid var(--line-soft); border-radius: 14px; background: var(--surface);
+      padding: 18px 8px; margin-bottom: 28px;
+    }
+    .stat { text-align: center; padding: 2px 6px; border-left: 1px solid var(--line-soft); }
+    .stat:first-child { border-left: none; }
+    .stat .v { font-size: 21px; font-weight: 700; color: var(--title); }
+    .stat .k { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    @media (max-width: 640px) {
+      .stats { grid-template-columns: repeat(2, 1fr); gap: 10px 0; }
+      .stat { border-left: none; }
+    }
+
+    .card { border: 1px solid var(--line-soft); border-radius: 14px; background: var(--surface); padding: 20px; }
+    .card + .card { margin-top: 20px; }
+    .card h2 { font-size: 15px; color: var(--title); margin-bottom: 14px; }
+    .mini-label { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+
+    /* Cumulative curve. Its colors live here rather than on the SVG so the
+       chart follows the palette; presentation attributes can't read var(). */
+    .curve { display: block; width: 100%; height: auto; margin-top: 4px; }
+    .curve-grid { stroke: var(--line-soft); }
+    .curve-area { fill: url(#curveFade); }
+    .curve-fade-top { stop-color: var(--success); stop-opacity: 0.30; }
+    .curve-fade-bottom { stop-color: var(--success); stop-opacity: 0; }
+    .curve-line { fill: none; stroke: var(--success); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+    .curve-tick { fill: var(--muted); font-size: 11px; }
+    .curve-total { fill: var(--text); font-size: 12px; font-weight: 600; }
+    .curve-dot { fill: var(--success); stroke: var(--surface); stroke-width: 2; }
+    .curve-cross { stroke: var(--line); }
+    /* Name and URL travel together as one centered credit; on a narrow card
+       the pair wraps to two lines rather than squeezing the name out. */
+    .curve-caption {
+      display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline;
+      gap: 3px 12px; margin-top: 8px; font-size: 12px;
+    }
+    .curve-caption .who { color: var(--text); font-weight: 500; }
+    .curve-caption .where {
+      color: var(--muted);
+      min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .map-scroll { overflow-x: auto; padding-bottom: 4px; }
+    .map { display: inline-block; }
+    .months { display: flex; margin-left: 30px; font-size: 11px; color: var(--faint); height: 16px; }
+    .months span { position: relative; }
+    .grid-row { display: flex; }
+    .dow { width: 30px; font-size: 10px; color: var(--faint); line-height: 13px; }
+    .cell {
+      width: 11px; height: 11px; border-radius: 2.5px; margin: 1px;
+      background: var(--cell-0); flex: none;
+    }
+    .c1 { background: var(--cell-1); } .c2 { background: var(--cell-2); }
+    .c3 { background: var(--cell-3); } .c4 { background: var(--cell-4); }
+    .c5 { background: var(--cell-5); } .c6 { background: var(--cell-6); }
+    .c7 { background: var(--cell-7); } .c8 { background: var(--cell-8); }
+    .c9 { background: var(--cell-9); } .c10 { background: var(--cell-10); }
+    .c11 { background: var(--cell-11); } .c12 { background: var(--cell-12); }
+    .cell.future { background: transparent; }
+    .legend { display: flex; align-items: flex-start; gap: 14px; justify-content: flex-end; margin-top: 12px; font-size: 10px; color: var(--faint); }
+    .legend .tier { text-align: center; }
+    .legend .tier-cells { display: flex; justify-content: center; }
+    .legend .cell { margin: 0 1px; cursor: default; }
+    .legend .tier-label { margin-top: 2px; white-space: nowrap; }
+
+    .tip {
+      display: none; position: fixed; z-index: 10; pointer-events: none;
+      background: #2e2a26; color: var(--text); border: 1px solid var(--line);
+      border-radius: 7px; padding: 4px 10px; font-size: 12px; white-space: nowrap;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+    }
+    .loading, .error-box { text-align: center; color: var(--muted); padding: 60px 0; }
+    .footer { text-align: center; color: var(--faint); font-size: 12px; margin-top: 32px; }
+    .footer a { color: var(--muted); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top-nav">
+      <a href="/" class="brand"><img src="https://raw.githubusercontent.com/mazzzystar/ccclub/main/assets/icon.png" alt="" /><span>ccclub</span></a>
+      <a href="javascript:history.back()" class="back-link">← Back</a>
+    </div>
+    <div id="content"><div class="loading">Loading activity…</div></div>
+    <div class="footer"><a href="/">ccclub</a> — coding-agent leaderboard among friends</div>
+  </div>
+
+  <script src="/u/activity.js" defer></script>
 </body>
 </html>`;
 }

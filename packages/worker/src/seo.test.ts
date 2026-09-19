@@ -189,6 +189,35 @@ describe("guide FAQs render exactly what the JSON-LD claims", () => {
   }
 });
 
+describe("/u/:handle ships HTML, not a script full of HTML", () => {
+  it("has no JS-built tags in the shell", async () => {
+    const body = await (await fetchPath("/u/someone")).text();
+    expect(body).not.toContain('"<h1>"');
+    expect(body).not.toContain("esc(data.displayName)");
+    // Exactly one <h1> would be nice; the shell has none until the
+    // script renders one, and either way no fake one from a JS string.
+    expect(body.match(/<h1>/g)).toBeNull();
+    expect(body).toContain('<script src="/u/activity.js" defer></script>');
+  });
+
+  it("stays out of the index", async () => {
+    const body = await (await fetchPath("/u/someone")).text();
+    expect(body).toContain('<meta name="robots" content="noindex" />');
+  });
+
+  it("serves the script as javascript, ahead of the handle route", async () => {
+    const res = await fetchPath("/u/activity.js");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toContain("text/javascript");
+    const js = await res.text();
+    expect(js).toContain('"<h1>" + esc(data.displayName) + "</h1>"');
+    // The handle used to be baked into the page; it now comes off the URL.
+    expect(js).toContain('var HANDLE = decodeURIComponent(location.pathname.replace(/^\\/u\\//, ""));');
+    // Compiled, never run: proves the move out of the template kept it valid.
+    expect(() => new Function(js)).not.toThrow();
+  });
+});
+
 describe("the machine-readable documents are reachable", () => {
   it("sitemap.xml lists them with a real lastmod", async () => {
     const xml = await (await fetchPath("/sitemap.xml")).text();

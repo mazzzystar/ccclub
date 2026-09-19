@@ -199,6 +199,84 @@ export const GUIDE_PAGES: GuidePage[] = [
     ],
   },
   {
+    slug: "claude-code-statusline",
+    metaTitle: "Claude Code Statusline: Limits, Rank and Cost in One Line",
+    h1: "Claude Code statusline: what ccclub puts there",
+    description:
+      "A Claude Code statusline showing model, effort, your 5h and 7d limit percentages and your group rank — drawn from cache, with no network call to render.",
+    datePublished: "2026-09-19",
+    dateModified: "2026-09-19",
+    body: `
+      <p>Claude Code lets you replace the bar under the prompt with the output of any command: it hands your script a JSON payload on stdin and prints whatever comes back. That is a genuinely open slot, and most people fill it with context percentage and a git branch. ccclub fills it with the two numbers that are otherwise a command away — how much of your rate-limit windows you have spent, and where you sit on your group's board today. This page is about that one line: what it contains, how it stays current, and what it deliberately refuses to do.</p>
+
+      <h2>What the line shows</h2>
+
+      <p>Up to three segments, separated by dim pipes, and every one of them optional:</p>
+
+      <pre><code> Fable 5 xhigh | 5h: 15% / 7d: 43% / Fable: 8% | #11/67 $19.0</code></pre>
+
+      <ul>
+        <li><strong>Model and effort.</strong> The display name Claude Code passes in, with a parenthetical context size shortened so "(200K context)" does not eat the line, followed by the session's reasoning effort level when the current model has one. The effort word is coloured by intensity, so a session left on the highest setting is visible without reading it.</li>
+        <li><strong>Limits.</strong> The percentage of your five-hour window and your seven-day window consumed, plus a third figure when a model-scoped weekly limit applies — labelled with whatever family name the API returns. Each percentage turns amber past 60% and red past 80%, which is the only warning the line gives.</li>
+        <li><strong>Rank and cost.</strong> Your position on your first group's board for today and today's estimated cost, with the top three positions in gold, silver and bronze. The segment is wrapped in a terminal hyperlink, so in a terminal that supports them the rank is click-through to the group dashboard, and in one that does not it renders as ordinary text.</li>
+      </ul>
+
+      <p>Segments degrade independently. No group yet, an expired credential, a model with no effort knob — whatever is missing is simply absent, and the rest of the line still prints. If nothing at all is available, the statusline prints nothing rather than an error.</p>
+
+      <h2>Turning it on and off</h2>
+
+      <p><code>ccclub statusline on</code> writes a <code>statusLine</code> entry into <code>~/.claude/settings.json</code> pointing at <code>ccclub-statusline</code>, a small binary npm installs beside the main <code>ccclub</code> command. It is a separate executable on purpose: the main CLI pulls in an argument parser and a colour library that the render path has no use for, and this one runs on every turn. Because Claude Code has to be able to find that binary by name, the command requires ccclub to be installed globally and says so plainly instead of writing a setting that would silently do nothing.</p>
+
+      <p><code>ccclub statusline off</code> removes the entry and records the decision. That record matters: ccclub will enable the statusline once, on its own, on a machine where nothing else is configured — and the opt-out marker is what stops that automatic path from ever bringing it back. Running <code>ccclub statusline</code> with no argument prints the current state and the command it would install.</p>
+
+      <h2>Where the numbers come from</h2>
+
+      <p>Not from the payload Claude Code hands it. The renderer reads exactly two things out of that JSON — the model display name and the effort level — and takes everything else off disk. Limit percentages and rank live in small cache files under <code>~/.ccclub/</code>, written by <code>ccclub sync</code>: the sync asks Anthropic's usage endpoint for your own percentages, using the credential Claude Code already holds locally, and asks the ccclub API for your rank. The render path opens those files, formats a line and exits.</p>
+
+      <p>Sync runs often enough for that to work without anyone thinking about it. <code>ccclub init</code> installs Claude Code hooks that fire when a turn stops and when a session ends, and a background agent that syncs every five minutes. While you are actually using Claude Code, the cache is rarely more than a few minutes old.</p>
+
+      <h2>What a slept-through night does to it</h2>
+
+      <p>Both of those triggers stop while the machine is asleep — the hooks need a turn to end, and the periodic agent is suppressed outright. On this laptop that measured as gaps of forty minutes in normal use and eight hours across a night. The result used to be a limits segment that simply vanished for hours the morning after, with nothing to explain why.</p>
+
+      <p>Two changes fixed that, and both are visible in the line. Readings older than three hours still render, but dimmed and with a trailing tilde: visibly not live, and better than nothing. Past twelve hours they are dropped, because by then the five-hour window has turned over completely and an old percentage would be a false statement rather than a stale one. Separately, the statusline itself now starts a background sync when it notices the cache has gone stale — after the line is already on stdout, never before, and at most once every five minutes however those syncs turn out. The machine heals itself within a turn or two of waking up.</p>
+
+      <h2>What it never does</h2>
+
+      <p>The render path makes no network request. None: it reads stdin and three small JSON files, and every one of those reads is wrapped so that a missing or corrupt file drops one segment instead of failing. Both the payload and the caches are treated as untrusted input, since the line is printed raw into a terminal between escape codes — text from either is stripped to printable ASCII and length-bounded before it is used, and the dashboard URL behind the rank hyperlink has to match a strict pattern or the link is dropped and the text printed plain.</p>
+
+      <p>It also does not alert, predict, or notify. There is no burn-rate projection and no "you will run out at 4pm" — just a percentage that changes colour. If you want prediction, run a monitor built for it; this is a readout, and it is honest about being one.</p>
+
+      <h2>If you already have a statusline</h2>
+
+      <p>Claude Code has one <code>statusLine</code> slot, so two tools cannot both own it. ccclub resolves that in the only direction that cannot lose someone's work: if the configured command is not exactly <code>ccclub-statusline</code>, ccclub treats it as yours and refuses to touch it. <code>ccclub statusline on</code> declines with a message telling you to remove the existing one first; the automatic enable never fires at all; and uninstalling only ever removes a command that is byte-for-byte ours. Even a pipeline that mentions ccclub by name — piping our output into your own filter, say — counts as yours under that rule, which is the conservative reading and the right one.</p>
+
+      <p>If you would rather build your own, Claude Code's own payload already carries <code>rate_limits.five_hour</code> and <code>rate_limits.seven_day</code> for subscription accounts, with a percentage and a reset timestamp each, and its <a href="https://code.claude.com/docs/en/statusline" rel="noopener">status line documentation</a> (read 2026-09-19) has worked examples. ccclub's version exists because it also knows your rank, and because the limit figures it shows are fetched independently rather than waiting on the first API response of a session.</p>
+    `,
+    faq: [
+      {
+        q: "How do I enable the ccclub statusline in Claude Code?",
+        a: "Run ccclub statusline on. It points Claude Code's statusLine setting at the ccclub-statusline binary, which npm installs alongside the CLI, so ccclub has to be installed globally. Open a new Claude Code session to see it.",
+      },
+      {
+        q: "Will it overwrite my existing Claude Code status line?",
+        a: "No. If the configured command is anything other than ccclub-statusline exactly, ccclub treats the slot as yours: it refuses to install over it, never enables itself automatically, and only ever removes a command that is exactly its own.",
+      },
+      {
+        q: "Does the statusline slow down Claude Code or call the network?",
+        a: "The render path makes no network request. It reads the JSON payload on stdin plus three small cache files under ~/.ccclub/ and prints one line. The percentages are fetched separately by ccclub sync, which the session hooks and a five-minute background agent already run.",
+      },
+      {
+        q: "Why are my limit percentages dim with a tilde after them?",
+        a: "That marks a reading older than three hours — usually a laptop that slept through the background syncs. The numbers still render because a stale figure beats a blank space, but they are visibly not live. Past twelve hours they are dropped entirely, and the statusline starts a background sync to refresh them.",
+      },
+      {
+        q: "Why does the statusline show no limits at all?",
+        a: "Either no usable reading exists yet or the machine cannot produce one. The percentages come from Anthropic's usage endpoint via the credential Claude Code stores in the macOS Keychain, so they are macOS-only and Claude-only, and an expired credential or a never-run sync leaves the segment out rather than showing a zero.",
+      },
+    ],
+  },
+  {
     slug: "codex-usage",
     metaTitle: "Codex Usage: How to Check Limits, Logs and Costs (2026)",
     h1: "How to track Codex usage",

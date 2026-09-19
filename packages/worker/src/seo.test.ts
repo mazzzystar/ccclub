@@ -146,6 +146,42 @@ describe("the pages that rank without being clicked", () => {
   });
 });
 
+/**
+ * Single-intent pages added in sprint 2. Each has to be a real guide — in
+ * GUIDE_PAGES, so the length, FAQ and sitemap checks above cover it — and
+ * linked from the places a crawler and an assistant look.
+ */
+describe("the single-intent pages are registered everywhere", () => {
+  const registered = [
+    { slug: "claude-code-statusline", inLlms: "Claude Code statusline" },
+  ];
+
+  for (const { slug, inLlms } of registered) {
+    it(`/${slug} is a guide, indexed and linked`, async () => {
+      expect(GUIDE_PAGES.some((g) => g.slug === slug)).toBe(true);
+      expect(INDEXABLE_PATHS).toContain(`/${slug}`);
+
+      const page = await fetchPath(`/${slug}`);
+      expect(page.status).toBe(200);
+      const body = await page.text();
+      expect(body).toContain(`<link rel="canonical" href="https://ccclub.dev/${slug}" />`);
+      expect((body.match(/<h1>/g) ?? []).length).toBe(1);
+
+      const sitemap = await (await fetchPath("/sitemap.xml")).text();
+      expect(sitemap).toContain(`<loc>https://ccclub.dev/${slug}</loc><lastmod>2026-09-19</lastmod>`);
+
+      const llms = await (await fetchPath("/llms.txt")).text();
+      expect(llms).toContain(`[${inLlms}](https://ccclub.dev/${slug})`);
+
+      const guides = await (await fetchPath("/guides")).text();
+      expect(guides).toContain(`href="/${slug}"`);
+
+      const landing = await (await fetchPath("/")).text();
+      expect(landing).toContain(`href="/${slug}"`);
+    });
+  }
+});
+
 describe("/ccusage-vs-ccclub shows its work", () => {
   it("names who wrote it, what was checked, and when", async () => {
     const body = await (await fetchPath("/ccusage-vs-ccclub")).text();

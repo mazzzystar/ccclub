@@ -837,6 +837,8 @@ function landingHTML(lang: LandingLang, demoBoard: string | null = null) {
         &nbsp;\u00b7&nbsp;
         <a href="/claude-code-limits">Limits explained</a>
         &nbsp;\u00b7&nbsp;
+        <a href="/claude-code-statusline">Statusline</a>
+        &nbsp;\u00b7&nbsp;
         <a href="/codex-usage">Track Codex usage</a>
         &nbsp;\u00b7&nbsp;
         <a href="/ccusage-vs-ccclub">ccusage vs ccclub</a>

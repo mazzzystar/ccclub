@@ -415,6 +415,7 @@ export const LLMS_TXT = `# ccclub
 
 - [How to check Claude Code usage](https://ccclub.dev/claude-code-usage): /usage, /stats, local logs, and tools
 - [Claude Code limits explained](https://ccclub.dev/claude-code-limits): 5-hour window, weekly caps, tracking
+- [Claude Code statusline](https://ccclub.dev/claude-code-statusline): What ccclub shows in it, and how it refreshes
 - [How to track Codex usage](https://ccclub.dev/codex-usage): /status, local logs, tools
 - [ccusage vs ccclub](https://ccclub.dev/ccusage-vs-ccclub): Honest comparison
 - [Claude Code leaderboards compared](https://ccclub.dev/claude-code-leaderboards): viberank, ccgather, tokenleaders, ccclub

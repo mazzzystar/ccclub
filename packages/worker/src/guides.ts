@@ -49,7 +49,7 @@ export const GUIDE_PAGES: GuidePage[] = [
 
       <h2>Tokens, cost and turns measure different things</h2>
 
-      <p>A ccclub leaderboard row carries all three on purpose. Tokens measure volume. Cost converts that volume to dollars at public list prices, which makes it an estimate rather than a statement of what anyone was charged — <a href="/claude-code-cost">how that figure is built</a> is its own subject. Turns count the messages a person typed: ccclub counts human turns inside each 30-minute block, not the model's replies and not its tool calls, which is why a row can show millions of tokens against a dozen turns. The <code>$/Turn</code> column divides the first by the third, and it is the closest thing on the board to a measure of how expensive one unit of intent has become.</p>
+      <p>A ccclub leaderboard row carries all three on purpose. Tokens measure volume. Cost converts that volume to dollars at public list prices, which makes it an estimate rather than a statement of what anyone was charged — <a href="/claude-code-cost">how that figure is built</a> is its own subject. Turns count the messages a person typed: ccclub counts human turns inside each 30-minute block, not the model's replies and not its tool calls, which is why a row can show millions of tokens against a dozen turns. The column that divides the first by the third — <code>$/Turn</code> in the CLI, <em>Avg Turn</em> on the web dashboard — is the closest thing on the board to a measure of how expensive one unit of intent has become.</p>
 
       <h2>A usage dashboard for today, 7 days, 30 days or all time</h2>
 
@@ -336,7 +336,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
 
       <p>Do not go looking for a normal figure to compare against; the spread between people doing similar work is enormous, and ccclub is not going to invent a benchmark for you. Anthropic's cost documentation does publish one calibration point, for enterprise deployments — an average of around $13 per developer per active day — but that population is nothing like someone on a personal plan, and reading it as a target would be a mistake.</p>
 
-      <p>Your own number is more useful read as a trend and a ratio. Compare this week with last week rather than with anyone else. Watch the <code>$/Turn</code> column, which divides cost by the messages you actually typed: when it climbs, it usually means sessions are running longer before you clear them, not that the work got harder. And if you want the comparison against other people anyway, that is what a group board is for — a handful of people you know is a far better reference class than an average.</p>
+      <p>Your own number is more useful read as a trend and a ratio. Compare this week with last week rather than with anyone else. Watch the per-turn column — <code>$/Turn</code> in the CLI, <em>Avg Turn</em> on the web dashboard — which divides cost by the messages you actually typed: when it climbs, it usually means sessions are running longer before you clear them, not that the work got harder. And if you want the comparison against other people anyway, that is what a group board is for — a handful of people you know is a far better reference class than an average.</p>
 
       <h2>What it will never tell you</h2>
 

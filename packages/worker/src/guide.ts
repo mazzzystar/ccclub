@@ -11,6 +11,10 @@ const SITE = "https://ccclub.dev";
 // Bump when the landing page content changes meaningfully.
 const HOMEPAGE_UPDATED = "2026-08-04";
 
+// Bump when llms.txt / prompt.txt / comparisons.md change meaningfully.
+// Their `Last verified` lines and this date are the same claim.
+const MACHINE_DOCS_UPDATED = "2026-09-19";
+
 // Public IndexNow key (by design, the key is public — ownership is proven
 // by serving it from this domain). Pinged by scripts/indexnow.mjs on deploy.
 export const INDEXNOW_KEY = "c687c21aa0a1bfc46acf13854a646199";
@@ -43,8 +47,10 @@ app.get("/sitemap.xml", (c) => {
       priority: "0.9",
     })),
     { loc: `${SITE}/g/global`, lastmod: today, changefreq: "daily", priority: "0.7" },
-    { loc: `${SITE}/llms-full.txt`, changefreq: "weekly", priority: "0.5" },
-    { loc: `${SITE}/comparisons.md`, changefreq: "monthly", priority: "0.5" },
+    { loc: `${SITE}/llms.txt`, lastmod: MACHINE_DOCS_UPDATED, changefreq: "weekly", priority: "0.6" },
+    { loc: `${SITE}/llms-full.txt`, lastmod: MACHINE_DOCS_UPDATED, changefreq: "weekly", priority: "0.5" },
+    { loc: `${SITE}/prompt.txt`, lastmod: MACHINE_DOCS_UPDATED, changefreq: "weekly", priority: "0.5" },
+    { loc: `${SITE}/comparisons.md`, lastmod: MACHINE_DOCS_UPDATED, changefreq: "monthly", priority: "0.5" },
   ];
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

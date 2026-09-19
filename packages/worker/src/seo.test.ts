@@ -71,6 +71,24 @@ describe("llms.txt is declared, not just served", () => {
   });
 });
 
+describe("the machine-readable documents are reachable", () => {
+  it("sitemap.xml lists them with a real lastmod", async () => {
+    const xml = await (await fetchPath("/sitemap.xml")).text();
+    for (const doc of ["/llms.txt", "/llms-full.txt", "/prompt.txt", "/comparisons.md"]) {
+      expect(xml).toContain(
+        `<loc>https://ccclub.dev${doc}</loc><lastmod>2026-09-19</lastmod>`,
+      );
+    }
+  });
+
+  it("the landing footer links llms.txt in every language", async () => {
+    for (const path of ["/", "/zh", "/ja", "/de", "/ru"]) {
+      const body = await (await fetchPath(path)).text();
+      expect(body).toContain('<a href="/llms.txt">llms.txt</a>');
+    }
+  });
+});
+
 describe("llms.txt product boundaries", () => {
   it("carries the sections an assistant needs to rule ccclub in or out", async () => {
     const body = await (await fetchPath("/llms.txt")).text();

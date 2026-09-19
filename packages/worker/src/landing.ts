@@ -861,6 +861,8 @@ function landingHTML(lang: LandingLang, demoBoard: string | null = null) {
       <a href="https://discord.gg/6QbGWJUVHq">Discord</a>
       &nbsp;\u00b7&nbsp;
       <a href="https://github.com/mazzzystar/ccclub">GitHub</a>
+      &nbsp;\u00b7&nbsp;
+      <a href="/llms.txt">llms.txt</a>
       &nbsp;\u00b7&nbsp; MIT License
     </div>
   </div>

@@ -30,11 +30,15 @@ app.get("/sitemap.xml", (c) => {
   const latestPost = BLOG_POSTS.map(postLastmod).sort().reverse()[0] ?? HOMEPAGE_UPDATED;
   const urls: Array<{ loc: string; lastmod?: string; changefreq: string; priority: string }> = [
     { loc: `${SITE}/`, lastmod: HOMEPAGE_UPDATED, changefreq: "weekly", priority: "1.0" },
+    // Translations of the English homepage. They stay indexable and keep
+    // their hreflang pair, but they are not what this site wants crawled
+    // first: priority ranks our own URLs against each other, and English
+    // outranks four copies of itself.
     ...LANDING_LANGS.filter((l) => l !== "en").map((l) => ({
       loc: `${SITE}/${l}`,
       lastmod: HOMEPAGE_UPDATED,
       changefreq: "weekly",
-      priority: "0.9",
+      priority: "0.3",
     })),
     { loc: `${SITE}/blog`, lastmod: latestPost, changefreq: "weekly", priority: "0.8" },
     ...BLOG_POSTS.map((p) => ({

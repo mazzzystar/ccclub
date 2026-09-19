@@ -294,6 +294,23 @@ describe("the machine-readable documents are reachable", () => {
     }
   });
 
+  it("ranks English above its own translations without delisting them", async () => {
+    const xml = await (await fetchPath("/sitemap.xml")).text();
+    expect(xml).toContain("<loc>https://ccclub.dev/</loc>");
+    expect(xml).toMatch(/<loc>https:\/\/ccclub\.dev\/<\/loc>[\s\S]*?<priority>1\.0<\/priority>/);
+    for (const lang of LANDING_LANGS.filter((l) => l !== "en")) {
+      // Still listed, still hreflang-paired on the page — just not the URL
+      // we ask a crawler to spend its budget on.
+      expect(xml).toContain(`<loc>https://ccclub.dev/${lang}</loc>`);
+      expect(xml).toMatch(
+        new RegExp(`<loc>https://ccclub\\.dev/${lang}</loc>[^<]*(<[^>]+>[^<]*)*?<priority>0\\.3</priority>`),
+      );
+      const body = await (await fetchPath(`/${lang}`)).text();
+      expect(body).not.toContain('<meta name="robots" content="noindex" />');
+      expect(body).toContain(`<link rel="alternate" hreflang="${lang}" href="https://ccclub.dev/${lang}" />`);
+    }
+  });
+
   it("the landing footer links llms.txt in every language", async () => {
     for (const path of ["/", "/zh", "/ja", "/de", "/ru"]) {
       const body = await (await fetchPath(path)).text();

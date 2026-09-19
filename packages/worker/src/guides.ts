@@ -384,7 +384,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
 
       <ul>
         <li><strong>Model and effort.</strong> The display name Claude Code passes in, with a parenthetical context size shortened so "(200K context)" does not eat the line, followed by the session's reasoning effort level when the current model has one. The effort word is coloured by intensity, so a session left on the highest setting is visible without reading it.</li>
-        <li><strong>Limits.</strong> The percentage of your five-hour window and your seven-day window consumed, plus a third figure when a model-scoped weekly limit applies — labelled with whatever family name the API returns. Each percentage turns amber past 60% and red past 80%, which is the only warning the line gives.</li>
+        <li><strong>Limits.</strong> The percentage of your five-hour window and your seven-day window consumed, plus a third figure when a model-scoped weekly limit applies — labelled with whatever family name the API returns. Each percentage turns amber at 60% and above, and red at 80% and above, which is the only warning the line gives.</li>
         <li><strong>Rank and cost.</strong> Your position on your first group's board for today and today's estimated cost, with the top three positions in gold, silver and bronze. The segment is wrapped in a terminal hyperlink, so in a terminal that supports them the rank is click-through to the group dashboard, and in one that does not it renders as ordinary text.</li>
       </ul>
 

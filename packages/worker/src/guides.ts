@@ -100,6 +100,91 @@ export const GUIDE_PAGES: GuidePage[] = [
     ],
   },
   {
+    slug: "how-to-check-claude-code-usage",
+    metaTitle: "How to Check Claude Code Usage: A Step-by-Step Guide",
+    h1: "How to check Claude Code usage",
+    description:
+      "Check Claude Code usage in order: the built-in /usage screen, the local transcripts, then ccclub for a dated history — and how to read what you get.",
+    datePublished: "2026-09-19",
+    dateModified: "2026-09-19",
+    body: `
+      <p>There is no single place that holds all of it, which is why this question keeps getting asked. What exists is a short ladder: one command that answers it for right now, a directory of files that answers it for the past, and a tool on top of those files if you want the past arranged by day. Work down the ladder and stop at the rung that answers your question — most people never need the bottom one.</p>
+
+      <h2>Step 1: ask Claude Code, in the session</h2>
+
+      <p>Type <code>/usage</code> at the prompt. Anthropic's documentation describes what comes back as session cost, plan usage limits and activity stats, and lists <code>/cost</code> and <code>/stats</code> as aliases that open the same screen — worth knowing, because plenty of older write-ups still present them as three separate features. On a Pro, Max, Team or Enterprise plan the screen also breaks down what has been driving your limits recently, and <kbd>d</kbd> and <kbd>w</kbd> toggle that breakdown between the last 24 hours and the last 7 days.</p>
+
+      <p>Two things that page is explicit about, and that change how much weight to put on the answer: the figures are approximate, and they come from the session history stored on the machine you are sitting at. A second laptop, a work desktop, or anything done on claude.ai is not in them. (<a href="https://code.claude.com/docs/en/costs" rel="noopener">code.claude.com/docs/en/costs</a>, read 2026-09-19.)</p>
+
+      <h2>Step 2: get a written report out of it</h2>
+
+      <p>If you want something to read rather than a screen to squint at, the same documentation describes <code>/insights</code>: it analyses recent sessions on that machine and writes an HTML report to <code>~/.claude/usage-data/report.html</code>, keeping a timestamped copy of each run. Note what it is and is not — the report is about how you work, where requests went wrong and where time went, rather than a token ledger. It also costs tokens to produce, since the analysis runs through your own account.</p>
+
+      <p>For a number that is in front of you permanently instead of on demand, Claude Code passes its status line script a <code>rate_limits</code> object with your five-hour and seven-day percentages, for subscription accounts, after the first API response of a session. Writing that script is a small job, and <a href="/claude-code-statusline">ccclub ships one</a> if you would rather not.</p>
+
+      <h2>Step 3: know where the raw data is</h2>
+
+      <p>Everything past this point reads the same source: the JSONL transcripts Claude Code writes under <code>~/.claude/projects/</code>, one directory per project and one file per session. Every assistant response in those files carries the model it used and its token counts. You can grep them yourself; it is not pleasant, but it means no tool below needs any access you have not already granted it, and it means you can verify any claim any of them makes.</p>
+
+      <p>If you have set <code>CLAUDE_CONFIG_DIR</code>, or your install uses <code>~/.config/claude/projects</code>, that is where to look instead. Tools that read these files check both locations.</p>
+
+      <h2>Step 4: turn the files into a dated history</h2>
+
+      <p>The transcripts have no notion of "last week". Something has to sum them. For your own numbers only, ccusage is the established choice and uploads nothing. For a history that also compares against other people, this is ccclub, and setup is one command:</p>
+
+      <pre><code>npx ccclub init</code></pre>
+
+      <p>That asks for a display name, creates a group with a six-letter invite code, detects which agents you have logs for, and installs the automatic sync. No account, no email, no configuration file to edit. Once it has run:</p>
+
+      <pre><code>ccclub                 # today
+ccclub -d 1            # yesterday
+ccclub -d 7            # last 7 days
+ccclub -d 30           # last 30 days
+ccclub -d all          # everything synced
+ccclub --json          # the same data as JSON, for scripts and agents</code></pre>
+
+      <p>The same periods are on the web page every group gets at <code>ccclub.dev/g/CODE</code>. For the shape of your year rather than a table, <code>ccclub activity</code> draws a heatmap of the last 53 weeks straight from local logs, with no network call at all.</p>
+
+      <h2>Step 5: check what leaves the machine, before it does</h2>
+
+      <p>Anything that compares you with other people has to send something. Run <code>ccclub show-data</code> and it prints the actual payload: the 30-minute blocks, their token counts, the estimated cost, model names, call and turn counts. That is the whole of it — no prompts, no code, no file paths, no project names. Reading that output takes a minute and is a better basis for trusting the tool than any sentence on this page.</p>
+
+      <h2>Step 6: read the number you got</h2>
+
+      <p>Three things trip people up at the end of this, and all three are about interpretation rather than measurement.</p>
+
+      <ul>
+        <li><strong>The big total is mostly cache.</strong> Cache reads and writes are counted alongside input and output, and on long sessions they dominate everything else. <code>ccclub --no-cache</code> drops to input plus output; the two numbers will not be close, and neither is wrong. Why that gap exists is covered in <a href="/claude-code-usage">what a usage number counts</a>.</li>
+        <li><strong>The dollar figure is not a bill.</strong> On a subscription nothing is charged per token, so every tool showing dollars is pricing your tokens at public API list rates. It is a useful unit for comparison and a bad one for accounting — see <a href="/claude-code-cost">how the estimate is built</a>.</li>
+        <li><strong>One machine is one machine.</strong> Both the built-in screen and any local tool see the logs in front of them. If you use Claude Code on two computers, you have two partial answers, and only syncing them somewhere gives you one.</li>
+      </ul>
+
+      <p>And the ceiling question is a different question. If what you actually want to know is how much of your allowance is left rather than how much you have used, that lives in <a href="/claude-code-limits">the rate-limit windows</a>, not in any of the totals above.</p>
+    `,
+    faq: [
+      {
+        q: "What is the fastest way to check Claude Code usage?",
+        a: "Type /usage at the Claude Code prompt. Its documentation describes the screen as session cost, plan usage limits and activity stats, with /cost and /stats as aliases for the same thing. Nothing needs to be installed and it answers the question for the current machine immediately.",
+      },
+      {
+        q: "How do I check Claude Code usage for last week or last month?",
+        a: "The built-in screen covers the recent window, not arbitrary ranges. For dated history, a tool has to sum the local transcripts: ccusage prints daily and monthly tables locally, and ccclub gives you ccclub -d 7, -d 30 and -d all plus the same periods on a web page.",
+      },
+      {
+        q: "Can I check Claude Code usage without installing anything?",
+        a: "Yes — /usage covers the current machine and current window, and the raw transcripts under ~/.claude/projects/ are readable with any tool you already have. You only need something installed when you want those files summed into days, weeks or a comparison.",
+      },
+      {
+        q: "Does checking usage this way share my data with anyone?",
+        a: "Reading /usage and reading your own transcripts share nothing. ccusage documents no upload of your usage. ccclub does upload, because a shared board needs it, but only aggregated numeric blocks — run ccclub show-data to see the exact payload before deciding.",
+      },
+      {
+        q: "Why do two tools give me different Claude Code usage totals?",
+        a: "Almost always because one includes cache tokens in its headline and the other does not, or because one prices tokens at list rates the other does not use. Compare like for like: check whether cache is included, and whether the dollar figure is an estimate or a real charge.",
+      },
+    ],
+  },
+  {
     slug: "claude-code-limits",
     metaTitle: "Claude Code Limits: 5-Hour Window, Weekly Caps & Reset Times",
     h1: "Claude Code limits, explained",

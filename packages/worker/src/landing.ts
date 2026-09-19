@@ -833,7 +833,9 @@ function landingHTML(lang: LandingLang, demoBoard: string | null = null) {
 
     <div class="footer">
       <div class="footer-guides">
-        <a href="/claude-code-usage">Check Claude Code usage</a>
+        <a href="/claude-code-usage">Claude Code usage</a>
+        &nbsp;\u00b7&nbsp;
+        <a href="/how-to-check-claude-code-usage">How to check it</a>
         &nbsp;\u00b7&nbsp;
         <a href="/claude-code-limits">Limits explained</a>
         &nbsp;\u00b7&nbsp;

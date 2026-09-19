@@ -413,7 +413,8 @@ export const LLMS_TXT = `# ccclub
 
 ## Guides
 
-- [How to check Claude Code usage](https://ccclub.dev/claude-code-usage): /usage, /stats, local logs, and tools
+- [Claude Code usage explained](https://ccclub.dev/claude-code-usage): What the tokens, cost and turn counts mean
+- [How to check Claude Code usage](https://ccclub.dev/how-to-check-claude-code-usage): Step by step, built-in commands first
 - [Claude Code limits explained](https://ccclub.dev/claude-code-limits): 5-hour window, weekly caps, tracking
 - [Claude Code statusline](https://ccclub.dev/claude-code-statusline): What ccclub shows in it, and how it refreshes
 - [How to track Codex usage](https://ccclub.dev/codex-usage): /status, local logs, tools

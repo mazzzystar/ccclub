@@ -63,9 +63,9 @@ export const GUIDE_PAGES: GuidePage[] = [
 
       <h2>What Claude Code reports about itself</h2>
 
-      <p><code>/usage</code> inside Claude Code is the first-party view, and its documentation lists <code>/cost</code> and <code>/stats</code> as aliases that open the very same screen. What that screen carries is a cost figure for the current session, bars for your plan's allowances, and activity statistics. Paid plans get one thing more: recent consumption attributed to skills, subagents, plugins and individual MCP servers. That answers a question none of the columns discussed here do — not how much, but which part of your setup is responsible for it.</p>
+      <p><code>/usage</code> inside Claude Code is the first-party view, and Anthropic's command reference lists <code>/cost</code> and <code>/stats</code> as aliases that open the very same screen, described there as session cost, plan usage limits and activity stats. (<a href="https://code.claude.com/docs/en/commands" rel="noopener">code.claude.com/docs/en/commands</a>, read 2026-09-19.) Paid plans get one thing more: recent consumption attributed to skills, subagents, plugins and individual MCP servers. That answers a question none of the columns discussed here do — not how much, but which part of your setup is responsible for it.</p>
 
-      <p>Two qualifications, both from that same documentation. It calls its figures approximate rather than exact. And the breakdown is derived locally, from the transcripts on one computer, so a second machine or anything done in the Claude app is simply outside its field of view. (<a href="https://code.claude.com/docs/en/costs" rel="noopener">code.claude.com/docs/en/costs</a>, read 2026-09-19.)</p>
+      <p>Two qualifications, both from the cost documentation rather than the command reference. It calls its figures approximate rather than exact. And the breakdown is derived locally, from the transcripts on one computer, so a second machine or anything done in the Claude app is simply outside its field of view. (<a href="https://code.claude.com/docs/en/costs" rel="noopener">code.claude.com/docs/en/costs</a>, read 2026-09-19.)</p>
 
       <h2>Where the raw records live</h2>
 
@@ -115,9 +115,9 @@ export const GUIDE_PAGES: GuidePage[] = [
 
       <h2>Step 1: ask Claude Code, in the session</h2>
 
-      <p>Type <code>/usage</code> at the prompt. Anthropic's documentation describes what comes back as session cost, plan usage limits and activity stats, and lists <code>/cost</code> and <code>/stats</code> as aliases that open the same screen — worth knowing, because plenty of older write-ups still present them as three separate features. On a Pro, Max, Team or Enterprise plan the screen also breaks down what has been driving your limits recently, and <kbd>d</kbd> and <kbd>w</kbd> toggle that breakdown between the last 24 hours and the last 7 days.</p>
+      <p>Type <code>/usage</code> at the prompt. Anthropic's command reference describes what comes back as session cost, plan usage limits and activity stats, and lists <code>/cost</code> and <code>/stats</code> as aliases that open the same screen — worth knowing, because plenty of older write-ups still present them as three separate features. (<a href="https://code.claude.com/docs/en/commands" rel="noopener">code.claude.com/docs/en/commands</a>, read 2026-09-19.) On a Pro, Max, Team or Enterprise plan the screen also breaks down what has been driving your limits recently, and <kbd>d</kbd> and <kbd>w</kbd> toggle that breakdown between the last 24 hours and the last 7 days.</p>
 
-      <p>Two things that page is explicit about, and that change how much weight to put on the answer: the figures are approximate, and they come from the session history stored on the machine you are sitting at. A second laptop, a work desktop, or anything done on claude.ai is not in them. (<a href="https://code.claude.com/docs/en/costs" rel="noopener">code.claude.com/docs/en/costs</a>, read 2026-09-19.)</p>
+      <p>Two things the cost documentation is explicit about, and that change how much weight to put on the answer: the figures are approximate, and they come from the session history stored on the machine you are sitting at. A second laptop, a work desktop, or anything done on claude.ai is not in them. (<a href="https://code.claude.com/docs/en/costs" rel="noopener">code.claude.com/docs/en/costs</a>, read 2026-09-19.)</p>
 
       <h2>Step 2: get a written report out of it</h2>
 
@@ -200,7 +200,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
 
       <h2>The rolling 5-hour session window</h2>
 
-      <p>The shortest ceiling is a session window: a rolling five-hour allowance that starts with your first message and carries everything you send until it expires. It is not a daily quota. If you work in bursts, several complete windows fit inside one day, and a window you opened at 09:14 is gone by 14:14 whether or not you used any of it. Claude Code's status-line payload exposes this window as <code>rate_limits.five_hour</code>, carrying a percentage from 0 to 100 and a <code>resets_at</code> timestamp in epoch seconds.</p>
+      <p>The shortest ceiling is a session window, and Claude Code's status-line documentation is where its shape is written down: a rolling five-hour window, exposed to a status line as <code>rate_limits.five_hour</code> with a used percentage from 0 to 100 and a <code>resets_at</code> timestamp in epoch seconds. Rolling is the word that matters — it is not a daily quota, it has no calendar boundary, and several complete windows can pass inside one working day. Where yours ends is what <code>resets_at</code> reports, and what <code>/usage</code> shows as a reset time. (<a href="https://code.claude.com/docs/en/statusline" rel="noopener">code.claude.com/docs/en/statusline</a>, read 2026-09-19.)</p>
 
       <h2>The weekly window on top of it</h2>
 
@@ -220,7 +220,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
 
       <h2>When the limits reset</h2>
 
-      <p>Neither clock is tied to the calendar. The session window resets five hours after the message that opened it; the weekly window runs on your account's own seven-day schedule. Both reset times are in <code>/usage</code>, and both are in the status-line payload as Unix timestamps, which is what lets a status line count down to them. If the usage endpoint is itself rate limited when you ask, Anthropic's documentation says <code>/usage</code> falls back to the last bars it loaded on that machine within the past hour and labels them as last-known rather than pretending they are live.</p>
+      <p>Neither clock is tied to the calendar. The five-hour window rolls, and the weekly window runs on your account's own seven-day schedule; neither turns over at midnight. Both reset times are in <code>/usage</code>, and both are in the status-line payload as Unix timestamps, which is what lets a status line count down to them. If the usage endpoint is itself rate limited when you ask, Anthropic's cost documentation says <code>/usage</code> falls back to the last bars it loaded on that machine within the past 60 minutes and labels them as last-known rather than pretending they are live. (<a href="https://code.claude.com/docs/en/costs" rel="noopener">code.claude.com/docs/en/costs</a>, read 2026-09-19.)</p>
 
       <h2>What the limits actually count</h2>
 
@@ -250,11 +250,11 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
     faq: [
       {
         q: "How does the Claude Code 5-hour limit work?",
-        a: "Your first message opens a rolling five-hour session window, and everything sent inside it counts against a session allowance. When that runs out, Claude Code blocks further requests until the reset time shown in the message. The session allowance is shared across models, so switching models does not restore access.",
+        a: "It is a rolling five-hour window with its own allowance, which Claude Code exposes to a status line as rate_limits.five_hour — a used percentage and a resets_at timestamp. When the allowance runs out, Claude Code blocks further requests until the reset time shown in the message. The session allowance is shared across models, so switching models does not restore access.",
       },
       {
         q: "When does the Claude Code limit reset?",
-        a: "The session window resets five hours after the message that opened it — not at midnight and not on a fixed server schedule. The weekly window runs on your account's own seven-day cycle. /usage shows the exact reset time for both, and the status-line payload carries them as Unix timestamps.",
+        a: "Not at midnight, and not on a fixed server schedule: the five-hour window rolls and the weekly window runs on your account's own seven-day cycle. /usage shows the exact reset time for both, and the status-line payload carries them as resets_at Unix timestamps.",
       },
       {
         q: "Is the Claude Code session limit daily?",

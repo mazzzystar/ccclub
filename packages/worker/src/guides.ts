@@ -520,7 +520,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
           <tr><td>Usage leaves your machine</td><td>No upload documented</td><td>Numeric summaries only</td></tr>
           <tr><td>Account required</td><td>No</td><td>No (6-letter invite code)</td></tr>
           <tr><td>Report granularity</td><td>Daily / weekly / monthly / session / 5-hour blocks</td><td>Today / yesterday / 7d / 30d / all-time</td></tr>
-          <tr><td>Web dashboard</td><td>No (terminal tables, plus a Claude Code statusline)</td><td>Yes, live per group</td></tr>
+          <tr><td>Web dashboard</td><td>No (terminal tables, plus a Claude Code statusline its README marks beta)</td><td>Yes, live per group</td></tr>
           <tr><td>Auto-sync</td><td>n/a (run on demand)</td><td>Yes (hook + background)</td></tr>
           <tr><td>Agent coverage</td><td>18 sources listed in its README</td><td>Claude Code, Codex, OpenCode, Amp, Grok, Pi, Cursor</td></tr>
           <tr><td>License</td><td>MIT</td><td>MIT</td></tr>

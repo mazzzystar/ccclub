@@ -183,6 +183,55 @@ describe("titles and descriptions fit a search result", () => {
   }
 });
 
+/** Rendered prose of a page: body plus the FAQ, markup and code blocks out. */
+function proseOf(html: string): string {
+  return html
+    .replace(/<pre[\s\S]*?<\/pre>/g, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&[a-z]+;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+describe("each guide is long enough to answer, and written only once", () => {
+  const prose = new Map(
+    GUIDE_PAGES.map((g) => [
+      `/${g.slug}`,
+      `${proseOf(g.body)} ${g.faq.map((f) => `${f.q} ${f.a}`).join(" ")}`,
+    ]),
+  );
+
+  for (const [path, text] of prose) {
+    it(`${path} carries enough of its own prose`, () => {
+      const words = text.split(/\s+/).filter(Boolean).length;
+      expect(words, `${path} is thin: ${words} words`).toBeGreaterThanOrEqual(400);
+      expect(words, `${path} is bloated: ${words} words`).toBeLessThanOrEqual(1800);
+    });
+  }
+
+  it("shares no twelve-word run between any two pages", () => {
+    // Google folds near-duplicates, so a paragraph reused across pages costs
+    // one of them. Twelve words is long enough that a collision is copying
+    // rather than coincidence.
+    const N = 12;
+    const owner = new Map<string, string>();
+    const shared: string[] = [];
+    for (const [path, text] of prose) {
+      const words = text.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
+      const local = new Set<string>();
+      for (let i = 0; i + N <= words.length; i++) {
+        const shingle = words.slice(i, i + N).join(" ");
+        if (local.has(shingle)) continue;
+        local.add(shingle);
+        const prior = owner.get(shingle);
+        if (prior == null) owner.set(shingle, path);
+        else if (prior !== path) shared.push(`${prior} + ${path}: "${shingle}"`);
+      }
+    }
+    expect(shared, shared.slice(0, 5).join("\n")).toHaveLength(0);
+  });
+});
+
 describe("the pages that rank without being clicked", () => {
   it("/ccusage-vs-ccclub answers the ccusage query family in its title", async () => {
     const { title, description } = await headOf("/ccusage-vs-ccclub");

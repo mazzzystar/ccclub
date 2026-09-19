@@ -501,6 +501,7 @@ function activityPageHTML(handle: string, ogTitle: string, ogDesc: string) {
   <meta name="robots" content="noindex" />
   <meta name="theme-color" content="#1a1816" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-RG2RD9V66M"></script>
   <script>

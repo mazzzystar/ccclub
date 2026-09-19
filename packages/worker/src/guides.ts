@@ -63,7 +63,9 @@ export const GUIDE_PAGES: GuidePage[] = [
 
       <h2>What Claude Code reports about itself</h2>
 
-      <p><code>/usage</code> inside Claude Code is the first-party view. Anthropic's documentation describes it as showing session cost, plan usage limits and activity stats, with <code>/cost</code> and <code>/stats</code> documented as aliases for the same screen. On a Pro, Max, Team or Enterprise plan it adds a breakdown of what is driving your limits, and <kbd>d</kbd> / <kbd>w</kbd> switch that breakdown between the last 24 hours and the last 7 days. Two caveats come straight from the same page: the figures are approximate, and they are computed from the session history on that machine, so work done on another laptop or on claude.ai is not in them. (<a href="https://code.claude.com/docs/en/costs" rel="noopener">code.claude.com/docs/en/costs</a>, read 2026-09-19.)</p>
+      <p><code>/usage</code> inside Claude Code is the first-party view, and its documentation lists <code>/cost</code> and <code>/stats</code> as aliases that open the very same screen. What that screen carries is a cost figure for the current session, bars for your plan's allowances, and activity statistics. Paid plans get one thing more: recent consumption attributed to skills, subagents, plugins and individual MCP servers. That answers a question none of the columns discussed here do — not how much, but which part of your setup is responsible for it.</p>
+
+      <p>Two qualifications, both from that same documentation. It calls its figures approximate rather than exact. And the breakdown is derived locally, from the transcripts on one computer, so a second machine or anything done in the Claude app is simply outside its field of view. (<a href="https://code.claude.com/docs/en/costs" rel="noopener">code.claude.com/docs/en/costs</a>, read 2026-09-19.)</p>
 
       <h2>Where the raw records live</h2>
 
@@ -76,7 +78,7 @@ export const GUIDE_PAGES: GuidePage[] = [
     faq: [
       {
         q: "How do I see my Claude Code usage quickly?",
-        a: "Run /usage inside Claude Code: its documentation describes the screen as session cost, plan usage limits and activity stats, with /cost and /stats as aliases. Nothing needs installing, and on a paid plan the same screen breaks down what is driving your limits.",
+        a: "Run /usage inside Claude Code. The documentation lists /cost and /stats as aliases reaching the very same screen, which carries a cost figure for the current session, bars for your plan allowances, and activity statistics. On a paid plan it also attributes recent consumption to skills, subagents and MCP servers.",
       },
       {
         q: "Where does Claude Code store usage logs locally?",
@@ -228,7 +230,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
 
       <p>ccclub does not scrape <code>/usage</code> or guess from your logs. During a sync it asks Anthropic's own usage endpoint for your percentages, authenticating with the OAuth credentials Claude Code already stored in the macOS Keychain — no second login, and the token never leaves the machine. It reads the five-hour and seven-day utilisation figures from that response, plus any model-scoped weekly entry, and writes them to a small cache under <code>~/.ccclub/</code> with a five-minute freshness window. The <a href="/claude-code-statusline">Claude Code statusline</a> then renders that cache without ever making a request of its own.</p>
 
-      <p>Three honest limitations follow from that design. It is macOS-only, because the Keychain is where the credential lives. It covers Claude only — no other agent ccclub tracks exposes an equivalent endpoint. And it is a periodic reading rather than a live monitor: past three hours the numbers render dimmed with a trailing marker, and past twelve hours they disappear, because by then the five-hour window has turned over completely and a stale figure would be a lie rather than an old truth. If you want alerts or burn-rate predictions, a dedicated real-time monitor is the right tool, not this.</p>
+      <p>Three honest limitations follow from that design. It is macOS-only, because the Keychain is where the credential lives. It covers Claude only — no other agent ccclub tracks exposes an equivalent endpoint. And it is a periodic reading rather than a live monitor: past three hours the numbers render dimmed with a trailing marker, and past twelve they are not shown at all, since a percentage that old describes a window which has since emptied and refilled. If you want alerts or burn-rate predictions, a dedicated real-time monitor is the right tool, not this.</p>
 
       <h2>What to do when you are close</h2>
 
@@ -402,9 +404,9 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
 
       <h2>What a slept-through night does to it</h2>
 
-      <p>Both of those triggers stop while the machine is asleep — the hooks need a turn to end, and the periodic agent is suppressed outright. On this laptop that measured as gaps of forty minutes in normal use and eight hours across a night. The result used to be a limits segment that simply vanished for hours the morning after, with nothing to explain why.</p>
+      <p>Both triggers stop while the machine is asleep — a hook needs a turn to end, and the periodic agent is suppressed outright. Measured on one laptop, that meant effective gaps of about forty minutes in ordinary use and eight hours across a night, and the old result was a limits segment that vanished for hours the next morning with nothing to explain why.</p>
 
-      <p>Two changes fixed that, and both are visible in the line. Readings older than three hours still render, but dimmed and with a trailing tilde: visibly not live, and better than nothing. Past twelve hours they are dropped, because by then the five-hour window has turned over completely and an old percentage would be a false statement rather than a stale one. Separately, the statusline itself now starts a background sync when it notices the cache has gone stale — after the line is already on stdout, never before, and at most once every five minutes however those syncs turn out. The machine heals itself within a turn or two of waking up.</p>
+      <p>Two changes fixed it, both visible in the line. A reading older than three hours still renders, dimmed and with a trailing tilde: plainly not live, still better than a gap. Past twelve hours it is dropped, because by then the window it describes has emptied and refilled and the figure would be false rather than merely old. And the statusline now kicks off a background sync when it sees the cache has aged — after the line is already on stdout, never before, and no more than once every five minutes however those syncs turn out. A machine that slept heals itself within a turn or two of waking.</p>
 
       <h2>What it never does</h2>
 

@@ -155,6 +155,7 @@ describe("the single-intent pages are registered everywhere", () => {
   const registered = [
     { slug: "claude-code-statusline", inLlms: "Claude Code statusline" },
     { slug: "how-to-check-claude-code-usage", inLlms: "How to check Claude Code usage" },
+    { slug: "claude-code-cost", inLlms: "Claude Code cost" },
   ];
 
   for (const { slug, inLlms } of registered) {

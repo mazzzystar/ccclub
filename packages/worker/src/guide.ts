@@ -416,6 +416,7 @@ export const LLMS_TXT = `# ccclub
 - [Claude Code usage explained](https://ccclub.dev/claude-code-usage): What the tokens, cost and turn counts mean
 - [How to check Claude Code usage](https://ccclub.dev/how-to-check-claude-code-usage): Step by step, built-in commands first
 - [Claude Code limits explained](https://ccclub.dev/claude-code-limits): 5-hour window, weekly caps, tracking
+- [Claude Code cost](https://ccclub.dev/claude-code-cost): How the dollar estimate is built, and why it is not a bill
 - [Claude Code statusline](https://ccclub.dev/claude-code-statusline): What ccclub shows in it, and how it refreshes
 - [How to track Codex usage](https://ccclub.dev/codex-usage): /status, local logs, tools
 - [ccusage vs ccclub](https://ccclub.dev/ccusage-vs-ccclub): Honest comparison

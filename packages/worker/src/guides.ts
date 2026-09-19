@@ -284,6 +284,85 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
     ],
   },
   {
+    slug: "claude-code-cost",
+    metaTitle: "Claude Code Cost: How Much Am I Actually Spending?",
+    h1: "Claude Code cost, and what the number means",
+    description:
+      "How a Claude Code cost figure is built — list-price table, the four token buckets, provider-reported costs — and why on a subscription it is not a bill.",
+    datePublished: "2026-09-19",
+    dateModified: "2026-09-19",
+    body: `
+      <p>Every tool in this space will show you a dollar figure, and almost none of them are showing you what you paid. That is not dishonesty; it is the only thing they can compute. Understanding the gap is the difference between a number you can act on and a number that just makes you anxious. This page is about how ccclub builds its figure, line by line, and what you can legitimately conclude from yours.</p>
+
+      <h2>On a subscription, nobody is charging you per token</h2>
+
+      <p>If you are on Pro or Max, your tokens are not priced individually by anyone. The dollar amount any tracker shows is what those tokens <em>would have cost</em> had they been billed at public API list rates. Call it API-equivalent value. It is a real quantity and a useful one — it is comparable across days, across people and against a monthly plan price — but it is not an invoice and nothing reconciles against it.</p>
+
+      <p>Claude Code says the same thing about its own screen. Its cost documentation describes the session figure as computed locally from token counts at list price, calls it an estimate, and points at the Console's usage page for authoritative billing. (<a href="https://code.claude.com/docs/en/costs" rel="noopener">code.claude.com/docs/en/costs</a>, read 2026-09-19.) Any tool reading the same logs inherits the same caveat.</p>
+
+      <h2>Where the prices come from</h2>
+
+      <p>ccclub ships with a price table baked into the package, so a fresh install can compute costs before it has spoken to anything. On top of that it fetches an updated table from <code>ccclub.dev/api/pricing</code> at most once a day, using a conditional request so an unchanged table costs a round trip and nothing more. The server side of that endpoint refreshes nightly from the LiteLLM price feed. The fetched table is overlaid on the bundled one rather than replacing it, so a model the feed has dropped keeps its price instead of silently becoming free.</p>
+
+      <p>Two consequences worth knowing. The table is keyed by normalised model ID, and a dated or suffixed variant the feed has not picked up yet falls back to a representative model from the same family — usually correct, and a great deal better than counting those tokens at zero. And because the fetch is never on the critical path, being offline does not break cost calculation; you simply keep using the table you already had.</p>
+
+      <h2>The formula</h2>
+
+      <p>Prices are per million tokens, and each bucket is charged at its own rate:</p>
+
+      <pre><code>cost = ( input       x input rate
+       + output      x output rate
+       + cache write x cache-write rate
+       + cache read  x cache-read rate ) / 1,000,000</code></pre>
+
+      <p>Three refinements sit on top of that. Cache writes made with a one-hour lifetime carry a premium over the standard write rate, so ccclub prices every write at the standard rate and then adds the difference for the one-hour subset only, clamped so a malformed log cannot claim more long-lived writes than it reported writes. Models that price the whole request differently once its input passes a threshold switch every rate for that request rather than applying a marginal band. And reasoning tokens, where a source reports them separately, are charged at the output rate.</p>
+
+      <p>The arithmetic happens once, in the collector that parsed the entry, and the result is summed into 30-minute blocks. That is deliberate: the raw token counts are what gets stored, so a corrected price table can reprice history without anyone re-reading multi-gigabyte logs.</p>
+
+      <h2>When the source reports its own cost</h2>
+
+      <p>Some agents write a cost into their own logs. Where a source has historically treated that number as authoritative, ccclub uses it in preference to its own calculation — the provider knows its contract and ccclub only knows a public rate card. The rule is presence, not truthiness: a reported zero is a real answer, meaning the request was included and cost nothing, and the price table would have invented a figure instead, because its fallbacks never return zero. A negative number is not a price at all — a refund line, or a parser reading the wrong field — so it is treated as absent and the calculated cost wins.</p>
+
+      <h2>The ROI column</h2>
+
+      <p>If you tell ccclub which plan you are on, the leaderboard adds a column comparing the two. Set it with <code>ccclub profile --plan pro</code>, <code>max100</code>, <code>max200</code> or <code>api</code>. The definition is exactly one division: your estimated cost over the last 30 days, divided by the plan's monthly price, as a percentage. A row reading <code>$200/1610%</code> means a $200 plan against $3,220 of tracked usage at list prices.</p>
+
+      <p>It is a blunt instrument and worth naming the ways it misleads. It is denominated in list prices, so it inherits every caveat above. It counts every agent ccclub tracks, not only the one your plan pays for, which flatters anyone running several. And a percentage below 100 does not mean you are wasting money — plenty of people get their money's worth from a plan they use lightly but at exactly the right moments.</p>
+
+      <h2>How to read your own number</h2>
+
+      <p>Do not go looking for a normal figure to compare against; the spread between people doing similar work is enormous, and ccclub is not going to invent a benchmark for you. Anthropic's cost documentation does publish one calibration point, for enterprise deployments — an average of around $13 per developer per active day — but that population is nothing like someone on a personal plan, and reading it as a target would be a mistake.</p>
+
+      <p>Your own number is more useful read as a trend and a ratio. Compare this week with last week rather than with anyone else. Watch the <code>$/Turn</code> column, which divides cost by the messages you actually typed: when it climbs, it usually means sessions are running longer before you clear them, not that the work got harder. And if you want the comparison against other people anyway, that is what a group board is for — a handful of people you know is a far better reference class than an average.</p>
+
+      <h2>What it will never tell you</h2>
+
+      <p>Not real spending, not per-project attribution, and not whether the money was well spent. ccclub has no per-project cost report at all: the project chips on a leaderboard row are labels a member attaches to themselves, never anything derived from usage. And cost, like tokens, is a measure of activity. A cheap week where the right thing shipped beats an expensive one, and no column here can tell the difference.</p>
+    `,
+    faq: [
+      {
+        q: "Is the Claude Code cost shown by usage tools my real bill?",
+        a: "Not on a subscription. Pro and Max do not charge per token, so any dollar figure is your tokens priced at public API list rates — API-equivalent value, not an invoice. Claude Code describes its own session cost figure the same way and points at the Console for authoritative billing.",
+      },
+      {
+        q: "How does ccclub calculate cost?",
+        a: "Each token bucket is multiplied by its own per-million-token rate — input, output, cache write and cache read — with a premium added for one-hour cache writes and whole-request rates for models that price long context differently. Prices come from a bundled table overlaid with a daily refresh from the ccclub pricing endpoint.",
+      },
+      {
+        q: "Why does ccclub sometimes use a cost from the agent instead of calculating one?",
+        a: "Because some sources write an authoritative cost into their own logs, and the provider knows its own contract. A reported zero is honoured as a real answer, since the price table's fallbacks never return zero; a negative value is treated as missing and the calculated cost is used instead.",
+      },
+      {
+        q: "What does the ROI percentage on the leaderboard mean?",
+        a: "Estimated cost over the last 30 days divided by your plan's monthly price. $200/1610% means $3,220 of tracked usage at list prices against a $200 plan. It counts every agent ccclub tracks, not just the one your plan pays for, so read it as a rough ratio rather than a return.",
+      },
+      {
+        q: "How much should Claude Code cost per month?",
+        a: "There is no useful answer to that as a benchmark — the spread between people doing similar work is very wide. Read your own figure as a trend instead: this week against last week, and the $/Turn column, which usually rises because sessions are running long rather than because the work got harder.",
+      },
+    ],
+  },
+  {
     slug: "claude-code-statusline",
     metaTitle: "Claude Code Statusline: Limits, Rank and Cost in One Line",
     h1: "Claude Code statusline: what ccclub puts there",

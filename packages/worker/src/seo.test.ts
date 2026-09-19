@@ -119,6 +119,33 @@ describe("titles and descriptions fit a search result", () => {
   }
 });
 
+describe("the pages that rank without being clicked", () => {
+  it("/ccusage-vs-ccclub answers the ccusage query family in its title", async () => {
+    const { title, description } = await headOf("/ccusage-vs-ccclub");
+    expect(title).toContain("ccusage alternative");
+    expect(title).toContain("vs");
+    // The description has to say what each tool is for, not that a
+    // comparison exists.
+    expect(description).toContain("ccusage reports your own local usage");
+  });
+
+  it("/claude-code-leaderboards names who the board is for", async () => {
+    const { title, description } = await headOf("/claude-code-leaderboards");
+    expect(title).toMatch(/leaderboard/i);
+    expect(title).toMatch(/private/i);
+    expect(description).toMatch(/friends or teammates/);
+  });
+
+  it("/guides names the guides instead of the word Guides", async () => {
+    const { title, description } = await headOf("/guides");
+    expect(title).toMatch(/Claude Code/);
+    expect(title).toMatch(/Codex/);
+    for (const term of ["Claude Code usage", "limits", "Codex", "ccusage vs ccclub", "leaderboards"]) {
+      expect(description).toContain(term);
+    }
+  });
+});
+
 describe("the machine-readable documents are reachable", () => {
   it("sitemap.xml lists them with a real lastmod", async () => {
     const xml = await (await fetchPath("/sitemap.xml")).text();

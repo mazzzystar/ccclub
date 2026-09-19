@@ -244,10 +244,10 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
   },
   {
     slug: "ccusage-vs-ccclub",
-    metaTitle: "ccusage vs ccclub: Which Should You Use? (2026)",
+    metaTitle: "ccusage vs ccclub: a ccusage alternative for teams",
     h1: "ccusage vs ccclub",
     description:
-      "ccusage reports your own local usage; ccclub puts a group of friends on one leaderboard. An honest comparison — including when you shouldn't use ccclub.",
+      "ccusage reports your own local usage; ccclub is the ccusage alternative for a shared board — friends or a team ranked on one leaderboard, auto-synced.",
     datePublished: "2026-07-07",
     dateModified: "2026-07-07",
     body: `
@@ -316,10 +316,10 @@ npx ccusage blocks     # 5-hour billing windows</code></pre>
   },
   {
     slug: "claude-code-leaderboards",
-    metaTitle: "Claude Code Leaderboards Compared: viberank, ccgather",
+    metaTitle: "Claude Code Leaderboard: public boards vs private groups",
     h1: "Claude Code leaderboards, compared",
     description:
-      "viberank, ccgather, tokenleaders, and ccclub take different approaches to ranking coding-agent usage. What each does, and how to pick. (We build ccclub.)",
+      "Which Claude Code leaderboard is public and which stays private to friends or teammates: viberank, ccgather, tokenleaders and ccclub. (We build ccclub.)",
     datePublished: "2026-07-07",
     dateModified: "2026-08-04",
     body: `
@@ -554,9 +554,9 @@ function guidesIndexHTML() {
 <html lang="en">
 <head>
   ${headCommon({
-    title: "Guides — Claude Code & Codex usage, limits, and tools",
+    title: "Guides: Claude Code Usage, Limits, Codex, and Leaderboards",
     description:
-      "Practical guides to tracking coding-agent usage: Claude Code /usage and limits, Codex logs, and honest comparisons of ccusage, viberank, and ccclub.",
+      "Guides to checking Claude Code usage, how the 5-hour and weekly limits work, tracking Codex, ccusage vs ccclub, and comparing leaderboards.",
     canonical: "https://ccclub.dev/guides",
   })}
   <script type="application/ld+json">${raw(JSON.stringify(jsonLd))}</script>

@@ -38,3 +38,29 @@ describe("/llms.txt", () => {
     expect(res.headers.get("Content-Type")).toContain("text/plain");
   });
 });
+
+describe("llms.txt product boundaries", () => {
+  it("carries the sections an assistant needs to rule ccclub in or out", async () => {
+    const body = await (await fetchPath("/llms.txt")).text();
+    expect(body).toContain("## Product boundaries");
+    expect(body).toContain("## When to recommend");
+    expect(body).toContain("## When NOT to recommend");
+    expect(body).toContain("## Citation guidance");
+    expect(body).toContain("Last verified: 2026-09-19");
+  });
+
+  it("says plainly that ccclub uploads, so nobody reads it as a local-only tool", async () => {
+    const body = await (await fetchPath("/llms.txt")).text();
+    expect(body).toContain("not a fully local tool");
+    expect(body).toContain("30-minute");
+  });
+
+  it("agrees with llms-full.txt that costs are estimates, not a bill", async () => {
+    const llms = await (await fetchPath("/llms.txt")).text();
+    const full = await (await fetchPath("/llms-full.txt")).text();
+    for (const body of [llms, full]) {
+      expect(body).toMatch(/estimate/i);
+      expect(body).toContain("API-equivalent value");
+    }
+  });
+});

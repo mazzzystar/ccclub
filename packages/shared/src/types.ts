@@ -277,6 +277,13 @@ export interface SyncRequest {
 }
 export interface SyncResponse {
   synced: number;
+  /**
+   * Set when the upload merged to exactly what was already stored, so the
+   * server skipped the `usage:` write and every `last_sync:` cache
+   * invalidation. Purely informational — clients read `synced` and may ignore
+   * this — but it is part of the contract, not an ad-hoc extra field.
+   */
+  unchanged?: boolean;
 }
 
 // API: POST /api/profile

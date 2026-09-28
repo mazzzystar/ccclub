@@ -1,5 +1,7 @@
 import type { Context } from "hono";
+import type { UsageSnapshot } from "@ccclub/shared";
 import type { Env } from "../types.js";
+import { sameUsageLimits } from "./sync.js";
 
 export async function usageRoute(c: Context<{ Bindings: Env }>) {
   const auth = c.req.header("Authorization") ?? "";
@@ -26,7 +28,20 @@ export async function usageRoute(c: Context<{ Bindings: Env }>) {
     snapshotAt: (usageSnapshot as any).snapshotAt as string,
   };
 
-  const existing = (await c.env.KV.get<object>(`usage:${user.userId}`, "json")) ?? {};
+  const existing = (await c.env.KV.get<{ usageSnapshot?: UsageSnapshot }>(`usage:${user.userId}`, "json")) ?? {};
+
+  // Same no-op guard as POST /api/sync, and for the same reason. This is the
+  // idle branch of `ccclub sync`: with no new blocks to upload the CLI posts
+  // here every 5 minutes and then immediately calls GET /api/rank/<code>. By
+  // then the cached ranking is ~300 s old — past the age floor — so the
+  // `last_sync:` bump below would win and force a full per-member fan-out,
+  // every heartbeat, for a user who has not coded since. Quota percentages
+  // that have not moved are not news; `snapshotAt` alone is a clock reading
+  // nothing reads back, so it rides along until they do.
+  if (sameUsageLimits(existing.usageSnapshot, snap)) {
+    return c.json({ ok: true, unchanged: true });
+  }
+
   await c.env.KV.put(`usage:${user.userId}`, JSON.stringify({ ...existing, usageSnapshot: snap }));
 
   // Invalidate rank cache so next fetch sees updated usage

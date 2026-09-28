@@ -1,13 +1,68 @@
 import { Hono } from "hono";
 import type { Env } from "../types.js";
 import { AGENT_SOURCES } from "@ccclub/shared";
-import type { UserRecord, UsageData, SyncResponse, SyncRequest } from "@ccclub/shared";
+import type { UserRecord, UsageData, UsageSnapshot, SyncResponse, SyncRequest } from "@ccclub/shared";
 import { mergeUsageBlocks } from "../usage-merge.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
 function isNonNegativeFinite(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+/**
+ * Whether two usage snapshots carry the same quota readings.
+ *
+ * `snapshotAt` is deliberately ignored. It is a clock reading the CLI
+ * refreshes at least every 5 minutes, so comparing it would mean a
+ * snapshot-carrying user — the common case — never reaches the no-op path
+ * below, which is exactly the shape of an idle heartbeat we are here to make
+ * free. Nothing ever reads `snapshotAt` back: POST /api/sync and POST
+ * /api/usage write it and no reader consumes it, so letting a newer one ride
+ * along unwritten until the percentages actually move costs nothing.
+ *
+ * Exported because POST /api/usage applies the very same guard.
+ */
+export function sameUsageLimits(
+  a: UsageSnapshot | undefined,
+  b: UsageSnapshot | undefined,
+): boolean {
+  if (a == null || b == null) return a == null && b == null;
+  return a.fiveHour === b.fiveHour && a.sevenDay === b.sevenDay;
+}
+
+/**
+ * Whether the record we are about to store carries nothing the stored one
+ * already has.
+ *
+ * The heartbeat syncs every 5 minutes whether or not the user coded since, so
+ * most uploads re-send blocks the server already holds: the merge reproduces
+ * exactly what is stored, and the `usage:` put plus one `last_sync:<code>` put
+ * per group are pure churn. Worse, those `last_sync:` bumps invalidate every
+ * one of that user's group ranking caches, forcing a full per-member fan-out
+ * on the next read. Skipping them is the difference between "a sync happened"
+ * and "the numbers changed".
+ *
+ * `lastSync` is deliberately excluded from the comparison: it is a clock
+ * reading, not data, and is the one field that differs on every single
+ * request. The visible consequence is that `usage.lastSync` now means "last
+ * sync that changed something"; it only ever surfaces as the last-active
+ * fallback for a member with no usage blocks at all. `usageSnapshot.snapshotAt`
+ * is excluded for the same reason — see `sameUsageLimits`, which compares the
+ * two quota percentages and nothing else.
+ *
+ * Serialized comparison rather than a field-by-field walk: both sides come
+ * from the same CLI serialization — the stored copy is a `JSON.stringify` of
+ * an earlier upload, and `merged` reuses those very block objects for anything
+ * this upload did not touch — so key order matches. Were it ever to differ,
+ * the only cost is a write we could have skipped, never a write we should have
+ * made.
+ */
+function isUnchanged(next: UsageData, stored: UsageData): boolean {
+  if (next.blocks.length !== stored.blocks.length) return false;
+  if (next.syncFormatVersion !== stored.syncFormatVersion) return false;
+  if (!sameUsageLimits(next.usageSnapshot, stored.usageSnapshot)) return false;
+  return JSON.stringify(next.blocks) === JSON.stringify(stored.blocks);
 }
 
 // POST /api/sync - Upload usage blocks
@@ -97,10 +152,8 @@ app.post("/sync", async (c) => {
   }
 
   // Get existing usage data
-  const existing = (await c.env.KV.get<UsageData>(`usage:${user.userId}`, "json")) || {
-    blocks: [],
-    lastSync: "",
-  };
+  const stored = await c.env.KV.get<UsageData>(`usage:${user.userId}`, "json");
+  const existing: UsageData = stored || { blocks: [], lastSync: "" };
   if (
     existing.syncFormatVersion != null &&
     (syncFormatVersion == null || syncFormatVersion < existing.syncFormatVersion)
@@ -139,6 +192,15 @@ app.post("/sync", async (c) => {
   } else if (existing.usageSnapshot) {
     // Preserve previously stored snapshot if not sent this time
     usageData.usageSnapshot = existing.usageSnapshot;
+  }
+
+  // Nothing new in this upload: skip the `usage:` put, every `last_sync:` bump
+  // (each of which would force a full ranking recompute on the next read) and
+  // the `user_groups:` read those bumps need. The response keeps its shape —
+  // the CLI reads `synced` and nothing else — plus the contract's optional
+  // `unchanged` flag for anyone watching the logs.
+  if (stored != null && isUnchanged(usageData, stored)) {
+    return c.json<SyncResponse>({ synced: blocks.length, unchanged: true });
   }
 
   await c.env.KV.put(`usage:${user.userId}`, JSON.stringify(usageData));

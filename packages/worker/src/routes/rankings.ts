@@ -30,6 +30,52 @@ const VALID_PERIODS: RankingPeriod[] = ["daily", "yesterday", "weekly", "monthly
 // label until they expire.
 const RANK_CACHE_VERSION = "v10";
 
+/**
+ * How young a cached ranking has to be to win over a newer `last_sync:`
+ * marker. Below this age the cached entry is served even though a sync landed
+ * after it was computed; at or above it, the original `computedAt >= lastSync`
+ * rule decides. Shared by every cached board on this router.
+ *
+ * Why there is a floor at all: the CLI heartbeat (LaunchAgent, `StartInterval`
+ * 300) makes two calls back to back — `POST /api/sync`, which writes
+ * `usage:<userId>` and bumps `last_sync:<code>` for every group the user is
+ * in, and then `GET /api/rank/<code>?period=daily` for the statusline. The
+ * second call therefore always arrived carrying a `lastSync` newer than the
+ * cache the first call had just invalidated: a 100% miss rate. Each miss fans
+ * out one `KV.get(usage:<member>)` per member — an 85-member group is 88 reads
+ * per call, ~6,000 calls a day ~= 529k reads a day, about two thirds of this
+ * account's entire KV read bill — and then writes a cache entry that nothing
+ * ever read. The client that caused the invalidation is the same client asking
+ * for the result one call later; it does not need its own write reflected
+ * within the second.
+ *
+ * The trade: a ranking may be up to 60 s stale with respect to the very latest
+ * sync. Every client polls on a 5-minute cadence, so that sits below the
+ * resolution anyone can observe. It is not only syncs that wait: a profile
+ * edit bumps the same `last_sync:` markers (auth.ts, "a profile write must
+ * expire any entry computed from the old member snapshot"), so a renamed
+ * member or a new avatar can also take up to 60 s to appear on a board.
+ */
+export const RANK_CACHE_MIN_AGE_MS = 60_000;
+
+/**
+ * Whether a cached entry may be served. `lastSync` is the newest sync marker
+ * for this board, or null when the board has none — the global leaderboard,
+ * which nothing invalidates, so there the age floor is the whole freshness
+ * rule. A future-dated `computedAt` (clock skew) is never treated as fresh.
+ */
+export function canServeCachedRanking(
+  computedAt: number,
+  lastSync: number | null,
+  now = Date.now(),
+): boolean {
+  if (!Number.isFinite(computedAt)) return false;
+  const age = now - computedAt;
+  if (age < 0) return false;
+  if (age < RANK_CACHE_MIN_AGE_MS) return true;
+  return lastSync !== null && computedAt >= lastSync;
+}
+
 type AgentTotals = { costUSD: number; totalTokens: number; nonCacheTokens: number; chatCount: number; entryCount: number };
 
 function hasUsage(block: UsageData["blocks"][number]): boolean {
@@ -287,7 +333,31 @@ export async function computeGlobalRankings(env: Env, period: RankingPeriod, tz:
 app.get("/rank/global", async (c) => {
   const period = parsePeriod(c.req.query("period"));
   const tz = parseInt(c.req.query("tz") || "0", 10) || 0;
-  return c.json<RankResponse>(await computeGlobalRankings(c.env, period, tz));
+
+  // Same cache entry shape, key scheme and TTL as /rank/:code. The key segment
+  // is lowercase `global`, which no group code can collide with (those are
+  // upper-cased before they reach the key). Nothing bumps a `last_sync:` marker
+  // for the public set, so the age floor is this board's entire freshness rule:
+  // recompute at most once a minute, serve from cache in between. Until now
+  // this route had no cache at all — every hit read one `usage:` and one
+  // `user_groups:` entry per public user, plus a `group:` per distinct group.
+  const tzBucket = Math.round(tz / 60);
+  const cacheKey = `rank_cache:${RANK_CACHE_VERSION}:global:${period}:${tzBucket}`;
+  const cacheEntry = await c.env.KV.get<{ data: RankResponse; computedAt: number }>(cacheKey, "json");
+  if (cacheEntry && canServeCachedRanking(cacheEntry.computedAt, null)) {
+    return c.json(cacheEntry.data);
+  }
+
+  const result = await computeGlobalRankings(c.env, period, tz);
+
+  // Store in cache (10 min TTL as safety net); non-blocking
+  c.executionCtx.waitUntil(
+    c.env.KV.put(cacheKey, JSON.stringify({ data: result, computedAt: Date.now() }), {
+      expirationTtl: 600,
+    })
+  );
+
+  return c.json<RankResponse>(result);
 });
 
 // GET /api/rank/:code
@@ -296,7 +366,11 @@ app.get("/rank/:code", async (c) => {
   const period = parsePeriod(c.req.query("period"));
   const tz = parseInt(c.req.query("tz") || "0", 10) || 0;
 
-  // Check KV-backed cache before doing O(N) reads
+  // Check KV-backed cache before doing O(N) reads.
+  // Pre-existing and not fixed here: the key names the period but not the day,
+  // so at a local midnight a `daily` board can serve the previous day's window
+  // until the entry's 600 s TTL expires — likelier now that the age floor keeps
+  // entries alive through the sync that used to evict them.
   const tzBucket = Math.round(tz / 60);
   const cacheKey = `rank_cache:${RANK_CACHE_VERSION}:${code}:${period}:${tzBucket}`;
   const [cacheEntry, lastSyncStr] = await Promise.all([
@@ -304,7 +378,7 @@ app.get("/rank/:code", async (c) => {
     c.env.KV.get(`last_sync:${code}`, "text"),
   ]);
   const lastSync = lastSyncStr ? parseInt(lastSyncStr) : 0;
-  if (cacheEntry && cacheEntry.computedAt >= lastSync) {
+  if (cacheEntry && canServeCachedRanking(cacheEntry.computedAt, lastSync)) {
     return c.json(cacheEntry.data);
   }
 
@@ -474,7 +548,7 @@ app.get("/activity/:code", async (c) => {
     c.env.KV.get(`last_sync:${code}`, "text"),
   ]);
   const activityLastSync = activityLastSyncStr ? parseInt(activityLastSyncStr) : 0;
-  if (activityCacheEntry && activityCacheEntry.computedAt >= activityLastSync) {
+  if (activityCacheEntry && canServeCachedRanking(activityCacheEntry.computedAt, activityLastSync)) {
     return c.json(activityCacheEntry.data);
   }
 

@@ -408,4 +408,38 @@ describe("POST /usage", () => {
     expect(await response.json()).toEqual({ ok: true });
     expect(putKeys(puts)).toEqual(["usage:user-1"]);
   });
+
+  it("leaves a record a later first sync can still merge into", async () => {
+    // The record this route writes for a brand-new user has a snapshot and no
+    // `blocks` key at all. POST /api/sync then reads it as its `existing`, and
+    // both `mergeUsageBlocks` and `isUnchanged` used to reach straight into
+    // `.blocks`: the first real upload from anyone whose install idled before
+    // it ever coded threw on the way in.
+    const { env, values } = testEnv({ "token:test-token": user, "user_groups:user-1": ["ABCDEF"] });
+
+    const idle = await post(
+      body({ fiveHour: 5, sevenDay: 5, snapshotAt: "2026-09-29T12:00:00.000Z" }),
+      env,
+    );
+    expect(idle.status).toBe(200);
+    const afterIdle = JSON.parse(values.get("usage:user-1") ?? "{}") as Partial<UsageData>;
+    expect(afterIdle.blocks).toBeUndefined();
+
+    const synced = await syncRoutes.request("/sync", {
+      method: "POST",
+      headers: { Authorization: "Bearer test-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ blocks: [block("claude", 100)], syncFormatVersion: 18 }),
+    }, env);
+
+    expect(synced.status).toBe(200);
+    expect(await synced.json()).toEqual({ synced: 1 });
+    const stored = JSON.parse(values.get("usage:user-1") ?? "{}") as UsageData;
+    expect(stored.blocks).toEqual([block("claude", 100)]);
+    // And the snapshot the idle post left behind is not lost on the way.
+    expect(stored.usageSnapshot).toEqual({
+      fiveHour: 5,
+      sevenDay: 5,
+      snapshotAt: "2026-09-29T12:00:00.000Z",
+    });
+  });
 });

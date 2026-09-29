@@ -59,6 +59,12 @@ export function sameUsageLimits(
  * made.
  */
 function isUnchanged(next: UsageData, stored: UsageData): boolean {
+  // A record written by POST /api/usage carries only `usageSnapshot` — that
+  // route spreads the existing object and adds the snapshot, so a user whose
+  // first ever request was an idle heartbeat has a stored record with no
+  // `blocks` at all. That is not "unchanged": this upload is the first one to
+  // give them any, and reading `.length` off it would throw besides.
+  if (!Array.isArray(stored.blocks)) return false;
   if (next.blocks.length !== stored.blocks.length) return false;
   if (next.syncFormatVersion !== stored.syncFormatVersion) return false;
   if (!sameUsageLimits(next.usageSnapshot, stored.usageSnapshot)) return false;
@@ -163,7 +169,9 @@ app.post("/sync", async (c) => {
     }, 409);
   }
 
-  const merged = mergeUsageBlocks(existing.blocks, blocks, { replaceSources, trackedSources });
+  // `existing.blocks ?? []` for the same reason: a stored record from
+  // POST /api/usage has a snapshot and nothing else.
+  const merged = mergeUsageBlocks(existing.blocks ?? [], blocks, { replaceSources, trackedSources });
 
   const usageData: UsageData = {
     blocks: merged,

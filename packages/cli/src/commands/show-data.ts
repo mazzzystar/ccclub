@@ -70,4 +70,14 @@ export async function showDataCommand(): Promise<void> {
   const totalCost = blocks.reduce((s, b) => s + b.costUSD, 0);
   console.log(chalk.bold(`\n  All-time total: ${totalNonCache.toLocaleString()} non-cache tokens · $${totalCost.toFixed(2)}`));
   console.log(chalk.dim(`    input: ${totalInput.toLocaleString()}  output: ${totalOutput.toLocaleString()}  reasoning: ${totalReasoning.toLocaleString()}  cache: ${totalCache.toLocaleString()}`));
+
+  // Warnings were printed only when nothing at all was found, which is the one
+  // case a user would already have noticed. A source that lost some of its
+  // files prints a perfectly healthy-looking table above, and the numbers it
+  // shows are exactly the ones about to be uploaded — so any complaint the
+  // collectors made belongs next to them.
+  if (warnings.length > 0) {
+    console.log(chalk.yellow("\n  Warnings:"));
+    for (const warning of warnings) console.log(chalk.dim(`    ${warning}`));
+  }
 }

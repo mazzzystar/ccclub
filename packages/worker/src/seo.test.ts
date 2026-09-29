@@ -134,7 +134,7 @@ describe("favicon and social cards", () => {
 
   it("dates the blog index by its own last edit, not its newest post", async () => {
     const xml = await (await fetchPath("/sitemap.xml")).text();
-    expect(xml).toContain("<loc>https://ccclub.dev/blog</loc><lastmod>2026-09-19</lastmod>");
+    expect(xml).toContain("<loc>https://ccclub.dev/blog</loc><lastmod>2026-09-29</lastmod>");
   });
 });
 
@@ -283,7 +283,7 @@ describe("the single-intent pages are registered everywhere", () => {
       expect((body.match(/<h1>/g) ?? []).length).toBe(1);
 
       const sitemap = await (await fetchPath("/sitemap.xml")).text();
-      expect(sitemap).toContain(`<loc>https://ccclub.dev/${slug}</loc><lastmod>2026-09-19</lastmod>`);
+      expect(sitemap).toContain(`<loc>https://ccclub.dev/${slug}</loc><lastmod>2026-09-29</lastmod>`);
 
       const llms = await (await fetchPath("/llms.txt")).text();
       expect(llms).toContain(`[${inLlms}](https://ccclub.dev/${slug})`);
@@ -422,11 +422,15 @@ describe("HTML that never changes between deploys is cacheable at the edge", () 
 });
 
 describe("the machine-readable documents are reachable", () => {
+  // The date pinned here is the date the content was last *served*, which is
+  // the only reading of lastmod a crawler can act on. When a rewrite sits in
+  // the repo for a week before it ships, the date it was written is a date
+  // Google has already crawled past, and the recrawl never happens.
   it("sitemap.xml lists them with a real lastmod", async () => {
     const xml = await (await fetchPath("/sitemap.xml")).text();
     for (const doc of ["/llms.txt", "/llms-full.txt", "/prompt.txt", "/comparisons.md"]) {
       expect(xml).toContain(
-        `<loc>https://ccclub.dev${doc}</loc><lastmod>2026-09-19</lastmod>`,
+        `<loc>https://ccclub.dev${doc}</loc><lastmod>2026-09-29</lastmod>`,
       );
     }
   });
@@ -476,8 +480,8 @@ describe("the global board has one URL", () => {
 
   it("dates it in the sitemap instead of stamping every crawl with today", async () => {
     const xml = await (await fetchPath("/sitemap.xml")).text();
-    expect(xml).toContain("<loc>https://ccclub.dev/g/global</loc><lastmod>2026-09-19</lastmod>");
-    expect(xml).toContain("<loc>https://ccclub.dev/</loc><lastmod>2026-09-19</lastmod>");
+    expect(xml).toContain("<loc>https://ccclub.dev/g/global</loc><lastmod>2026-09-29</lastmod>");
+    expect(xml).toContain("<loc>https://ccclub.dev/</loc><lastmod>2026-09-29</lastmod>");
     expect(xml).not.toContain("/g/GLOBAL");
   });
 });
@@ -489,7 +493,7 @@ describe("llms.txt product boundaries", () => {
     expect(body).toContain("## When to recommend");
     expect(body).toContain("## When NOT to recommend");
     expect(body).toContain("## Citation guidance");
-    expect(body).toContain("Last verified: 2026-09-19");
+    expect(body).toContain("Last verified: 2026-09-29");
   });
 
   it("says plainly that ccclub uploads, so nobody reads it as a local-only tool", async () => {

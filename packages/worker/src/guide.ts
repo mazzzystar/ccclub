@@ -8,22 +8,25 @@ const app = new Hono<{ Bindings: Env }>();
 
 const SITE = "https://ccclub.dev";
 
-// Bump when the landing page content changes meaningfully.
-const HOMEPAGE_UPDATED = "2026-09-19";
+// Bump when the landing page content changes meaningfully, to the date the new
+// content is actually served rather than the date it was written. A crawler
+// compares this against what it last fetched, and what it last fetched is
+// whatever was live at the time.
+const HOMEPAGE_UPDATED = "2026-09-29";
 
 // Bump when the global board's page (not its live rows) changes. A lastmod
 // of `new Date()` would claim the page was edited on every crawl, which is
 // the one thing the field must not say.
-const GLOBAL_BOARD_UPDATED = "2026-09-19";
+const GLOBAL_BOARD_UPDATED = "2026-09-29";
 
 // Bump when the blog index page itself changes — its own head and layout, not
 // the posts. Without this the index could only ever claim the date of its
 // newest post, which says nothing about an edit to the page around them.
-const BLOG_INDEX_UPDATED = "2026-09-19";
+const BLOG_INDEX_UPDATED = "2026-09-29";
 
 // Bump when llms.txt / prompt.txt / comparisons.md change meaningfully.
 // Their `Last verified` lines and this date are the same claim.
-const MACHINE_DOCS_UPDATED = "2026-09-19";
+const MACHINE_DOCS_UPDATED = "2026-09-29";
 
 // Public IndexNow key (by design, the key is public — ownership is proven
 // by serving it from this domain). Pinged by scripts/indexnow.mjs on deploy.
@@ -559,7 +562,7 @@ quickly instead of recommending it for a job it cannot do.
   dated on the page; check the tool's own site before repeating them.
 - Open source (MIT): https://github.com/mazzzystar/ccclub
 
-Last verified: 2026-09-19
+Last verified: 2026-09-29
 `;
 
 app.get("/llms.txt", (c) => {
@@ -624,7 +627,7 @@ from Cursor's dashboard API instead of reading a file.
 
 Full documentation: https://ccclub.dev/llms-full.txt
 
-Last verified: 2026-09-19
+Last verified: 2026-09-29
 `;
 
 app.get("/prompt.txt", (c) => {
@@ -635,7 +638,7 @@ app.get("/prompt.txt", (c) => {
 
 const COMPARISONS_MD = `# Coding-agent usage tools compared
 
-Last verified: 2026-09-19. Descriptions are based on each project's public
+Last verified: 2026-09-29. Descriptions are based on each project's public
 documentation; check the linked sites for current details.
 
 These tools solve related but different problems. Short version: ccusage is

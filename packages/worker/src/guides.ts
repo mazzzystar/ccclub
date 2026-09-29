@@ -31,7 +31,7 @@ export const GUIDE_PAGES: GuidePage[] = [
     description:
       "What a Claude Code usage number counts — input, output and cache tokens — why cache dominates the total, and how to read it per day, week or agent.",
     datePublished: "2026-07-07",
-    dateModified: "2026-09-19",
+    dateModified: "2026-09-29",
     body: `
       <p>Usage is one word for at least four different numbers: how many tokens a session moved, how many of those were cache, what those tokens would have cost at list price, and how many times you actually pressed Enter. Two honest trackers can report totals an order of magnitude apart for the same week simply because they headline different columns. This page takes the numbers apart — what each one counts, which are measured and which are estimated, and where to look for a per-day, per-week or per-agent view. For the shortest route to a figure on your own machine, see the <a href="/how-to-check-claude-code-usage">step-by-step walkthrough</a>.</p>
 
@@ -109,7 +109,7 @@ export const GUIDE_PAGES: GuidePage[] = [
     description:
       "Check Claude Code usage in order: the built-in /usage screen, the local transcripts, then ccclub for a dated history — and how to read what you get.",
     datePublished: "2026-09-19",
-    dateModified: "2026-09-19",
+    dateModified: "2026-09-29",
     body: `
       <p>There is no single place that holds all of it, which is why this question keeps getting asked. What exists is a short ladder: one command that answers it for right now, a directory of files that answers it for the past, and a tool on top of those files if you want the past arranged by day. Work down the ladder and stop at the rung that answers your question — most people never need the bottom one.</p>
 
@@ -194,7 +194,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
     description:
       "How Claude Code rate limits work on Pro and Max — the 5-hour rolling window, weekly caps, when each one resets — and how to see exactly where you stand.",
     datePublished: "2026-07-07",
-    dateModified: "2026-09-19",
+    dateModified: "2026-09-29",
     body: `
       <p>On a subscription, Claude Code meters you with rolling allowances rather than a per-token bill, and there is more than one of them running at once. The mechanics are simple once laid side by side; what confuses people is that three separate ceilings can each stop a request, for different reasons, with different ways out. Everything below about Anthropic's behaviour is read from its own documentation, cited where it matters and checked on 2026-09-19 — limits change, and <code>/usage</code> is always the authority for your account.</p>
 
@@ -293,7 +293,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
     description:
       "How a Claude Code cost figure is built — list-price table, the four token buckets, provider-reported costs — and why on a subscription it is not a bill.",
     datePublished: "2026-09-19",
-    dateModified: "2026-09-19",
+    dateModified: "2026-09-29",
     body: `
       <p>Every tool in this space will show you a dollar figure, and almost none of them are showing you what you paid. That is not dishonesty; it is the only thing they can compute. Understanding the gap is the difference between a number you can act on and a number that just makes you anxious. This page is about how ccclub builds its figure, line by line, and what you can legitimately conclude from yours.</p>
 
@@ -372,7 +372,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
     description:
       "A Claude Code statusline showing model, effort, your 5h and 7d limit percentages and your group rank — drawn from cache, with no network call to render.",
     datePublished: "2026-09-19",
-    dateModified: "2026-09-19",
+    dateModified: "2026-09-29",
     body: `
       <p>Claude Code lets you replace the bar under the prompt with the output of any command: it hands your script a JSON payload on stdin and prints whatever comes back. That is a genuinely open slot, and most people fill it with context percentage and a git branch. ccclub fills it with the two numbers that are otherwise a command away — how much of your rate-limit windows you have spent, and where you sit on your group's board today. This page is about that one line: what it contains, how it stays current, and what it deliberately refuses to do.</p>
 
@@ -500,7 +500,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
     description:
       "ccusage reports your own local usage; ccclub is the ccusage alternative for a shared board — friends or a team ranked on one leaderboard, auto-synced.",
     datePublished: "2026-07-07",
-    dateModified: "2026-09-19",
+    dateModified: "2026-09-29",
     body: `
       <p>Short answer: they solve different problems, and plenty of people use both. <a href="https://ccusage.com" rel="noopener">ccusage</a> answers "what did <em>I</em> use?"; <a href="/">ccclub</a> answers "how does our <em>group</em> compare?". Disclosure up front: ccclub is our project — we'll try to be even-handed anyway.</p>
 
@@ -587,7 +587,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
     description:
       "Which Claude Code leaderboard is public and which stays private to friends or teammates: viberank, ccgather, tokenleaders and ccclub. (We build ccclub.)",
     datePublished: "2026-07-07",
-    dateModified: "2026-08-04",
+    dateModified: "2026-09-29",
     body: `
       <p>Ranking Claude Code usage has become a small genre of its own. The tools differ mainly on two axes: <strong>who sees the board</strong> (the public, or just your group) and <strong>how data gets there</strong> (manual submission, or automatic sync). Disclosure: <a href="/">ccclub</a> is our project; descriptions of the others are based on their public docs as of July 2026.</p>
 

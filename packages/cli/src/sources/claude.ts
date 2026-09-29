@@ -15,6 +15,7 @@ import {
   existingDirectories,
   globFiles,
   parsePathList,
+  readFailureWarning,
   readJsonlFile,
   statFile,
   toIsoTimestamp,
@@ -80,12 +81,12 @@ interface ClaudeFileScan {
 // excluded: cached facts are repriced on every collection.
 const CLAUDE_SCAN_VERSION = 2;
 
-async function scanClaudeFile(file: string): Promise<ClaudeFileScan> {
+async function scanClaudeFile(file: string): Promise<{ scan: ClaudeFileScan; error: Error | null }> {
   const source = "claude";
   const rows: ClaudeUsageRow[] = [];
   const turns: UsageTurn[] = [];
 
-  await readJsonlFile(file, (value) => {
+  const error = await readJsonlFile(file, (value) => {
     if (isClaudeHumanTurn(value)) {
       const timestamp = toIsoTimestamp(value.timestamp);
       if (timestamp == null) return;
@@ -148,7 +149,7 @@ async function scanClaudeFile(file: string): Promise<ClaudeFileScan> {
     });
   });
 
-  return { rows, turns };
+  return { scan: { rows, turns }, error };
 }
 
 function shouldReplaceEntry(candidate: UsageEntry, candidateIsSidechain: boolean, existing: UsageEntry, existingIsSidechain: boolean): boolean {
@@ -202,6 +203,7 @@ export async function collectClaudeUsage(context: CollectorContext): Promise<Sou
   }
 
   const unreadable: string[] = [];
+  const warnings: string[] = [];
 
   for (const file of files) {
     // Stat before reading: a file that grows mid-read is cached under the
@@ -218,8 +220,16 @@ export async function collectClaudeUsage(context: CollectorContext): Promise<Sou
     }
     let scan = cache?.get(file, stat);
     if (scan == null) {
-      scan = await scanClaudeFile(file);
-      cache?.set(file, stat, scan);
+      const parsed = await scanClaudeFile(file);
+      scan = parsed.scan;
+      if (parsed.error != null) {
+        // Never cache a parse that died partway: the cache is keyed on the
+        // file's stat, so a truncated scan would outlive the failure that
+        // caused it and keep the gap until the file changed again.
+        warnings.push(readFailureWarning(source, file, parsed.error));
+      } else {
+        cache?.set(file, stat, scan);
+      }
     }
 
     for (const row of scan.rows) {
@@ -238,7 +248,7 @@ export async function collectClaudeUsage(context: CollectorContext): Promise<Sou
     entries,
     turns,
     files: files.length - unreadable.length,
-    warnings: unreadableFilesWarnings(source, unreadable),
+    warnings: [...unreadableFilesWarnings(source, unreadable), ...warnings],
   };
 }
 

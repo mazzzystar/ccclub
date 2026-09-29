@@ -86,22 +86,53 @@ export async function readJsonFile(file: string): Promise<unknown | null> {
   }
 }
 
+/**
+ * Stream one JSONL log, handing every parsable row to `onValue`. Answers the
+ * error that ended the read early, or null for a clean pass to EOF — it never
+ * throws, because one unreadable file must not cost a source every OTHER
+ * file's usage, which is exactly what the source-level catch in
+ * collectAllUsageEntries does with an escaping exception.
+ *
+ * Reads fail for ordinary reasons: the log is deleted between the stat and the
+ * read (Claude Code prunes session directories while it works), a directory
+ * carries a `.jsonl` name (EISDIR, and the glob returns it), or the file is
+ * simply not readable (EACCES). Each yields the rows read so far plus an error
+ * for the caller to surface as a warning.
+ */
 export async function readJsonlFile(
   file: string,
   onValue: (value: unknown, line: string) => void | Promise<void>,
-): Promise<void> {
-  const stream = createReadStream(file, { encoding: "utf-8" });
-  const rl = createInterface({ input: stream, crlfDelay: Number.POSITIVE_INFINITY });
+): Promise<Error | null> {
+  let stream: ReturnType<typeof createReadStream> | undefined;
+  try {
+    stream = createReadStream(file, { encoding: "utf-8" });
+    const rl = createInterface({ input: stream, crlfDelay: Number.POSITIVE_INFINITY });
 
-  for await (const line of rl) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    try {
-      await onValue(JSON.parse(trimmed) as unknown, trimmed);
-    } catch {
-      // Ignore malformed JSONL rows. These are local tool logs and can be partially written.
+    for await (const line of rl) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        await onValue(JSON.parse(trimmed) as unknown, trimmed);
+      } catch {
+        // Ignore malformed JSONL rows. These are local tool logs and can be partially written.
+      }
     }
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error : new Error(String(error));
+  } finally {
+    // A read that ended early leaves the handle open.
+    stream?.destroy();
   }
+}
+
+/**
+ * A file that existed at stat time and still could not be read through. The
+ * rows collected before the failure are kept — half a log beats none — so the
+ * warning says the file may be short rather than missing.
+ */
+export function readFailureWarning(source: AgentSource, path: string, error: Error): string {
+  return `${AGENT_LABELS[source]}: could not finish reading ${path} (${error.message}); its usage may be incomplete`;
 }
 
 export function asRecord(value: unknown): Record<string, unknown> | null {

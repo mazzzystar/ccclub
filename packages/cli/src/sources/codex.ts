@@ -16,6 +16,7 @@ import {
   existingDirectories,
   globFiles,
   parsePathList,
+  readFailureWarning,
   readJsonlFile,
   statFile,
   toIsoTimestamp,
@@ -451,7 +452,10 @@ function longestReplayPrefix(child: string[], parent: string[]): number {
   return matched;
 }
 
-async function scanCodexFile(file: string, physicalSessionId: string): Promise<CodexFileScan> {
+async function scanCodexFile(
+  file: string,
+  physicalSessionId: string,
+): Promise<{ scan: CodexFileScan; error: Error | null }> {
   const source = "codex";
   let logicalSessionId: string | null = null;
   let forkedFromId: string | null = null;
@@ -480,7 +484,7 @@ async function scanCodexFile(file: string, physicalSessionId: string): Promise<C
   const fallbackUserTurns: IndexedUsageTurn[] = [];
   const seenFallbackUserTurns = new Set<string>();
 
-  await readJsonlFile(file, (value) => {
+  const readError = await readJsonlFile(file, (value) => {
     const record = asRecord(value);
     if (record == null) return;
     parsedRecordCount++;
@@ -657,23 +661,26 @@ async function scanCodexFile(file: string, physicalSessionId: string): Promise<C
   if (legacyReplayTokenCount < 2) legacyReplayTokenCount = 0;
 
   return {
-    logicalSessionId,
-    forkedFromId,
-    parentThreadId,
-    sessionStartedAtMs,
-    isSubagent,
-    sessionMetaCount,
-    parsedRecordCount,
-    rawTokenCount,
-    tokenTimes,
-    tokenFingerprints,
-    taskBoundaries,
-    firstTaskBoundary,
-    ownTaskBoundary,
-    legacyReplayTokenCount,
-    entries,
-    taskTurns,
-    fallbackUserTurns,
+    scan: {
+      logicalSessionId,
+      forkedFromId,
+      parentThreadId,
+      sessionStartedAtMs,
+      isSubagent,
+      sessionMetaCount,
+      parsedRecordCount,
+      rawTokenCount,
+      tokenTimes,
+      tokenFingerprints,
+      taskBoundaries,
+      firstTaskBoundary,
+      ownTaskBoundary,
+      legacyReplayTokenCount,
+      entries,
+      taskTurns,
+      fallbackUserTurns,
+    },
+    error: readError,
   };
 }
 
@@ -753,6 +760,7 @@ export async function collectCodexUsage(context: CollectorContext): Promise<Sour
 
   const loaded: LoadedCodexScan[] = [];
   const unreadable: string[] = [];
+  const warnings: string[] = [];
   for (const usageFile of files) {
     // A path that cannot be stat'ed is gone (deleted since the glob, or a
     // dangling symlink); reading it would throw ENOENT and cost the whole
@@ -765,11 +773,15 @@ export async function collectCodexUsage(context: CollectorContext): Promise<Sour
     const packed = cache?.get(usageFile.file, stat);
     let scan = packed != null ? unpackCodexScan(packed) : undefined;
     if (scan == null) {
-      scan = await scanCodexFile(
+      const scanned = await scanCodexFile(
         usageFile.file,
         sessionIdForFile(usageFile.source.dir, usageFile.file),
       );
-      cache?.set(usageFile.file, stat, packCodexScan(scan));
+      scan = scanned.scan;
+      // A partial parse stays out of the cache, which is keyed on this stat:
+      // caching it would keep the gap until the file changed again.
+      if (scanned.error != null) warnings.push(readFailureWarning(source, usageFile.file, scanned.error));
+      else cache?.set(usageFile.file, stat, packCodexScan(scan));
     }
     loaded.push({ usageFile, scan });
   }
@@ -850,7 +862,7 @@ export async function collectCodexUsage(context: CollectorContext): Promise<Sour
     entries,
     turns,
     files: selectedFiles,
-    warnings: unreadableFilesWarnings(source, unreadable),
+    warnings: [...unreadableFilesWarnings(source, unreadable), ...warnings],
   };
 }
 

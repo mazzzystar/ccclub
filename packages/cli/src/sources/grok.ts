@@ -14,6 +14,7 @@ import {
   existingDirectories,
   globFiles,
   parsePathList,
+  readFailureWarning,
   readJsonlFile,
   statFile,
   toIsoTimestamp,
@@ -64,13 +65,13 @@ function modelFromUsage(usage: Record<string, unknown>): string {
   return canonicalModel(bestKey);
 }
 
-async function scanGrokSessionFile(file: string): Promise<GrokScanResult> {
+async function scanGrokSessionFile(file: string): Promise<{ scan: GrokScanResult; error: Error | null }> {
   const source = "grok";
   const sessionId = basename(dirname(file));
   const facts: UsageFact[] = [];
   const turns: UsageTurn[] = [];
 
-  await readJsonlFile(file, (value) => {
+  const error = await readJsonlFile(file, (value) => {
     const record = asRecord(value);
     const update = asRecord(asRecord(record?.params)?.update);
     if (asString(update?.sessionUpdate) !== "turn_completed") return;
@@ -125,7 +126,7 @@ async function scanGrokSessionFile(file: string): Promise<GrokScanResult> {
     });
   });
 
-  return { facts, turns };
+  return { scan: { facts, turns }, error };
 }
 
 export async function collectGrokUsage(context: CollectorContext): Promise<SourceCollection> {
@@ -160,8 +161,12 @@ export async function collectGrokUsage(context: CollectorContext): Promise<Sourc
     }
     let parsed = cache?.get(file, stat);
     if (parsed == null) {
-      parsed = await scanGrokSessionFile(file);
-      cache?.set(file, stat, parsed);
+      const scanned = await scanGrokSessionFile(file);
+      parsed = scanned.scan;
+      // A partial parse stays out of the cache, which is keyed on this stat:
+      // caching it would keep the gap until the file changed again.
+      if (scanned.error != null) warnings.push(readFailureWarning(source, file, scanned.error));
+      else cache?.set(file, stat, parsed);
     }
 
     for (const fact of parsed.facts) {

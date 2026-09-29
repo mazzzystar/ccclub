@@ -14,6 +14,7 @@ import {
   existingDirectories,
   globFiles,
   parsePathList,
+  readFailureWarning,
   readJsonlFile,
   statFile,
   toIsoTimestamp,
@@ -43,13 +44,13 @@ function normalizePiModel(model: string | undefined): string {
 
 const PI_SCAN_VERSION = 1;
 
-async function scanPiFile(file: string): Promise<UsageFact[]> {
+async function scanPiFile(file: string): Promise<{ facts: UsageFact[]; error: Error | null }> {
   const source = "pi";
   const sessionId = extractSessionId(file);
   const project = extractProject(file);
   const entries: UsageFact[] = [];
 
-  await readJsonlFile(file, (value) => {
+  const error = await readJsonlFile(file, (value) => {
     const record = asRecord(value);
     const message = asRecord(record?.message);
     const usage = asRecord(message?.usage);
@@ -98,7 +99,7 @@ async function scanPiFile(file: string): Promise<UsageFact[]> {
     });
   });
 
-  return entries;
+  return { facts: entries, error };
 }
 
 export async function collectPiUsage(context: CollectorContext): Promise<SourceCollection> {
@@ -110,6 +111,7 @@ export async function collectPiUsage(context: CollectorContext): Promise<SourceC
   const turns: UsageTurn[] = [];
   const seen = new Set<string>();
   const unreadable: string[] = [];
+  const warnings: string[] = [];
 
   for (const file of files) {
     // A path that cannot be stat'ed is gone (deleted since the glob, or a
@@ -122,8 +124,12 @@ export async function collectPiUsage(context: CollectorContext): Promise<SourceC
     }
     let parsed = cache?.get(file, stat);
     if (parsed == null) {
-      parsed = await scanPiFile(file);
-      cache?.set(file, stat, parsed);
+      const scan = await scanPiFile(file);
+      parsed = scan.facts;
+      // A partial parse stays out of the cache, which is keyed on this stat:
+      // caching it would keep the gap until the file changed again.
+      if (scan.error != null) warnings.push(readFailureWarning(source, file, scan.error));
+      else cache?.set(file, stat, parsed);
     }
 
     // Dedup spans files: replayed session copies share the same content key.
@@ -143,7 +149,7 @@ export async function collectPiUsage(context: CollectorContext): Promise<SourceC
     entries,
     turns,
     files: files.length - unreadable.length,
-    warnings: unreadableFilesWarnings(source, unreadable),
+    warnings: [...unreadableFilesWarnings(source, unreadable), ...warnings],
   };
 }
 

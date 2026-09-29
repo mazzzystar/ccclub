@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { collectUsageEntries } from "../collector.js";
+import { readJsonlFile } from "../sources/shared.js";
 
 // One unreadable file used to cost an entire source. `globFiles` returns paths
 // that no longer resolve — above all the dangling `subagents/*.jsonl` symlinks
@@ -141,5 +142,63 @@ describe("collectors survive files that cannot be read", () => {
 
     expect(result.sources[0].files).toBe(1);
     expect(result.sources[0].warnings[0]).toContain(dangling);
+  });
+});
+
+describe("readJsonlFile answers with the error instead of throwing", () => {
+  it("reads a healthy log clean through", async () => {
+    const dir = await makeTempDir();
+    const file = join(dir, "good.jsonl");
+    await writeFile(file, ['{"n":1}', "", '{"n":2}', "not json"].join("\n"));
+    const seen: unknown[] = [];
+
+    const error = await readJsonlFile(file, (value) => { seen.push(value); });
+
+    expect(error).toBeNull();
+    // Malformed rows are still skipped silently: local logs are written live
+    // and a half-flushed last line is normal.
+    expect(seen).toEqual([{ n: 1 }, { n: 2 }]);
+  });
+
+  it("returns ENOENT for a file that is gone by the time it is opened", async () => {
+    const dir = await makeTempDir();
+    const seen: unknown[] = [];
+
+    const error = await readJsonlFile(join(dir, "vanished.jsonl"), (value) => { seen.push(value); });
+
+    expect((error as NodeJS.ErrnoException | null)?.code).toBe("ENOENT");
+    expect(seen).toEqual([]);
+  });
+
+  it("returns EISDIR when the path turns out to be a directory", async () => {
+    const dir = await makeTempDir();
+    // stat() succeeds here, so nothing upstream can screen this out: the
+    // failure only shows up once the stream starts reading.
+    const asFile = join(dir, "session.jsonl");
+    await mkdir(asFile);
+
+    const error = await readJsonlFile(asFile, () => {});
+
+    expect((error as NodeJS.ErrnoException | null)?.code).toBe("EISDIR");
+  });
+
+  it("keeps the other files' rows when one Claude log cannot be read through", async () => {
+    const claudeHome = await makeTempDir();
+    const projectsDir = join(claudeHome, "projects");
+    await mkdir(projectsDir, { recursive: true });
+    await writeFile(join(projectsDir, "live.jsonl"), CLAUDE_RECORD);
+    // A directory wearing a `.jsonl` name: stat'able, unreadable, and the glob
+    // hands it over like any other log.
+    const unreadable = join(projectsDir, "wedged.jsonl");
+    await mkdir(unreadable);
+    vi.stubEnv("CLAUDE_CONFIG_DIR", claudeHome);
+
+    const result = await collectUsageEntries({ sources: ["claude"] });
+
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0].requestId).toBe("req-live");
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toContain(unreadable);
+    expect(result.warnings[0]).toContain("EISDIR");
   });
 });

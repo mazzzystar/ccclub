@@ -4,6 +4,8 @@ import { homedir } from "node:os";
 import { resolve, join } from "node:path";
 import { createInterface } from "node:readline";
 import { glob } from "glob";
+import { AGENT_LABELS } from "@ccclub/shared";
+import type { AgentSource } from "@ccclub/shared";
 
 export function resolveHomePath(path: string): string {
   if (path === "~") return homedir();
@@ -25,6 +27,30 @@ export async function statFile(path: string): Promise<{ mtimeMs: number; size: n
   } catch {
     return null;
   }
+}
+
+/** How many offending paths one warning names before it just counts the rest. */
+const UNREADABLE_SAMPLE = 3;
+
+/**
+ * Files a collector globbed but could not stat. The usual cause is a dangling
+ * symlink — Claude Code removes a session directory and leaves the
+ * `subagents/*.jsonl` links pointing at nothing — or a log rotated away in the
+ * moment between the glob and the stat. `globFiles` returns those paths
+ * happily, and opening one throws ENOENT; an exception escaping a collector
+ * costs the ENTIRE source (collectAllUsageEntries turns it into an empty
+ * result), so they are skipped instead. Skipping in silence is how a source
+ * loses files with nobody the wiser, hence the warning.
+ */
+export function unreadableFilesWarnings(source: AgentSource, paths: string[]): string[] {
+  if (paths.length === 0) return [];
+  const shown = paths.slice(0, UNREADABLE_SAMPLE);
+  const rest = paths.length - shown.length;
+  return [
+    `${AGENT_LABELS[source]}: skipped ${paths.length} unreadable file${paths.length === 1 ? "" : "s"}` +
+      ` (deleted, or a symlink pointing at nothing): ${shown.join(", ")}` +
+      `${rest > 0 ? `, and ${rest} more` : ""}`,
+  ];
 }
 
 export async function existingDirectories(paths: string[]): Promise<string[]> {

@@ -17,6 +17,7 @@ import {
   readJsonlFile,
   statFile,
   toIsoTimestamp,
+  unreadableFilesWarnings,
 } from "./shared.js";
 
 // v2: usage comes from session turn_completed, not trimmed unified.jsonl.
@@ -146,13 +147,21 @@ export async function collectGrokUsage(context: CollectorContext): Promise<Sourc
   const entries: UsageEntry[] = [];
   const turns: UsageTurn[] = [];
   const seen = new Set<string>();
+  const unreadable: string[] = [];
 
   for (const file of files) {
+    // A path that cannot be stat'ed is gone (deleted since the glob, or a
+    // dangling symlink); reading it would throw ENOENT and cost the whole
+    // source, not just this file.
     const stat = await statFile(file);
-    let parsed = stat != null ? cache?.get(file, stat) : undefined;
+    if (stat == null) {
+      unreadable.push(file);
+      continue;
+    }
+    let parsed = cache?.get(file, stat);
     if (parsed == null) {
       parsed = await scanGrokSessionFile(file);
-      if (stat != null) cache?.set(file, stat, parsed);
+      cache?.set(file, stat, parsed);
     }
 
     for (const fact of parsed.facts) {
@@ -166,7 +175,8 @@ export async function collectGrokUsage(context: CollectorContext): Promise<Sourc
   }
 
   await cache?.save();
-  return { source, entries, turns, files: files.length, warnings };
+  warnings.push(...unreadableFilesWarnings(source, unreadable));
+  return { source, entries, turns, files: files.length - unreadable.length, warnings };
 }
 
 export const grokCollector: AgentSourceCollector = {

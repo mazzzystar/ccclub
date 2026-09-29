@@ -18,6 +18,7 @@ import {
   readJsonlFile,
   statFile,
   toIsoTimestamp,
+  unreadableFilesWarnings,
 } from "./shared.js";
 
 function isProjectsPath(path: string): boolean {
@@ -200,14 +201,25 @@ export async function collectClaudeUsage(context: CollectorContext): Promise<Sou
     entries.push(row.entry);
   }
 
+  const unreadable: string[] = [];
+
   for (const file of files) {
     // Stat before reading: a file that grows mid-read is cached under the
-    // older stat and simply re-parses next run.
+    // older stat and simply re-parses next run. A file that cannot be stat'ed
+    // at all is skipped rather than read — the glob returns dangling symlinks
+    // (Claude Code deletes a session directory and leaves its
+    // `subagents/*.jsonl` links behind) and logs removed since the glob ran,
+    // and opening one throws ENOENT out of this collector, which costs every
+    // other file's usage too.
     const stat = await statFile(file);
-    let scan = stat != null ? cache?.get(file, stat) : undefined;
+    if (stat == null) {
+      unreadable.push(file);
+      continue;
+    }
+    let scan = cache?.get(file, stat);
     if (scan == null) {
       scan = await scanClaudeFile(file);
-      if (stat != null) cache?.set(file, stat, scan);
+      cache?.set(file, stat, scan);
     }
 
     for (const row of scan.rows) {
@@ -221,7 +233,13 @@ export async function collectClaudeUsage(context: CollectorContext): Promise<Sou
   }
 
   await cache?.save();
-  return { source, entries, turns, files: files.length, warnings: [] };
+  return {
+    source,
+    entries,
+    turns,
+    files: files.length - unreadable.length,
+    warnings: unreadableFilesWarnings(source, unreadable),
+  };
 }
 
 export const claudeCollector: AgentSourceCollector = {

@@ -17,6 +17,7 @@ import {
   readJsonFile,
   statFile,
   toIsoTimestamp,
+  unreadableFilesWarnings,
 } from "./shared.js";
 
 function getAmpDirs(): Promise<string[]> {
@@ -105,13 +106,20 @@ export async function collectAmpUsage(context: CollectorContext): Promise<Source
   const entries: UsageEntry[] = [];
   const turns: UsageTurn[] = [];
   const seen = new Set<string>();
+  const unreadable: string[] = [];
 
   for (const file of files) {
+    // A path that cannot be stat'ed is gone (deleted since the glob, or a
+    // dangling symlink); reading it would only find the same nothing.
     const stat = await statFile(file);
-    let parsed = stat != null ? cache?.get(file, stat) : undefined;
+    if (stat == null) {
+      unreadable.push(file);
+      continue;
+    }
+    let parsed = cache?.get(file, stat);
     if (parsed == null) {
       parsed = parseAmpThread(await readJsonFile(file));
-      if (stat != null) cache?.set(file, stat, parsed);
+      cache?.set(file, stat, parsed);
     }
 
     for (const fact of parsed) {
@@ -125,7 +133,13 @@ export async function collectAmpUsage(context: CollectorContext): Promise<Source
   }
 
   await cache?.save();
-  return { source, entries, turns, files: files.length, warnings: [] };
+  return {
+    source,
+    entries,
+    turns,
+    files: files.length - unreadable.length,
+    warnings: unreadableFilesWarnings(source, unreadable),
+  };
 }
 
 export const ampCollector: AgentSourceCollector = {

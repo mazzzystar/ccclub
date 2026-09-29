@@ -17,6 +17,7 @@ import {
   readJsonFile,
   statFile,
   toIsoTimestamp,
+  unreadableFilesWarnings,
 } from "./shared.js";
 
 interface OpenCodeMessageRow {
@@ -91,17 +92,24 @@ function parseOpenCodeMessage(row: OpenCodeMessageRow): UsageFact | null {
 async function loadOpenCodeJsonRows(
   openCodeDirs: string[],
   context: CollectorContext,
-): Promise<{ rows: OpenCodeParsedRow[]; files: number }> {
+): Promise<{ rows: OpenCodeParsedRow[]; files: number; unreadable: string[] }> {
   const messageDirs = openCodeDirs.map((dir) => join(dir, "storage", "message"));
   const files = await globFiles(await existingDirectories(messageDirs), "**/*.json");
   // Message files are written once per message, which makes them ideal cache
   // targets: thousands of files of which only the newest ever change.
   const cache = await context.openScanCache?.<OpenCodeParsedRow | null>("opencode", `parser=${OPENCODE_SCAN_VERSION}`);
   const rows: OpenCodeParsedRow[] = [];
+  const unreadable: string[] = [];
 
   for (const file of files) {
+    // A path that cannot be stat'ed is gone (deleted since the glob, or a
+    // dangling symlink); reading it would only find the same nothing.
     const stat = await statFile(file);
-    const cached = stat != null ? cache?.get(file, stat) : undefined;
+    if (stat == null) {
+      unreadable.push(file);
+      continue;
+    }
+    const cached = cache?.get(file, stat);
     if (cached !== undefined) {
       if (cached != null) rows.push(cached);
       continue;
@@ -113,12 +121,12 @@ async function loadOpenCodeJsonRows(
     const row = id == null
       ? null
       : { id, entry: parseOpenCodeMessage({ id, sessionId: asString(record?.sessionID), data }) };
-    if (stat != null) cache?.set(file, stat, row);
+    cache?.set(file, stat, row);
     if (row != null) rows.push(row);
   }
 
   await cache?.save();
-  return { rows, files: files.length };
+  return { rows, files: files.length - unreadable.length, unreadable };
 }
 
 async function loadNodeSqlite(): Promise<{ DatabaseSync: new (path: string, options?: unknown) => any } | null> {
@@ -206,7 +214,7 @@ export async function collectOpenCodeUsage(context: CollectorContext): Promise<S
     entries,
     turns,
     files: jsonResult.files + dbResult.files,
-    warnings: [],
+    warnings: unreadableFilesWarnings(source, jsonResult.unreadable),
   };
 }
 

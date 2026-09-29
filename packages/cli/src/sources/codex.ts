@@ -19,6 +19,7 @@ import {
   readJsonlFile,
   statFile,
   toIsoTimestamp,
+  unreadableFilesWarnings,
 } from "./shared.js";
 
 interface RawCodexUsage {
@@ -751,16 +752,24 @@ export async function collectCodexUsage(context: CollectorContext): Promise<Sour
   );
 
   const loaded: LoadedCodexScan[] = [];
+  const unreadable: string[] = [];
   for (const usageFile of files) {
+    // A path that cannot be stat'ed is gone (deleted since the glob, or a
+    // dangling symlink); reading it would throw ENOENT and cost the whole
+    // source, not just this rollout.
     const stat = await statFile(usageFile.file);
-    const packed = stat != null ? cache?.get(usageFile.file, stat) : undefined;
+    if (stat == null) {
+      unreadable.push(usageFile.file);
+      continue;
+    }
+    const packed = cache?.get(usageFile.file, stat);
     let scan = packed != null ? unpackCodexScan(packed) : undefined;
     if (scan == null) {
       scan = await scanCodexFile(
         usageFile.file,
         sessionIdForFile(usageFile.source.dir, usageFile.file),
       );
-      if (stat != null) cache?.set(usageFile.file, stat, packCodexScan(scan));
+      cache?.set(usageFile.file, stat, packCodexScan(scan));
     }
     loaded.push({ usageFile, scan });
   }
@@ -836,7 +845,13 @@ export async function collectCodexUsage(context: CollectorContext): Promise<Sour
   }
 
   await cache?.save();
-  return { source, entries, turns, files: selectedFiles, warnings: [] };
+  return {
+    source,
+    entries,
+    turns,
+    files: selectedFiles,
+    warnings: unreadableFilesWarnings(source, unreadable),
+  };
 }
 
 export const codexCollector: AgentSourceCollector = {

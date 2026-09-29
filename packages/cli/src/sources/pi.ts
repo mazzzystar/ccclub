@@ -17,6 +17,7 @@ import {
   readJsonlFile,
   statFile,
   toIsoTimestamp,
+  unreadableFilesWarnings,
 } from "./shared.js";
 
 function getPiSessionDirs(): Promise<string[]> {
@@ -108,13 +109,21 @@ export async function collectPiUsage(context: CollectorContext): Promise<SourceC
   const entries: UsageEntry[] = [];
   const turns: UsageTurn[] = [];
   const seen = new Set<string>();
+  const unreadable: string[] = [];
 
   for (const file of files) {
+    // A path that cannot be stat'ed is gone (deleted since the glob, or a
+    // dangling symlink); reading it would throw ENOENT and cost the whole
+    // source, not just this file.
     const stat = await statFile(file);
-    let parsed = stat != null ? cache?.get(file, stat) : undefined;
+    if (stat == null) {
+      unreadable.push(file);
+      continue;
+    }
+    let parsed = cache?.get(file, stat);
     if (parsed == null) {
       parsed = await scanPiFile(file);
-      if (stat != null) cache?.set(file, stat, parsed);
+      cache?.set(file, stat, parsed);
     }
 
     // Dedup spans files: replayed session copies share the same content key.
@@ -129,7 +138,13 @@ export async function collectPiUsage(context: CollectorContext): Promise<SourceC
   }
 
   await cache?.save();
-  return { source, entries, turns, files: files.length, warnings: [] };
+  return {
+    source,
+    entries,
+    turns,
+    files: files.length - unreadable.length,
+    warnings: unreadableFilesWarnings(source, unreadable),
+  };
 }
 
 export const piCollector: AgentSourceCollector = {

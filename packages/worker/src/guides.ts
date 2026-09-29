@@ -108,7 +108,7 @@ export const GUIDE_PAGES: GuidePage[] = [
     h1: "How to check Claude Code usage",
     description:
       "Check Claude Code usage in order: the built-in /usage screen, the local transcripts, then ccclub for a dated history — and how to read what you get.",
-    datePublished: "2026-09-19",
+    datePublished: "2026-09-29",
     dateModified: "2026-09-29",
     body: `
       <p>There is no single place that holds all of it, which is why this question keeps getting asked. What exists is a short ladder: one command that answers it for right now, a directory of files that answers it for the past, and a tool on top of those files if you want the past arranged by day. Work down the ladder and stop at the rung that answers your question — most people never need the bottom one.</p>
@@ -292,7 +292,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
     h1: "Claude Code cost, and what the number means",
     description:
       "How a Claude Code cost figure is built — list-price table, the four token buckets, provider-reported costs — and why on a subscription it is not a bill.",
-    datePublished: "2026-09-19",
+    datePublished: "2026-09-29",
     dateModified: "2026-09-29",
     body: `
       <p>Every tool in this space will show you a dollar figure, and almost none of them are showing you what you paid. That is not dishonesty; it is the only thing they can compute. Understanding the gap is the difference between a number you can act on and a number that just makes you anxious. This page is about how ccclub builds its figure, line by line, and what you can legitimately conclude from yours.</p>
@@ -371,7 +371,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
     h1: "Claude Code statusline: what ccclub puts there",
     description:
       "A Claude Code statusline showing model, effort, your 5h and 7d limit percentages and your group rank — drawn from cache, with no network call to render.",
-    datePublished: "2026-09-19",
+    datePublished: "2026-09-29",
     dateModified: "2026-09-29",
     body: `
       <p>Claude Code lets you replace the bar under the prompt with the output of any command: it hands your script a JSON payload on stdin and prints whatever comes back. That is a genuinely open slot, and most people fill it with context percentage and a git branch. ccclub fills it with the two numbers that are otherwise a command away — how much of your rate-limit windows you have spent, and where you sit on your group's board today. This page is about that one line: what it contains, how it stays current, and what it deliberately refuses to do.</p>

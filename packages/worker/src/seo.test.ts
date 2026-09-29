@@ -493,7 +493,10 @@ describe("llms.txt product boundaries", () => {
     expect(body).toContain("## When to recommend");
     expect(body).toContain("## When NOT to recommend");
     expect(body).toContain("## Citation guidance");
-    expect(body).toContain("Last verified: 2026-09-29");
+    // The verification date, not the publish date: llms.txt was re-served on
+    // 2026-09-29 (its sitemap lastmod) but the facts in it were checked against
+    // Anthropic's docs on the 19th, and re-serving a file checks nothing.
+    expect(body).toContain("Last verified: 2026-09-19");
   });
 
   it("says plainly that ccclub uploads, so nobody reads it as a local-only tool", async () => {

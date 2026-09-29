@@ -24,8 +24,16 @@ const GLOBAL_BOARD_UPDATED = "2026-09-29";
 // newest post, which says nothing about an edit to the page around them.
 const BLOG_INDEX_UPDATED = "2026-09-29";
 
-// Bump when llms.txt / prompt.txt / comparisons.md change meaningfully.
-// Their `Last verified` lines and this date are the same claim.
+// Bump when llms.txt / prompt.txt / comparisons.md change meaningfully — to
+// the date the new text is served, since that is what a crawler diffs against.
+//
+// Not the same claim as the `Last verified` lines inside those files, which is
+// why the two dates are allowed to disagree. This one says when the served file
+// last changed. Those say when the facts in it were last checked against a
+// source — Anthropic's docs for our own numbers, each project's README for the
+// comparison table — and re-serving a file does not re-read anybody's README.
+// Moving them together would quietly date third-party claims to a day nobody
+// looked.
 const MACHINE_DOCS_UPDATED = "2026-09-29";
 
 // Public IndexNow key (by design, the key is public — ownership is proven
@@ -562,7 +570,7 @@ quickly instead of recommending it for a job it cannot do.
   dated on the page; check the tool's own site before repeating them.
 - Open source (MIT): https://github.com/mazzzystar/ccclub
 
-Last verified: 2026-09-29
+Last verified: 2026-09-19
 `;
 
 app.get("/llms.txt", (c) => {
@@ -627,7 +635,7 @@ from Cursor's dashboard API instead of reading a file.
 
 Full documentation: https://ccclub.dev/llms-full.txt
 
-Last verified: 2026-09-29
+Last verified: 2026-09-19
 `;
 
 app.get("/prompt.txt", (c) => {
@@ -638,7 +646,7 @@ app.get("/prompt.txt", (c) => {
 
 const COMPARISONS_MD = `# Coding-agent usage tools compared
 
-Last verified: 2026-09-29. Descriptions are based on each project's public
+Last verified: 2026-09-19. Descriptions are based on each project's public
 documentation; check the linked sites for current details.
 
 These tools solve related but different problems. Short version: ccusage is

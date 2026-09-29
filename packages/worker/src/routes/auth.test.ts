@@ -3,18 +3,25 @@ import type { GroupRecord, ProfileResponse, UserRecord } from "@ccclub/shared";
 import type { Env } from "../types.js";
 import { authRoutes } from "./auth.js";
 
-function testEnv(initial: Record<string, unknown>): { env: Env; values: Map<string, string> } {
+function testEnv(
+  initial: Record<string, unknown>,
+): { env: Env; values: Map<string, string>; puts: string[] } {
   const values = new Map(Object.entries(initial).map(([key, value]) => [key, JSON.stringify(value)]));
+  const puts: string[] = [];
   const KV = {
     async get(key: string, type?: string) {
       const value = values.get(key) ?? null;
       return type === "json" && value != null ? JSON.parse(value) : value;
     },
     async put(key: string, value: string) {
+      puts.push(key);
       values.set(key, value);
     },
+    async delete(key: string) {
+      values.delete(key);
+    },
   } as unknown as KVNamespace;
-  return { env: { KV }, values };
+  return { env: { KV }, values, puts };
 }
 
 function user(overrides: Partial<UserRecord> = {}): UserRecord {
@@ -216,6 +223,120 @@ describe("POST /profile projects", () => {
     const repaired = JSON.parse(values.get("group:AAAAAA") ?? "{}") as GroupRecord;
     expect(repaired.members[0].projects).toEqual(projects);
     expect(values.get("last_sync:AAAAAA")).toMatch(/^\d+$/);
+  });
+});
+
+describe("membership changes expire the group's cached board", () => {
+  function group(members: GroupRecord["members"]): GroupRecord {
+    return {
+      name: "Test club",
+      code: "ABCDEF",
+      createdBy: "user-1",
+      createdAt: "2026-07-24T00:00:00.000Z",
+      members,
+    };
+  }
+
+  const member = (userId: string, displayName: string): GroupRecord["members"][number] => ({
+    userId,
+    displayName,
+    avatar: "",
+    joinedAt: "2026-07-24T00:00:00.000Z",
+  });
+
+  async function postJson(env: Env, path: string, body: unknown, token?: string): Promise<Response> {
+    return await authRoutes.request(path, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    }, env);
+  }
+
+  it("bumps last_sync when a join actually adds a member", async () => {
+    const { env, puts, values } = testEnv({
+      "group:ABCDEF": group([member("user-1", "First")]),
+      "token:new-token": user({ userId: "user-2", displayName: "Second" }),
+    });
+
+    const response = await postJson(env, "/join", {
+      token: "new-token",
+      displayName: "Second",
+      inviteCode: "abcdef",
+    });
+
+    expect(response.status).toBe(200);
+    expect(puts).toContain("last_sync:ABCDEF");
+    expect(puts.filter((key) => key === "last_sync:ABCDEF")).toHaveLength(1);
+    expect(values.get("last_sync:ABCDEF")).toMatch(/^\d+$/);
+  });
+
+  it("writes no bump when the joiner is already a member", async () => {
+    const { env, puts } = testEnv({
+      "group:ABCDEF": group([member("user-1", "First")]),
+      "token:test-token": user(),
+      "user_groups:user-1": ["ABCDEF"],
+    });
+
+    const response = await postJson(env, "/join", {
+      token: "test-token",
+      displayName: "Test",
+      inviteCode: "ABCDEF",
+    });
+
+    expect(response.status).toBe(200);
+    expect(puts).not.toContain("last_sync:ABCDEF");
+  });
+
+  it("bumps last_sync when a member leaves a group that survives", async () => {
+    const { env, puts } = testEnv({
+      "group:ABCDEF": group([member("user-1", "First"), member("user-2", "Second")]),
+      "token:test-token": user(),
+      "user_groups:user-1": ["ABCDEF"],
+    });
+
+    const response = await postJson(env, "/leave", { inviteCode: "ABCDEF" }, "test-token");
+
+    expect(response.status).toBe(200);
+    expect(puts).toContain("last_sync:ABCDEF");
+  });
+
+  it("bumps last_sync when the last member leaves and the group is deleted", async () => {
+    // /rank/:code reads its cache before it reads `group:`, so the board has to
+    // be expired or a deleted group keeps answering until the TTL runs out.
+    const { env, puts, values } = testEnv({
+      "group:ABCDEF": group([member("user-1", "First")]),
+      "token:test-token": user(),
+      "user_groups:user-1": ["ABCDEF"],
+    });
+
+    const response = await postJson(env, "/leave", { inviteCode: "ABCDEF" }, "test-token");
+
+    expect(response.status).toBe(200);
+    expect(values.has("group:ABCDEF")).toBe(false);
+    expect(puts).toContain("last_sync:ABCDEF");
+  });
+
+  it("bumps last_sync for a freshly created group", async () => {
+    const { env, puts } = testEnv({ "token:test-token": user(), "user_groups:user-1": [] });
+
+    const response = await postJson(env, "/group/create", { name: "New club" }, "test-token");
+
+    expect(response.status).toBe(200);
+    const { groupCode } = await response.json<{ groupCode: string }>();
+    expect(puts).toContain(`last_sync:${groupCode}`);
+  });
+
+  it("bumps last_sync for the group /init auto-creates", async () => {
+    const { env, puts } = testEnv({});
+
+    const response = await postJson(env, "/init", { token: "fresh-token", displayName: "Fresh" });
+
+    expect(response.status).toBe(200);
+    const { groupCode } = await response.json<{ groupCode: string }>();
+    expect(puts).toContain(`last_sync:${groupCode}`);
   });
 });
 

@@ -128,6 +128,25 @@ function generateInviteCode(): string {
   return code;
 }
 
+/**
+ * Expire a group's cached ranking, activity board and OG image.
+ *
+ * `last_sync:<code>` is read as "newest change to anything this board is
+ * computed from", not literally "newest usage upload" — POST /api/profile
+ * already bumps it so a renamed member appears. The membership list is the
+ * other input — a ranking entry per member, plus the `memberCount` — so a join
+ * or a departure has to move the marker too. Without it a new member waits out
+ * the entry's 600 s TTL to show up on the board, which is the first thing they
+ * look for after `ccclub join`. (The OG image already folds the member list
+ * into its own cache key; this makes `/api/rank/:code` and `/api/activity/:code`
+ * agree with it.)
+ *
+ * One write per affected group — the callers each change exactly one.
+ */
+async function bumpLastSync(kv: KVNamespace, code: string): Promise<void> {
+  await kv.put(`last_sync:${code}`, String(Date.now()));
+}
+
 async function generateUniqueInviteCode(kv: KVNamespace, maxRetries = 5): Promise<string> {
   for (let i = 0; i < maxRetries; i++) {
     const code = generateInviteCode();
@@ -183,6 +202,7 @@ app.post("/init", async (c) => {
     members: [memberFromUser(userRecord, now)],
   };
   await c.env.KV.put(`group:${inviteCode}`, JSON.stringify(groupRecord));
+  await bumpLastSync(c.env.KV, inviteCode);
 
   // Track user's groups
   await c.env.KV.put(`user_groups:${userId}`, JSON.stringify([inviteCode]));
@@ -233,6 +253,7 @@ app.post("/join", async (c) => {
     }
     group.members.push(memberFromUser(userRecord, now));
     await c.env.KV.put(`group:${code}`, JSON.stringify(group));
+    await bumpLastSync(c.env.KV, code);
   }
 
   // Track user's groups
@@ -276,6 +297,7 @@ app.post("/group/create", async (c) => {
     members: [memberFromUser(user, now)],
   };
   await c.env.KV.put(`group:${inviteCode}`, JSON.stringify(groupRecord));
+  await bumpLastSync(c.env.KV, inviteCode);
 
   const userGroups = (await c.env.KV.get<string[]>(`user_groups:${user.userId}`, "json")) || [];
   userGroups.push(inviteCode);
@@ -444,6 +466,10 @@ app.post("/leave", async (c) => {
   } else {
     await c.env.KV.put(`group:${code}`, JSON.stringify(group));
   }
+  // Also when the group is gone: /rank/:code reads its cache before it reads
+  // `group:`, so without this bump a deleted group keeps serving a board for
+  // up to the entry's 600 s TTL instead of 404ing.
+  await bumpLastSync(c.env.KV, code);
 
   // Remove group from user's group list
   const userGroups = (await c.env.KV.get<string[]>(`user_groups:${user.userId}`, "json")) || [];

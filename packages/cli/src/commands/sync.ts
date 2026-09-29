@@ -23,6 +23,7 @@ import { installHeartbeat, isHeartbeatInstalled, newerPinnedHeartbeatVersion } f
 import { pinNotice } from "../pin-version.js";
 import { getCurrentVersion } from "../version.js";
 import { maybeAutoEnableStatusline } from "../statusline-install.js";
+import { appendCappedLog } from "../fs-utils.js";
 
 // Bump this when the block format or accounting semantics change. It forces a
 // one-time source replacement so corrected parsing can also delete obsolete
@@ -36,6 +37,24 @@ function getSyncVersionPath(): string {
 
 function getLastSyncBySourcePath(): string {
   return join(homedir(), CCCLUB_CONFIG_DIR, "last-sync-sources.json");
+}
+
+function getSyncLogPath(): string {
+  return join(homedir(), CCCLUB_CONFIG_DIR, "sync.log");
+}
+
+/**
+ * The Stop hook and the LaunchAgent both sync with --silent, which drops every
+ * collector warning and exits 0. That is how two dangling symlinks under
+ * ~/.claude/projects hid fifteen hours of unuploaded usage: the Claude source
+ * came back empty, the single warning that said so was never printed, and
+ * nothing recorded that the run had a complaint at all. Silent runs now leave
+ * their warnings in ~/.ccclub/sync.log, one timestamped line each, so the next
+ * time a source quietly drops there is something to read.
+ */
+async function logSilentWarnings(warnings: string[]): Promise<void> {
+  const stamp = new Date().toISOString();
+  await appendCappedLog(getSyncLogPath(), warnings.map((warning) => `${stamp} ${warning}\n`).join(""));
 }
 
 function getSyncedPricingVersionPath(): string {
@@ -202,6 +221,10 @@ async function performSync(config: CliConfig, firstSync = false, silent = false)
       }),
       fetchUsageLimits().catch(() => null),
     ]);
+    // Before any early return below: a run with nothing to upload is exactly
+    // the run whose warnings explain why.
+    if (silent && warnings.length > 0) await logSilentWarnings(warnings);
+
     const populatedSources = sources.filter((source) => source.entries.length > 0);
     const replaceSources = firstSync
       ? sources.filter((source) => source.files > 0).map((source) => source.source)

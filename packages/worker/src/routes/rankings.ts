@@ -49,14 +49,27 @@ const RANK_CACHE_VERSION = "v10";
  * for the result one call later; it does not need its own write reflected
  * within the second.
  *
- * The trade: a ranking may be up to 60 s stale with respect to the very latest
- * sync. Every client polls on a 5-minute cadence, so that sits below the
- * resolution anyone can observe. It is not only syncs that wait: a profile
- * edit bumps the same `last_sync:` markers (auth.ts, "a profile write must
- * expire any entry computed from the old member snapshot"), so a renamed
- * member or a new avatar can also take up to 60 s to appear on a board.
+ * Why 15 s and not longer: with the no-op short-circuits in place
+ * (`isUnchanged` in sync.ts, `sameUsageLimits` in usage.ts) a `last_sync:`
+ * bump now means the numbers actually moved, so the floor is no longer damming
+ * a flood of no-op heartbeats. Its whole remaining job is to cap the recompute
+ * rate when real changes do arrive in a burst: at 15 s an 85-member group
+ * recomputes at most 4 times a minute, ~350 KV reads, which is a ceiling worth
+ * paying. Longer than that starts costing correctness instead, because the CLI
+ * asks for `/api/rank/<code>` about 200 ms after its own `POST /api/sync`, and
+ * a cache younger than the floor wins over that sync. At 15 s that blind spot
+ * is a twentieth of the 5-minute heartbeat rather than a fifth of it, so a
+ * member who just coded sees their own upload on the statusline nearly every
+ * time.
+ *
+ * The trade that remains: a board can be up to 15 s behind the very latest
+ * sync. Every client polls on a 5-minute cadence, so that sits well below the
+ * resolution anyone can observe. It is not only syncs that wait: a profile edit
+ * bumps the same `last_sync:` markers (auth.ts, "a profile write must expire
+ * any entry computed from the old member snapshot"), so a renamed member or a
+ * new avatar can also take up to 15 s to appear on a board.
  */
-export const RANK_CACHE_MIN_AGE_MS = 60_000;
+export const RANK_CACHE_MIN_AGE_MS = 15_000;
 
 /**
  * Whether a cached entry may be served. `lastSync` is the newest sync marker
@@ -369,8 +382,10 @@ app.get("/rank/:code", async (c) => {
   // Check KV-backed cache before doing O(N) reads.
   // Pre-existing and not fixed here: the key names the period but not the day,
   // so at a local midnight a `daily` board can serve the previous day's window
-  // until the entry's 600 s TTL expires — likelier now that the age floor keeps
-  // entries alive through the sync that used to evict them.
+  // until either a newer `last_sync:` beats it or the 600 s TTL expires. The
+  // age floor adds at most its own length to that window — past the floor the
+  // original `computedAt >= lastSync` rule decides again, so the first sync
+  // after midnight evicts the entry exactly as it did before.
   const tzBucket = Math.round(tz / 60);
   const cacheKey = `rank_cache:${RANK_CACHE_VERSION}:${code}:${period}:${tzBucket}`;
   const [cacheEntry, lastSyncStr] = await Promise.all([

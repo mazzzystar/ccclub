@@ -101,12 +101,22 @@ export async function collectAllUsageEntries(options?: {
       try {
         return await collector.collect(context);
       } catch (error) {
+        // Last resort, and an expensive one: one throw here discards
+        // everything the source had, not just the record that caused it — a
+        // single dangling symlink under ~/.claude/projects once cost a whole
+        // day of Claude usage this way. Collectors contain their own per-file
+        // failures now (see readJsonlFile and the stat skips in each one), so
+        // reaching this means something unmodelled broke, and the warning has
+        // to say out loud how much was dropped rather than read like a note
+        // about one file.
+        const label = AGENT_LABELS[source];
+        const message = error instanceof Error ? error.message : String(error);
         return {
           source,
           entries: [],
           turns: [],
           files: 0,
-          warnings: [`${AGENT_LABELS[source]}: ${error instanceof Error ? error.message : String(error)}`],
+          warnings: [`${label}: collection failed, so NO ${label} usage was counted in this run (${message})`],
         };
       }
     }),

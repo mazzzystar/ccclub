@@ -34,7 +34,8 @@ const RANK_CACHE_VERSION = "v10";
  * How young a cached ranking has to be to win over a newer `last_sync:`
  * marker. Below this age the cached entry is served even though a sync landed
  * after it was computed; at or above it, the original `computedAt >= lastSync`
- * rule decides. Shared by every cached board on this router.
+ * rule decides. Used by the per-group boards — `/rank/:code` and
+ * `/activity/:code`; the global board has its own, longer floor below.
  *
  * Why there is a floor at all: the CLI heartbeat (LaunchAgent, `StartInterval`
  * 300) makes two calls back to back — `POST /api/sync`, which writes
@@ -72,20 +73,43 @@ const RANK_CACHE_VERSION = "v10";
 export const RANK_CACHE_MIN_AGE_MS = 15_000;
 
 /**
+ * The same floor for `/rank/global`, which needs a different number because it
+ * has no `last_sync:` marker: nothing invalidates the public set, so for that
+ * board the floor is not a tie-breaker against a newer sync — it is the entire
+ * freshness rule, and the recompute interval it names is the only one there is.
+ *
+ * 5 minutes is what the two consumers already assume. The dashboard polls
+ * `/api/rank/global` on a 5-minute `setInterval` (dashboard.ts, `load()`), and
+ * the global OG image keys its cache on `Math.floor(Date.now() / 300_000)`
+ * (dashboard.ts, `cacheVersion`), so a shorter floor would only buy recomputes
+ * nobody fetches. Every miss costs one `usage:` plus one `user_groups:` read
+ * per public user and a `group:` read per distinct group, which is why this is
+ * the one board worth holding longer than the group ones.
+ *
+ * The 600 s TTL above it stays as the safety net: past this floor the entry is
+ * refused, so the TTL only matters if nothing asks for the board at all.
+ */
+export const GLOBAL_RANK_CACHE_MIN_AGE_MS = 300_000;
+
+/**
  * Whether a cached entry may be served. `lastSync` is the newest sync marker
  * for this board, or null when the board has none — the global leaderboard,
  * which nothing invalidates, so there the age floor is the whole freshness
  * rule. A future-dated `computedAt` (clock skew) is never treated as fresh.
+ *
+ * `minAgeMs` is the floor to apply, so the global board can hold its cache
+ * five times longer than a group board without a second copy of this rule.
  */
 export function canServeCachedRanking(
   computedAt: number,
   lastSync: number | null,
   now = Date.now(),
+  minAgeMs = RANK_CACHE_MIN_AGE_MS,
 ): boolean {
   if (!Number.isFinite(computedAt)) return false;
   const age = now - computedAt;
   if (age < 0) return false;
-  if (age < RANK_CACHE_MIN_AGE_MS) return true;
+  if (age < minAgeMs) return true;
   return lastSync !== null && computedAt >= lastSync;
 }
 
@@ -351,13 +375,17 @@ app.get("/rank/global", async (c) => {
   // is lowercase `global`, which no group code can collide with (those are
   // upper-cased before they reach the key). Nothing bumps a `last_sync:` marker
   // for the public set, so the age floor is this board's entire freshness rule:
-  // recompute at most once a minute, serve from cache in between. Until now
-  // this route had no cache at all — every hit read one `usage:` and one
-  // `user_groups:` entry per public user, plus a `group:` per distinct group.
+  // recompute at most once every 5 minutes — the cadence both consumers
+  // already poll at — and serve from cache in between. Until now this route had
+  // no cache at all — every hit read one `usage:` and one `user_groups:` entry
+  // per public user, plus a `group:` per distinct group.
   const tzBucket = Math.round(tz / 60);
   const cacheKey = `rank_cache:${RANK_CACHE_VERSION}:global:${period}:${tzBucket}`;
   const cacheEntry = await c.env.KV.get<{ data: RankResponse; computedAt: number }>(cacheKey, "json");
-  if (cacheEntry && canServeCachedRanking(cacheEntry.computedAt, null)) {
+  if (
+    cacheEntry &&
+    canServeCachedRanking(cacheEntry.computedAt, null, Date.now(), GLOBAL_RANK_CACHE_MIN_AGE_MS)
+  ) {
     return c.json(cacheEntry.data);
   }
 

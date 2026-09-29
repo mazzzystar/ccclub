@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { GroupRecord, MemberProject, RankResponse, UsageBlock, UsageData } from "@ccclub/shared";
 import type { Env } from "../types.js";
-import { RANK_CACHE_MIN_AGE_MS, canServeCachedRanking, rankRoutes } from "./rankings.js";
+import {
+  GLOBAL_RANK_CACHE_MIN_AGE_MS,
+  RANK_CACHE_MIN_AGE_MS,
+  canServeCachedRanking,
+  rankRoutes,
+} from "./rankings.js";
 
 function nowBlock(): UsageBlock {
   const start = new Date();
@@ -221,6 +226,53 @@ describe("GET /rank/global caching", () => {
   });
 });
 
+describe("the global board's longer floor", () => {
+  const cachedGlobal: RankResponse = {
+    group: { name: "Global Rankings", code: "global", memberCount: 1 },
+    period: "daily",
+    start: "2026-09-29T00:00:00.000Z",
+    end: "2026-09-30T00:00:00.000Z",
+    rankings: [],
+  };
+
+  function globalEnv(cacheAgeMs: number) {
+    return testEnv({
+      public_users: ["user-1"],
+      "user_groups:user-1": ["ABCDEF"],
+      "group:ABCDEF": group([
+        { userId: "user-1", displayName: "One", avatar: "", joinedAt: "2026-07-24T00:00:00.000Z" },
+      ]),
+      "usage:user-1": usage,
+      "rank_cache:v10:global:daily:0": { data: cachedGlobal, computedAt: Date.now() - cacheAgeMs },
+    });
+  }
+
+  it("serves an entry a group board would already have refused", async () => {
+    // 200 s is well past RANK_CACHE_MIN_AGE_MS: this board holds its cache
+    // longer precisely because it has no sync marker to fall back on.
+    expect(GLOBAL_RANK_CACHE_MIN_AGE_MS).toBeGreaterThan(RANK_CACHE_MIN_AGE_MS);
+    const { env, gets } = globalEnv(200_000);
+
+    const response = await rankRoutes.request("/rank/global", {}, env, executionCtx);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(cachedGlobal);
+    expect(gets.filter((key) => key.startsWith("usage:"))).toEqual([]);
+    expect(gets.filter((key) => key.startsWith("user_groups:"))).toEqual([]);
+  });
+
+  it("recomputes once the entry is past 300 s", async () => {
+    const { env, gets } = globalEnv(400_000);
+
+    const response = await rankRoutes.request("/rank/global", {}, env, executionCtx);
+
+    expect(response.status).toBe(200);
+    const data = await response.json() as RankResponse;
+    expect(data.rankings).toHaveLength(1);
+    expect(gets).toContain("usage:user-1");
+  });
+});
+
 describe("canServeCachedRanking", () => {
   const now = 1_800_000_000_000;
 
@@ -247,6 +299,13 @@ describe("canServeCachedRanking", () => {
   it("treats a board with no sync marker as fresh only within the floor", () => {
     expect(canServeCachedRanking(now - 1_000, null, now)).toBe(true);
     expect(canServeCachedRanking(now - RANK_CACHE_MIN_AGE_MS, null, now)).toBe(false);
+  });
+
+  it("applies whichever floor it is handed", () => {
+    const age200s = now - 200_000;
+    expect(canServeCachedRanking(age200s, null, now)).toBe(false);
+    expect(canServeCachedRanking(age200s, null, now, GLOBAL_RANK_CACHE_MIN_AGE_MS)).toBe(true);
+    expect(canServeCachedRanking(now - 400_000, null, now, GLOBAL_RANK_CACHE_MIN_AGE_MS)).toBe(false);
   });
 
   it("reads the clock itself when no `now` is injected", () => {

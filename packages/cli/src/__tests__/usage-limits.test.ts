@@ -3,7 +3,15 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach } from "vitest";
-import { parseModelWeekly, writeModelWeekly, isTokenExpired, readCostlineFallback } from "../usage-limits.js";
+import {
+  parseModelWeekly,
+  writeModelWeekly,
+  isTokenExpired,
+  readCostlineFallback,
+  readLimitsState,
+  recordLimitsOutcome,
+} from "../usage-limits.js";
+import type { LimitsResult } from "../usage-limits.js";
 
 const tempDirs: string[] = [];
 
@@ -215,5 +223,97 @@ describe("readCostlineFallback", () => {
       const path = await writeTmpFile(dir, body, NOW - 1000);
       expect(readCostlineFallback(path, NOW)).toBeNull();
     }
+  });
+});
+
+describe("recordLimitsOutcome", () => {
+  const NOW = new Date("2026-07-13T12:00:00Z").getTime();
+  const SNAPSHOT = { fiveHour: 15, sevenDay: 43, snapshotAt: "x" };
+  const failed = (reason: string, extra: Record<string, unknown> = {}): LimitsResult =>
+    ({ state: "failed", snapshot: null, failure: { reason, ...extra } });
+
+  async function paths(): Promise<{ statePath: string; logPath: string }> {
+    const dir = await makeTempDir();
+    return { statePath: join(dir, "limits-state.json"), logPath: join(dir, "sync.log") };
+  }
+
+  const logOf = (path: string) => (existsSync(path) ? readFileSync(path, "utf-8") : "");
+
+  it("says why the first failure happened, with a timestamp", async () => {
+    // The gap this closes: a failed request hands back the stale cache and the
+    // sync carries on, so the statusline went stale with nothing to read.
+    const p = await paths();
+    await recordLimitsOutcome(failed("request timed out after 8s"), { ...p, now: NOW });
+    expect(logOf(p.logPath)).toBe("2026-07-13T12:00:00.000Z usage limits: request timed out after 8s\n");
+    expect(readLimitsState(p.statePath)).toEqual({
+      failures: 1,
+      reason: "request timed out after 8s",
+      since: NOW,
+      retryAt: undefined,
+    });
+  });
+
+  it("logs a streak once, not once per attempt", async () => {
+    const p = await paths();
+    for (let i = 0; i < 5; i++) {
+      await recordLimitsOutcome(failed("request failed: ENOTFOUND"), { ...p, now: NOW + i * 300_000 });
+    }
+    expect(logOf(p.logPath).trim().split("\n")).toHaveLength(1);
+    const state = readLimitsState(p.statePath);
+    expect(state.failures).toBe(5);
+    expect(state.since).toBe(NOW); // when the streak began, not the latest attempt
+  });
+
+  it("logs again when the cause changes", async () => {
+    const p = await paths();
+    await recordLimitsOutcome(failed("request timed out after 8s"), { ...p, now: NOW });
+    await recordLimitsOutcome(failed("HTTP 429 rate_limit_error", { retryAfterMs: 120_000 }), { ...p, now: NOW + 60_000 });
+    expect(logOf(p.logPath)).toContain("usage limits: HTTP 429 rate_limit_error");
+    expect(logOf(p.logPath).trim().split("\n")).toHaveLength(2);
+    expect(readLimitsState(p.statePath).retryAt).toBe(NOW + 60_000 + 120_000);
+  });
+
+  it("records the end of a streak and how long it lasted", async () => {
+    const p = await paths();
+    await recordLimitsOutcome(failed("request timed out after 8s"), { ...p, now: NOW });
+    await recordLimitsOutcome(failed("request timed out after 8s"), { ...p, now: NOW + 15 * 60_000 });
+    await recordLimitsOutcome({ state: "fetched", snapshot: SNAPSHOT }, { ...p, now: NOW + 30 * 60_000 });
+    expect(logOf(p.logPath)).toContain(
+      "2026-07-13T12:30:00.000Z usage limits: recovered after 2 failed attempts over 30 min\n",
+    );
+    expect(readLimitsState(p.statePath)).toEqual({ failures: 0 });
+  });
+
+  it("writes nothing while requests keep succeeding", async () => {
+    const p = await paths();
+    await recordLimitsOutcome({ state: "fetched", snapshot: SNAPSHOT }, { ...p, now: NOW });
+    await recordLimitsOutcome({ state: "cached", snapshot: SNAPSHOT }, { ...p, now: NOW });
+    expect(existsSync(p.statePath)).toBe(false);
+    expect(existsSync(p.logPath)).toBe(false);
+  });
+
+  it("does not count a cache hit as a recovery", async () => {
+    // No request was made, so nothing is known about whether one would work.
+    const p = await paths();
+    await recordLimitsOutcome(failed("request timed out after 8s"), { ...p, now: NOW });
+    await recordLimitsOutcome({ state: "cached", snapshot: SNAPSHOT }, { ...p, now: NOW + 60_000 });
+    expect(readLimitsState(p.statePath).failures).toBe(1);
+  });
+
+  it("counts but does not log a machine with nothing to ask with", async () => {
+    // No keychain, or no Claude login: a standing condition, not an event.
+    const p = await paths();
+    await recordLimitsOutcome(failed("no keychain on this platform", { quiet: true }), { ...p, now: NOW });
+    expect(existsSync(p.logPath)).toBe(false);
+    expect(readLimitsState(p.statePath).failures).toBe(1);
+  });
+
+  it("reads a missing or malformed state file as no failures", async () => {
+    const p = await paths();
+    expect(readLimitsState(p.statePath)).toEqual({ failures: 0 });
+    await writeFile(p.statePath, "{not json");
+    expect(readLimitsState(p.statePath)).toEqual({ failures: 0 });
+    await writeFile(p.statePath, JSON.stringify({ failures: "3" }));
+    expect(readLimitsState(p.statePath)).toEqual({ failures: 0 });
   });
 });

@@ -29,7 +29,10 @@ vi.mock("../heartbeat.js", () => ({
 }));
 vi.mock("../statusline-install.js", () => ({ maybeAutoEnableStatusline: async () => {} }));
 vi.mock("../statusline.js", () => ({ refreshRankCache: async () => {} }));
-vi.mock("../usage-limits.js", () => ({ fetchUsageLimits: async () => null }));
+vi.mock("../usage-limits.js", () => ({
+  refreshUsageLimits: async () => ({ state: "failed", snapshot: null, failure: { reason: "mocked", quiet: true } }),
+  recordLimitsOutcome: async () => {},
+}));
 vi.mock("../scan-cache.js", () => ({ createScanCacheFactory: () => undefined }));
 vi.mock("../pricing.js", async () => {
   const shared = await import("@ccclub/shared");

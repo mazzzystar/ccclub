@@ -16,7 +16,7 @@ import { createScanCacheFactory } from "../scan-cache.js";
 import { AGENT_LABELS, AGENT_SOURCES, CCCLUB_CONFIG_DIR } from "@ccclub/shared";
 import type { AgentSource, SyncRequest, SyncResponse, UsageBlock } from "@ccclub/shared";
 import { formatFetchError } from "../fetch-error.js";
-import { fetchUsageLimits } from "../usage-limits.js";
+import { recordLimitsOutcome, refreshUsageLimits } from "../usage-limits.js";
 import { acquireSyncLock } from "../sync-lock.js";
 import { installHook, isHookInstalled, newerPinnedHookVersion } from "../hook.js";
 import { installHeartbeat, isHeartbeatInstalled, newerPinnedHeartbeatVersion } from "../heartbeat.js";
@@ -209,18 +209,25 @@ async function performSync(config: CliConfig, firstSync = false, silent = false)
       }
     }
 
-    const [{ entries, humanTurns, sources, warnings }, usageSnapshot] = await Promise.all([
-      collectUsageEntries({
-        sources: collectSources,
-        calculateCost,
-        openScanCache: createScanCacheFactory(),
-        // API-backed sources narrow their query to what is new. A full sync
-        // withholds the watermarks so they refetch everything — which is also
-        // what makes clearing a source's marker a working repair.
-        lastSyncBySource: firstSync ? undefined : lastSyncBySource,
-      }),
-      fetchUsageLimits().catch(() => null),
-    ]);
+    // Before the scan, not alongside it. The two used to run in parallel, but
+    // the scan blocks the event loop in stretches (1.8s of a 14s run measured;
+    // on a loaded machine that same run takes minutes) and the limits request's
+    // abort timer lives on that loop — so it fired on a request that had long
+    // been answered, and the sync carried on with the stale cache. The request
+    // is ~1s, and usually not made at all: the cache is rarely five minutes old.
+    const limits = await refreshUsageLimits().catch(() => null);
+    if (limits != null) await recordLimitsOutcome(limits);
+    const usageSnapshot = limits?.snapshot ?? null;
+
+    const { entries, humanTurns, sources, warnings } = await collectUsageEntries({
+      sources: collectSources,
+      calculateCost,
+      openScanCache: createScanCacheFactory(),
+      // API-backed sources narrow their query to what is new. A full sync
+      // withholds the watermarks so they refetch everything — which is also
+      // what makes clearing a source's marker a working repair.
+      lastSyncBySource: firstSync ? undefined : lastSyncBySource,
+    });
     // Before any early return below: a run with nothing to upload is exactly
     // the run whose warnings explain why.
     if (silent && warnings.length > 0) await logSilentWarnings(warnings);

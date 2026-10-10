@@ -4,7 +4,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { renderStatusline } from "./statusline.js";
-import { maybeTriggerRefresh } from "./statusline-refresh.js";
+import { maybeRefreshLimits, maybeTriggerRefresh } from "./statusline-refresh.js";
 
 // Claude Code pipes a JSON payload and closes stdin. When run by hand in a
 // terminal there is nothing to render — exit instead of blocking on a TTY.
@@ -32,4 +32,13 @@ try {
 } catch {
   // Unreachable in practice (maybeTriggerRefresh swallows its own failures),
   // but the printed line and the exit code must not depend on that.
+}
+
+// Likewise after the line is out: if this session has seen usage the cache has
+// not, fetch just the limits — which is what brings Fable's number and every
+// other open session up to date within a minute, without a sync.
+try {
+  maybeRefreshLimits({ input, limitsCliPath: fileURLToPath(new URL("./limits-cli.js", import.meta.url)) });
+} catch {
+  // As above.
 }

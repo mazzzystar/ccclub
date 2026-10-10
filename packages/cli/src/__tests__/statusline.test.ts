@@ -297,6 +297,115 @@ describe("renderStatusline", () => {
   });
 });
 
+const HOUR_MS = 60 * 60 * 1000;
+
+/** STDIN_JSON plus the `rate_limits` Claude Code reads off its latest API response. */
+function stdinWithLimits(rateLimits: unknown): string {
+  return JSON.stringify({ ...JSON.parse(STDIN_JSON), rate_limits: rateLimits });
+}
+
+/** One window as Claude Code sends it: resets_at is epoch seconds. */
+function liveWindow(percent: number, resetsInMs: number): { used_percentage: number; resets_at: number } {
+  return { used_percentage: percent, resets_at: Math.round((NOW + resetsInMs) / 1000) };
+}
+
+describe("live rate limits from stdin", () => {
+  it("shows the session's own numbers when they are ahead of the cache", async () => {
+    // The case this exists for: the cache trails by a sync interval while the
+    // session in front of the user is the one spending.
+    const options = await setUpCaches(await makeTempDir(), { fiveHour: 82, sevenDay: 56 });
+    const line = stripAnsi(renderStatusline(stdinWithLimits({
+      five_hour: liveWindow(97, HOUR_MS),
+      seven_day: liveWindow(60, 6 * 24 * HOUR_MS),
+    }), options));
+    expect(line).toBe(" Fable 5 | 5h: 97% / 7d: 60% | #11/67 $19.0");
+  });
+
+  it("keeps the cache when an idle session is behind it", async () => {
+    // Another session did the spending: this one still reports what it saw on
+    // its last turn, and the cache — fetched inside the same window — is newer.
+    const options = await setUpCaches(await makeTempDir(), { fiveHour: 82, sevenDay: 56 });
+    const line = stripAnsi(renderStatusline(stdinWithLimits({
+      five_hour: liveWindow(26, HOUR_MS),
+      seven_day: liveWindow(41, 6 * 24 * HOUR_MS),
+    }), options));
+    expect(line).toBe(" Fable 5 | 5h: 82% / 7d: 56% | #11/67 $19.0");
+  });
+
+  it("ignores a cache fetched before the current window began", async () => {
+    // The 5-hour window turned over 30 minutes ago; the cache is two hours old
+    // and still holds the previous window's 97%.
+    const options = await setUpCaches(await makeTempDir(), {
+      fiveHour: 97,
+      sevenDay: 40,
+      usageAgeMs: 2 * HOUR_MS,
+    });
+    const line = stripAnsi(renderStatusline(stdinWithLimits({
+      five_hour: liveWindow(3, 4.5 * HOUR_MS),
+      seven_day: liveWindow(41, 6 * 24 * HOUR_MS),
+    }), options));
+    expect(line).toBe(" Fable 5 | 5h: 3% / 7d: 41% | #11/67 $19.0");
+  });
+
+  it("drops a window that has already reset and falls back to the cache", async () => {
+    const options = await setUpCaches(await makeTempDir());
+    const line = stripAnsi(renderStatusline(stdinWithLimits({
+      five_hour: liveWindow(97, -60_000),
+      seven_day: liveWindow(60, 6 * 24 * HOUR_MS),
+    }), options));
+    expect(line).toBe(" Fable 5 | 5h: 15% / 7d: 60% | #11/67 $19.0");
+  });
+
+  it("renders from stdin alone when there is no usage cache", async () => {
+    const dir = await makeTempDir();
+    const line = stripAnsi(renderStatusline(stdinWithLimits({
+      five_hour: liveWindow(12.4, HOUR_MS),
+      seven_day: liveWindow(33, 6 * 24 * HOUR_MS),
+    }), {
+      now: NOW,
+      usageCachePath: join(dir, "missing-usage.json"),
+      rankCachePath: join(dir, "missing-rank.json"),
+      modelWeeklyPath: join(dir, "missing-model-weekly.json"),
+    }));
+    expect(line).toBe(" Fable 5 | 5h: 12% / 7d: 33%");
+  });
+
+  it("does not dim live numbers over a stale cache", async () => {
+    const options = await setUpCaches(await makeTempDir(), { usageAgeMs: 4 * HOUR_MS });
+    const line = renderStatusline(stdinWithLimits({
+      five_hour: liveWindow(97, 0.5 * HOUR_MS),
+      seven_day: liveWindow(60, 6 * 24 * HOUR_MS),
+    }), options);
+    expect(stripAnsi(line)).toBe(" Fable 5 | 5h: 97% / 7d: 60% | #11/67 $19.0");
+    expect(line).toContain("\x1b[38;2;210;106;106m97%"); // danger red, not dim
+  });
+
+  it("dims only the window that still comes from a stale cache", async () => {
+    // Each window may be absent from stdin independently.
+    const options = await setUpCaches(await makeTempDir(), { usageAgeMs: 4 * HOUR_MS });
+    const line = renderStatusline(stdinWithLimits({ five_hour: liveWindow(97, 0.5 * HOUR_MS) }), options);
+    expect(stripAnsi(line)).toBe(" Fable 5 | 5h: 97% / 7d: 43% ~ | #11/67 $19.0");
+    expect(line).toContain("\x1b[38;5;102m43%");
+  });
+
+  it("ignores malformed windows and clamps out-of-range percentages", async () => {
+    const options = await setUpCaches(await makeTempDir());
+    const malformed = stripAnsi(renderStatusline(stdinWithLimits({
+      five_hour: { used_percentage: "97", resets_at: Math.round((NOW + HOUR_MS) / 1000) },
+      seven_day: { used_percentage: 60 },
+    }), options));
+    expect(malformed).toBe(" Fable 5 | 5h: 15% / 7d: 43% | #11/67 $19.0");
+
+    const clamped = stripAnsi(renderStatusline(stdinWithLimits({
+      five_hour: liveWindow(250, HOUR_MS),
+      seven_day: liveWindow(60, 6 * 24 * HOUR_MS),
+    }), options));
+    expect(clamped).toBe(" Fable 5 | 5h: 100% / 7d: 60% | #11/67 $19.0");
+    expect(stripAnsi(renderStatusline(stdinWithLimits("nope"), options)))
+      .toBe(" Fable 5 | 5h: 15% / 7d: 43% | #11/67 $19.0");
+  });
+});
+
 async function renderWithRankUrl(dir: string, url: unknown): Promise<string> {
   const rankCachePath = join(dir, "rank-cache.json");
   await writeFile(rankCachePath, JSON.stringify({

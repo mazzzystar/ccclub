@@ -11,6 +11,15 @@ import type { UsageSnapshot } from "@ccclub/shared";
 // SessionEnd hooks and the heartbeat already run while Claude Code is in use —
 // and which statusline-cli.ts may start once the line has been printed, when
 // those two have been asleep (see statusline-refresh.ts).
+//
+// The 5h/7d numbers have a second, faster source: Claude Code puts the
+// `rate_limits` it read off its latest API response into the stdin payload.
+// That costs nothing to read and is current to the session's last turn, where
+// the cache trails by a sync interval at best — measured at +9 points inside
+// five minutes of heavy use. See resolveLimit for how the two are combined.
+// Fable's weekly limit is not in that payload, and neither is anything another
+// session spent, so a session that sees the cache fall behind also starts a
+// limits-only refresh (statusline-refresh.ts) — one request, no log scan.
 
 // Two ages bound the caches. Past USAGE_MAX_AGE_MS a snapshot no longer
 // describes the current 5-hour window, but hiding it outright is worse than
@@ -111,28 +120,138 @@ function validAge(fetchedAt: number | null, now: number, maxAgeMs: number): numb
 interface CacheRead<T> {
   value: T;
   stale: boolean;
+  fetchedAt: number;
+}
+
+const FIVE_HOUR_MS = 5 * 60 * 60 * 1000;
+const SEVEN_DAY_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** One window of Claude Code's `rate_limits` stdin field. */
+export interface LiveLimit {
+  percent: number;
+  /** Epoch ms at which this window turns over. */
+  resetsAt: number;
+}
+
+/**
+ * A window whose reset time has passed is dropped: the session has been idle
+ * since before the turnover, so its percentage describes a window that no
+ * longer exists. Claude Code sends resets_at in epoch seconds; milliseconds
+ * are tolerated the same way isTokenExpired tolerates the opposite drift.
+ */
+function readLiveLimit(value: unknown, now: number): LiveLimit | null {
+  const raw = value as { used_percentage?: unknown; resets_at?: unknown } | null | undefined;
+  const percent = asFiniteNumber(raw?.used_percentage);
+  const resets = asFiniteNumber(raw?.resets_at);
+  if (percent == null || resets == null || resets <= 0) return null;
+  const resetsAt = resets > 1e11 ? resets : resets * 1000;
+  if (resetsAt <= now) return null;
+  return { percent: Math.max(0, Math.min(100, percent)), resetsAt };
+}
+
+/** Both windows as this session last saw them; null where absent or expired. */
+function readLiveLimits(data: Record<string, unknown>, now: number): {
+  fiveHour: LiveLimit | null;
+  sevenDay: LiveLimit | null;
+} {
+  const raw = data.rate_limits as { five_hour?: unknown; seven_day?: unknown } | null | undefined;
+  return {
+    fiveHour: readLiveLimit(raw?.five_hour, now),
+    sevenDay: readLiveLimit(raw?.seven_day, now),
+  };
+}
+
+/**
+ * Whether the cache has yet to catch up with what this session saw: there is
+ * no usable cache, it predates the window, or its (rounded, as displayed)
+ * number is lower. The statusline's cue that a refresh would change something.
+ */
+function isAheadOfCache(live: LiveLimit | null, cached: CacheRead<number> | null, windowMs: number): boolean {
+  if (live == null) return false;
+  if (cached == null || cached.fetchedAt < live.resetsAt - windowMs) return true;
+  return Math.round(live.percent) > Math.round(cached.value);
+}
+
+/** What the limits-refresh policy needs to know about one render. */
+export interface LimitsLead {
+  /** Windows where this session is ahead of the cache; null where it is not. */
+  fiveHour: LiveLimit | null;
+  sevenDay: LiveLimit | null;
+  /** When the usage cache was fetched; null when there is none to speak of. */
+  cacheFetchedAt: number | null;
+}
+
+/**
+ * The same two inputs renderStatusline reads, reduced to "is there news the
+ * cache lacks". Kept apart from rendering so that stays a pure string
+ * function; the cost is one more parse of a payload a few hundred bytes long.
+ */
+export function readLimitsLead(
+  input: string,
+  options: { now?: number; usageCachePath?: string } = {},
+): LimitsLead {
+  const none: LimitsLead = { fiveHour: null, sevenDay: null, cacheFetchedAt: null };
+  let data: Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(input) as unknown;
+    if (parsed == null || typeof parsed !== "object") return none;
+    data = parsed as Record<string, unknown>;
+  } catch {
+    return none;
+  }
+  const now = options.now ?? Date.now();
+  const live = readLiveLimits(data, now);
+  const usage = readUsageCache(options.usageCachePath ?? getUsageCachePath(), now);
+  const cached = (value: number | undefined): CacheRead<number> | null =>
+    usage != null && value != null ? { value, stale: usage.stale, fetchedAt: usage.fetchedAt } : null;
+  return {
+    fiveHour: isAheadOfCache(live.fiveHour, cached(usage?.value.fiveHour), FIVE_HOUR_MS) ? live.fiveHour : null,
+    sevenDay: isAheadOfCache(live.sevenDay, cached(usage?.value.sevenDay), SEVEN_DAY_MS) ? live.sevenDay : null,
+    cacheFetchedAt: usage?.fetchedAt ?? null,
+  };
+}
+
+/**
+ * Pick the number to show for one window. The stdin value is only as recent
+ * as this session's last API response — an idle session keeps reporting what
+ * it saw hours ago while another one spends — so it does not simply replace
+ * the cache. Inside a single window usage only climbs, which makes the higher
+ * of the two the more recent, as long as the cache was fetched inside the same
+ * window; one fetched before the window began says nothing about it.
+ */
+function resolveLimit(
+  live: LiveLimit | null,
+  cached: CacheRead<number> | null,
+  windowMs: number,
+): { percent: number; stale: boolean } | null {
+  if (live == null) return cached ? { percent: cached.value, stale: cached.stale } : null;
+  const sameWindow = cached != null && cached.fetchedAt >= live.resetsAt - windowMs;
+  return { percent: sameWindow ? Math.max(live.percent, cached.value) : live.percent, stale: false };
 }
 
 function readUsageCache(path: string, now: number): CacheRead<UsageSnapshot> | null {
   const raw = readJsonFile(path);
   const snapshot = raw?.snapshot as UsageSnapshot | undefined;
-  const age = validAge(asFiniteNumber(raw?.fetchedAt), now, MAX_AGE_MS);
+  const fetchedAt = asFiniteNumber(raw?.fetchedAt);
+  const age = validAge(fetchedAt, now, MAX_AGE_MS);
   if (
     snapshot == null ||
+    fetchedAt == null ||
     age == null ||
     asFiniteNumber(snapshot.fiveHour) == null ||
     asFiniteNumber(snapshot.sevenDay) == null
   ) {
     return null;
   }
-  return { value: snapshot, stale: age > USAGE_MAX_AGE_MS };
+  return { value: snapshot, stale: age > USAGE_MAX_AGE_MS, fetchedAt };
 }
 
 function readModelWeekly(path: string, now: number): CacheRead<ModelWeekly> | null {
   const raw = readJsonFile(path);
   const percent = asFiniteNumber(raw?.percent);
-  const age = validAge(asFiniteNumber(raw?.fetchedAt), now, MAX_AGE_MS);
-  if (percent == null || age == null) return null;
+  const fetchedAt = asFiniteNumber(raw?.fetchedAt);
+  const age = validAge(fetchedAt, now, MAX_AGE_MS);
+  if (percent == null || fetchedAt == null || age == null) return null;
   // A malformed entry drops just this segment; an out-of-range percent is
   // clamped rather than rendered raw.
   const label = printable(raw?.label, 20);
@@ -140,6 +259,7 @@ function readModelWeekly(path: string, now: number): CacheRead<ModelWeekly> | nu
   return {
     value: { label, percent: Math.max(0, Math.min(100, percent)) },
     stale: age > USAGE_MAX_AGE_MS,
+    fetchedAt,
   };
 }
 
@@ -246,15 +366,20 @@ export function renderStatusline(
   if (modelParts.length > 0) segments.push(modelParts.join(" "));
 
   const usage = readUsageCache(options.usageCachePath ?? getUsageCachePath(), now);
-  if (usage) {
+  const cachedLimit = (pick: (snapshot: UsageSnapshot) => number): CacheRead<number> | null =>
+    usage ? { value: pick(usage.value), stale: usage.stale, fetchedAt: usage.fetchedAt } : null;
+  const live = readLiveLimits(data, now);
+  const fiveHour = resolveLimit(live.fiveHour, cachedLimit((snapshot) => snapshot.fiveHour), FIVE_HOUR_MS);
+  const sevenDay = resolveLimit(live.sevenDay, cachedLimit((snapshot) => snapshot.sevenDay), SEVEN_DAY_MS);
+  if (fiveHour && sevenDay) {
     // Stale parts lose their threshold color: dim numbers plus one trailing
     // `~` say "last known" without spending a second character on it.
     const color = (pct: number, stale: boolean) => (stale ? DIM : percentColor(pct));
-    const five = Math.round(usage.value.fiveHour);
-    const seven = Math.round(usage.value.sevenDay);
+    const five = Math.round(fiveHour.percent);
+    const seven = Math.round(sevenDay.percent);
     let seg =
-      `${DIM}5h:${RESET} ${color(five, usage.stale)}${five}%${RESET} ${DIM}/${RESET} ` +
-      `${DIM}7d:${RESET} ${color(seven, usage.stale)}${seven}%${RESET}`;
+      `${DIM}5h:${RESET} ${color(five, fiveHour.stale)}${five}%${RESET} ${DIM}/${RESET} ` +
+      `${DIM}7d:${RESET} ${color(seven, sevenDay.stale)}${seven}%${RESET}`;
     const modelWeekly = readModelWeekly(options.modelWeeklyPath ?? getModelWeeklyPath(), now);
     if (modelWeekly) {
       const pct = Math.round(modelWeekly.value.percent);
@@ -262,7 +387,7 @@ export function renderStatusline(
         ` ${DIM}/${RESET} ${DIM}${modelWeekly.value.label}:${RESET} ` +
         `${color(pct, modelWeekly.stale)}${pct}%${RESET}`;
     }
-    if (usage.stale || modelWeekly?.stale) seg += ` ${DIM}~${RESET}`;
+    if (fiveHour.stale || sevenDay.stale || modelWeekly?.stale) seg += ` ${DIM}~${RESET}`;
     segments.push(seg);
   }
 

@@ -3,8 +3,9 @@ import pkg from "./package.json";
 
 export default defineConfig({
   // statusline-cli is a separate light binary: Claude Code runs it on every
-  // turn, so it must start without loading commander/chalk/ora.
-  entry: ["src/index.ts", "src/statusline-cli.ts"],
+  // turn, so it must start without loading commander/chalk/ora. limits-cli is
+  // the limits-only refresh it spawns, kept as light for the same reason.
+  entry: ["src/index.ts", "src/statusline-cli.ts", "src/limits-cli.ts"],
   format: ["esm"],
   target: "node20",
   dts: true,

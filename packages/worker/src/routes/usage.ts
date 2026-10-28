@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import type { UsageSnapshot } from "@ccclub/shared";
 import type { Env } from "../types.js";
 import { sameUsageLimits } from "./sync.js";
+import { syncMarker, usageVersion } from "../usage-version.js";
 
 export async function usageRoute(c: Context<{ Bindings: Env }>) {
   const auth = c.req.header("Authorization") ?? "";
@@ -42,12 +43,13 @@ export async function usageRoute(c: Context<{ Bindings: Env }>) {
     return c.json({ ok: true, unchanged: true });
   }
 
-  await c.env.KV.put(`usage:${user.userId}`, JSON.stringify({ ...existing, usageSnapshot: snap }));
+  const now = Date.now();
+  await c.env.KV.put(`usage:${user.userId}`, JSON.stringify({ ...existing, usageSnapshot: snap }), usageVersion(now));
 
   // Invalidate rank cache so next fetch sees updated usage
   const groups = (await c.env.KV.get<string[]>(`user_groups:${user.userId}`, "json")) ?? [];
   if (groups.length > 0) {
-    await Promise.all(groups.map((code) => c.env.KV.put(`last_sync:${code}`, String(Date.now()))));
+    await Promise.all(groups.map((code) => c.env.KV.put(`last_sync:${code}`, syncMarker(now, user.userId))));
   }
 
   return c.json({ ok: true });

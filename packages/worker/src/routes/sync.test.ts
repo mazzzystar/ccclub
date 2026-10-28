@@ -443,3 +443,39 @@ describe("POST /usage", () => {
     });
   });
 });
+
+describe("usage versions", () => {
+  it("stamps a changed usage record with its write time and names the syncer in the group marker", async () => {
+    const { env, values, puts } = testEnv({
+      "token:test-token": user,
+      "user_groups:user-1": ["ABCDEF"],
+    });
+    const before = Date.now();
+
+    const response = await post({ blocks: [block("claude", 10)] }, env);
+
+    expect(response.status).toBe(200);
+    const usagePut = puts.find((put) => put.key === "usage:user-1")!;
+    const v = (usagePut.options?.metadata as { v: number }).v;
+    expect(v).toBeGreaterThanOrEqual(before);
+    expect(values.get("last_sync:ABCDEF")).toBe(`${v}:user-1`);
+  });
+
+  it("does the same for a quota-only update", async () => {
+    const { env, values, puts } = testEnv({
+      "token:test-token": user,
+      "user_groups:user-1": ["ABCDEF"],
+    });
+
+    const response = await usageRoutes.request("/usage", {
+      method: "POST",
+      headers: { Authorization: "Bearer test-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ usageSnapshot: { fiveHour: 10, sevenDay: 20, snapshotAt: new Date().toISOString() } }),
+    }, env);
+
+    expect(response.status).toBe(200);
+    const v = (puts.find((put) => put.key === "usage:user-1")!.options?.metadata as { v: number }).v;
+    expect(values.get("last_sync:ABCDEF")).toBe(`${v}:user-1`);
+  });
+});
+

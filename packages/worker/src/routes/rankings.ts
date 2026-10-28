@@ -20,15 +20,18 @@ import {
   previousWeekDays,
   resolveWeekWinners,
 } from "../week-winners.js";
-import type { MemberWeek, WeekTally } from "../week-winners.js";
+import type { MemberSourceDay, MemberWeek, WeekTally } from "../week-winners.js";
+import { loadMemberParts, parseSyncMarker } from "../usage-version.js";
+import type { MemberPart } from "../usage-version.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
 const VALID_PERIODS: RankingPeriod[] = ["daily", "yesterday", "weekly", "monthly", "all-time"];
-// v10: entries now carry the member's projects. The key must move with the
-// meaning, or cached entries keep serving the old numbers under the new
-// label until they expire.
-const RANK_CACHE_VERSION = "v10";
+// v10: entries now carry the member's projects. v11: group entries also carry
+// each member's part and the windows it was derived for (`GroupRankCache`).
+// The key must move with the meaning, or cached entries keep serving the old
+// numbers under the new label until they expire.
+const RANK_CACHE_VERSION = "v11";
 
 /**
  * How young a cached ranking has to be to win over a newer `last_sync:`
@@ -55,8 +58,10 @@ const RANK_CACHE_VERSION = "v10";
  * bump now means the numbers actually moved, so the floor is no longer damming
  * a flood of no-op heartbeats. Its whole remaining job is to cap the recompute
  * rate when real changes do arrive in a burst: at 15 s an 85-member group
- * recomputes at most 4 times a minute, ~350 KV reads, which is a ceiling worth
- * paying. Longer than that starts costing correctness instead, because the CLI
+ * recomputes at most 4 times a minute. Since recomputes carry unchanged
+ * members over (`loadMemberParts`), each costs one `list` plus a read per
+ * member who changed rather than one per member, so the ceiling is cheap; the
+ * floor still holds it. Longer than that starts costing correctness instead, because the CLI
  * asks for `/api/rank/<code>` about 200 ms after its own `POST /api/sync`, and
  * a cache younger than the floor wins over that sync. At 15 s that blind spot
  * is a twentieth of the 5-minute heartbeat rather than a fifth of it, so a
@@ -137,6 +142,194 @@ function addAgentTotals(totals: Map<AgentSource, AgentTotals>, block: UsageData[
   current.chatCount += block.chatCount || 0;
   current.entryCount += block.entryCount;
   totals.set(source, current);
+}
+
+/** The time windows one group board is computed over. */
+interface RankWindows {
+  startMs: number;
+  endMs: number;
+  monthStartMs: number;
+  monthEndMs: number;
+  weekStartMs: number;
+  weekEndMs: number;
+  tz: number;
+}
+
+/**
+ * Everything a group board needs from one member's `usage:` record for one
+ * set of windows — a few hundred bytes in place of the whole history.
+ * Display fields (name, avatar, plan, projects) are deliberately absent: they
+ * come from the group record, which every recompute reads fresh.
+ */
+export interface MemberRankPart {
+  totalTokens: number;
+  nonCacheTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  costUSD: number;
+  entryCount: number;
+  chatCount: number;
+  /** Cost over the monthly window, for the ROI column. */
+  monthlyCost: number;
+  models: string[];
+  agents: AgentSource[];
+  agentTotals: [AgentSource, AgentTotals][];
+  lastActiveTime: number;
+  lastActiveSource?: AgentSource;
+  /** The member's week-bar tally: local day index -> source -> usage. */
+  week: [number, [AgentSource, MemberSourceDay][]][];
+  usageSnapshot?: UsageData["usageSnapshot"];
+  lastSync?: string;
+}
+
+/** A group board's cache entry. Entries written before v11 carry only `data` and `computedAt`. */
+interface GroupRankCache {
+  data: RankResponse;
+  computedAt: number;
+  /** `rankWindowKey` of the windows `parts` were derived for. */
+  window?: string;
+  /** When every member was last read rather than carried over. */
+  fullAt?: number;
+  parts?: Record<string, MemberPart<MemberRankPart>>;
+}
+
+/**
+ * Below this many members a recompute reads everyone instead of listing
+ * versions first. A `list` is billed like ten reads once its monthly
+ * allowance is used, so it only pays on boards wider than that.
+ */
+export const INCREMENTAL_MIN_MEMBERS = 8;
+
+/**
+ * How long parts may be carried from one recompute to the next before every
+ * member is read again. Carrying is exact as long as every `usage:` write
+ * carries a version, so this only bounds the cost of a write that somehow did
+ * not (an older deployment mid-rollout, a hand edit): about one full read of
+ * the largest group every half hour per board.
+ */
+export const RANK_FULL_REFRESH_MS = 30 * 60_000;
+
+function rankWindowKey(w: RankWindows): string {
+  return `${w.startMs}:${w.endMs}:${w.monthStartMs}:${w.weekStartMs}`;
+}
+
+/** The parts a recompute may reuse, or null when it must read every member. */
+function carriedRankParts(
+  cached: GroupRankCache | null,
+  windowKey: string,
+  memberCount: number,
+  now: number,
+): Record<string, MemberPart<MemberRankPart>> | null {
+  if (memberCount < INCREMENTAL_MIN_MEMBERS) return null;
+  if (!cached?.parts || cached.window !== windowKey || cached.fullAt == null) return null;
+  if (!(now - cached.fullAt < RANK_FULL_REFRESH_MS)) return null;
+  return cached.parts;
+}
+
+/** One member's contribution to a group board, from their stored usage. */
+export function summarizeMemberUsage(usage: UsageData | null, w: RankWindows): MemberRankPart {
+  let totalTokens = 0;
+  let nonCacheTokens = 0;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let reasoningTokens = 0;
+  let costUSD = 0;
+  let entryCount = 0;
+  let chatCount = 0;
+  let monthlyCost = 0;
+  let lastActiveTime = 0;
+  let lastActiveSource: AgentSource | undefined;
+  const models = new Set<string>();
+  const agents = new Set<AgentSource>();
+  const agentTotals = new Map<AgentSource, AgentTotals>();
+  const memberWeek: MemberWeek = new Map();
+
+  for (const block of usage?.blocks ?? []) {
+    if (!isRankedSource(block.source)) continue;
+    const blockSource = block.source ?? "claude";
+    if (hasUsage(block)) {
+      const activityTime = getBlockActivityTime(block);
+      if (activityTime > lastActiveTime) {
+        lastActiveTime = activityTime;
+        lastActiveSource = blockSource;
+      }
+    }
+    const blockTime = new Date(block.blockStart).getTime();
+    if (hasUsage(block) && blockTime >= w.weekStartMs && blockTime < w.weekEndMs) {
+      noteMemberBlock(memberWeek, dayIndexOf(blockTime, w.tz), blockSource, block.costUSD, block.totalTokens);
+    }
+    if (blockTime >= w.startMs && blockTime < w.endMs) {
+      totalTokens += block.totalTokens;
+      nonCacheTokens += getNonCacheTokens(block);
+      inputTokens += block.inputTokens;
+      outputTokens += block.outputTokens;
+      reasoningTokens += block.reasoningTokens || 0;
+      costUSD += block.costUSD;
+      entryCount += block.entryCount;
+      chatCount += block.chatCount || 0;
+      for (const m of block.models) models.add(m);
+      agents.add(blockSource);
+      addAgentTotals(agentTotals, block);
+    }
+    if (blockTime >= w.monthStartMs && blockTime < w.monthEndMs) {
+      monthlyCost += block.costUSD;
+    }
+  }
+
+  const part: MemberRankPart = {
+    totalTokens,
+    nonCacheTokens,
+    inputTokens,
+    outputTokens,
+    reasoningTokens,
+    costUSD,
+    entryCount,
+    chatCount,
+    monthlyCost,
+    models: Array.from(models),
+    agents: Array.from(agents),
+    agentTotals: Array.from(agentTotals),
+    lastActiveTime,
+    week: Array.from(memberWeek, ([day, bySource]) => [day, Array.from(bySource)]),
+  };
+  if (lastActiveSource) part.lastActiveSource = lastActiveSource;
+  if (usage?.usageSnapshot) part.usageSnapshot = usage.usageSnapshot;
+  if (usage?.lastSync) part.lastSync = usage.lastSync;
+  return part;
+}
+
+/** One member's blocks in an activity window: [t ms, cost, non-cache tokens, total tokens, chats], oldest first. */
+export interface MemberActivityPart {
+  blocks: [number, number, number, number, number][];
+}
+
+/** An activity board's cache entry; group one-day ranges also carry parts. */
+interface ActivityCache {
+  data: unknown;
+  computedAt: number;
+  window?: string;
+  fullAt?: number;
+  parts?: Record<string, MemberPart<MemberActivityPart>>;
+}
+
+export function summarizeMemberActivity(usage: UsageData | null, startMs: number, endMs: number): MemberActivityPart {
+  const blocks: MemberActivityPart["blocks"] = [];
+  for (const block of usage?.blocks ?? []) {
+    if (!isRankedSource(block.source)) continue;
+    const blockTime = new Date(block.blockStart).getTime();
+    if (blockTime >= startMs && blockTime < endMs) {
+      blocks.push([
+        blockTime,
+        Math.round(block.costUSD * 10000) / 10000,
+        getNonCacheTokens(block),
+        block.totalTokens,
+        block.chatCount || 0,
+      ]);
+    }
+  }
+  blocks.sort((a, b) => a[0] - b[0]);
+  return { blocks };
 }
 
 function buildAgentBreakdown(totals: Map<AgentSource, AgentTotals>, totalCostUSD: number, totalTokens: number): RankingEntry["agentBreakdown"] {
@@ -417,10 +610,10 @@ app.get("/rank/:code", async (c) => {
   const tzBucket = Math.round(tz / 60);
   const cacheKey = `rank_cache:${RANK_CACHE_VERSION}:${code}:${period}:${tzBucket}`;
   const [cacheEntry, lastSyncStr] = await Promise.all([
-    c.env.KV.get<{ data: RankResponse; computedAt: number }>(cacheKey, "json"),
+    c.env.KV.get<GroupRankCache>(cacheKey, "json"),
     c.env.KV.get(`last_sync:${code}`, "text"),
   ]);
-  const lastSync = lastSyncStr ? parseInt(lastSyncStr) : 0;
+  const lastSync = parseSyncMarker(lastSyncStr).at;
   if (cacheEntry && canServeCachedRanking(cacheEntry.computedAt, lastSync)) {
     return c.json(cacheEntry.data);
   }
@@ -447,72 +640,25 @@ app.get("/rank/:code", async (c) => {
   const week = lookbackWindowUtc(nowMs, tz);
   const weekTally: WeekTally = new Map();
 
-  // Fetch usage for all members in parallel
-  const usageResults = await Promise.all(
-    group.members.map((m) => c.env.KV.get<UsageData>(`usage:${m.userId}`, "json")),
+  const windows: RankWindows = { startMs, endMs, monthStartMs, monthEndMs, weekStartMs: week.startMs, weekEndMs: week.endMs, tz };
+  const windowKey = rankWindowKey(windows);
+  const carryOver = carriedRankParts(cacheEntry, windowKey, group.members.length, nowMs);
+  const parts = await loadMemberParts(
+    c.env.KV,
+    group.members.map((m) => m.userId),
+    carryOver,
+    parseSyncMarker(lastSyncStr).userId,
+    (usage) => summarizeMemberUsage(usage, windows),
   );
 
   const hasPlan = group.members.some((m) => m.plan);
   const entries: RankingEntry[] = [];
 
-  for (let idx = 0; idx < group.members.length; idx++) {
-    const member = group.members[idx];
-    const usage = usageResults[idx];
-
-    let totalTokens = 0;
-    let nonCacheTokens = 0;
-    let inputTokens = 0;
-    let outputTokens = 0;
-    let reasoningTokens = 0;
-    let costUSD = 0;
-    let entryCount = 0;
-    let chatCount = 0;
-    let monthlyCost = 0;
-    let lastActiveTime = 0;
-    let lastActiveSource: AgentSource | undefined;
-    const models = new Set<string>();
-    const agents = new Set<AgentSource>();
-    const agentTotals = new Map<AgentSource, AgentTotals>();
-
-    const memberWeek: MemberWeek = new Map();
-
-    if (usage) {
-      for (const block of usage.blocks) {
-        if (!isRankedSource(block.source)) continue;
-        const blockSource = block.source ?? "claude";
-        if (hasUsage(block)) {
-          const activityTime = getBlockActivityTime(block);
-          if (activityTime > lastActiveTime) {
-            lastActiveTime = activityTime;
-            lastActiveSource = blockSource;
-          }
-        }
-        const blockTime = new Date(block.blockStart).getTime();
-        if (hasUsage(block) && blockTime >= week.startMs && blockTime < week.endMs) {
-          noteMemberBlock(memberWeek, dayIndexOf(blockTime, tz), blockSource, block.costUSD, block.totalTokens);
-        }
-        if (blockTime >= startMs && blockTime < endMs) {
-          const source = blockSource;
-          totalTokens += block.totalTokens;
-          nonCacheTokens += getNonCacheTokens(block);
-          inputTokens += block.inputTokens;
-          outputTokens += block.outputTokens;
-          reasoningTokens += block.reasoningTokens || 0;
-          costUSD += block.costUSD;
-          entryCount += block.entryCount;
-          chatCount += block.chatCount || 0;
-          for (const m of block.models) models.add(m);
-          agents.add(source);
-          addAgentTotals(agentTotals, block);
-        }
-        if (hasPlan && !isMonthly && blockTime >= monthStartMs && blockTime < monthEndMs) {
-          monthlyCost += block.costUSD;
-        }
-      }
-    }
+  for (const member of group.members) {
+    const part = parts[member.userId].p;
 
     // This member's week is complete: turn it into one vote per day they coded.
-    castMemberVotes(weekTally, memberWeek);
+    castMemberVotes(weekTally, new Map(part.week.map(([day, bySource]) => [day, new Map(bySource)])));
 
     const entry: RankingEntry = {
       rank: 0,
@@ -520,28 +666,28 @@ app.get("/rank/:code", async (c) => {
       displayName: member.displayName,
       slug: member.slug,
       avatar: member.avatar || "",
-      totalTokens,
-      nonCacheTokens,
-      inputTokens,
-      outputTokens,
-      reasoningTokens,
-      costUSD: Math.round(costUSD * 10000) / 10000,
-      models: Array.from(models),
-      agents: Array.from(agents),
-      agentBreakdown: buildAgentBreakdown(agentTotals, costUSD, totalTokens),
-      entryCount,
-      chatCount,
+      totalTokens: part.totalTokens,
+      nonCacheTokens: part.nonCacheTokens,
+      inputTokens: part.inputTokens,
+      outputTokens: part.outputTokens,
+      reasoningTokens: part.reasoningTokens,
+      costUSD: Math.round(part.costUSD * 10000) / 10000,
+      models: part.models,
+      agents: part.agents,
+      agentBreakdown: buildAgentBreakdown(new Map(part.agentTotals), part.costUSD, part.totalTokens),
+      entryCount: part.entryCount,
+      chatCount: part.chatCount,
     };
     if (member.plan) entry.plan = member.plan;
     if (member.url) entry.url = member.url;
     if (member.projects && member.projects.length > 0) entry.projects = member.projects;
     if (hasPlan) {
-      entry.monthlyCostUSD = Math.round((isMonthly ? costUSD : monthlyCost) * 10000) / 10000;
+      entry.monthlyCostUSD = Math.round((isMonthly ? part.costUSD : part.monthlyCost) * 10000) / 10000;
     }
-    if (usage?.usageSnapshot) entry.usageSnapshot = usage.usageSnapshot;
-    if (usage?.lastSync) entry.lastSync = usage.lastSync;
-    if (lastActiveTime > 0) entry.lastActiveAt = new Date(lastActiveTime).toISOString();
-    if (lastActiveSource) entry.lastActiveSource = lastActiveSource;
+    if (part.usageSnapshot) entry.usageSnapshot = part.usageSnapshot;
+    if (part.lastSync) entry.lastSync = part.lastSync;
+    if (part.lastActiveTime > 0) entry.lastActiveAt = new Date(part.lastActiveTime).toISOString();
+    if (part.lastActiveSource) entry.lastActiveSource = part.lastActiveSource;
     entries.push(entry);
   }
 
@@ -564,9 +710,17 @@ app.get("/rank/:code", async (c) => {
     result.weekWinners = lookback.slice(-thisWeek.length);
   }
 
-  // Store in cache (10 min TTL as safety net); non-blocking
+  // Store in cache (10 min TTL as safety net); non-blocking. The parts ride
+  // along so the next recompute in this window reads only who changed.
+  const stored: GroupRankCache = {
+    data: result,
+    computedAt: Date.now(),
+    window: windowKey,
+    fullAt: carryOver ? cacheEntry!.fullAt : nowMs,
+    parts,
+  };
   c.executionCtx.waitUntil(
-    c.env.KV.put(cacheKey, JSON.stringify({ data: result, computedAt: Date.now() }), {
+    c.env.KV.put(cacheKey, JSON.stringify(stored), {
       expirationTtl: 600,
     })
   );
@@ -587,10 +741,10 @@ app.get("/activity/:code", async (c) => {
   const tzBucket = Math.round(tz / 60);
   const activityCacheKey = `activity_cache:${code}:${range}:${tzBucket}`;
   const [activityCacheEntry, activityLastSyncStr] = await Promise.all([
-    c.env.KV.get<{ data: unknown; computedAt: number }>(activityCacheKey, "json"),
+    c.env.KV.get<ActivityCache>(activityCacheKey, "json"),
     c.env.KV.get(`last_sync:${code}`, "text"),
   ]);
-  const activityLastSync = activityLastSyncStr ? parseInt(activityLastSyncStr) : 0;
+  const activityLastSync = parseSyncMarker(activityLastSyncStr).at;
   if (activityCacheEntry && canServeCachedRanking(activityCacheEntry.computedAt, activityLastSync)) {
     return c.json(activityCacheEntry.data);
   }
@@ -662,13 +816,27 @@ app.get("/activity/:code", async (c) => {
     }
   }
 
-  // Fetch usage for all members
-  const usageResults = await Promise.all(
-    memberIds.map((id) => c.env.KV.get<UsageData>(`usage:${id}`, "json")),
+  // A group's per-member series carry over between recomputes like the
+  // ranking's parts do, for the one-day ranges the dashboard polls. Longer
+  // ranges would store every member's month of blocks in the cache entry;
+  // they are asked for rarely enough to just read everyone.
+  const activityWindow = `${startMs}:${endMs}`;
+  const carryActivity = !isGlobal &&
+    (range === "24h" || range === "yesterday") &&
+    memberIds.length >= INCREMENTAL_MIN_MEMBERS &&
+    activityCacheEntry?.parts != null &&
+    activityCacheEntry.window === activityWindow &&
+    activityCacheEntry.fullAt != null &&
+    nowUtc - activityCacheEntry.fullAt < RANK_FULL_REFRESH_MS;
+  const parts = await loadMemberParts(
+    c.env.KV,
+    memberIds,
+    carryActivity ? activityCacheEntry!.parts! : null,
+    parseSyncMarker(activityLastSyncStr).userId,
+    (usage) => summarizeMemberActivity(usage, startMs, endMs),
   );
 
   // Build per-user time series
-  type BlockEntry = { t: number; cost: number; tokens: number; totalTokens: number; chats: number };
   const series: Array<{
     userId: string;
     displayName: string;
@@ -679,36 +847,17 @@ app.get("/activity/:code", async (c) => {
     blocks: Array<{ t: string; cost: number; tokens: number; totalTokens: number; chats: number }>;
   }> = [];
 
-  for (let i = 0; i < memberIds.length; i++) {
-    const userId = memberIds[i];
-    const usage = usageResults[i];
+  for (const userId of memberIds) {
+    const parsed = parts[userId].p.blocks;
     const info = memberMap.get(userId) || { displayName: userId.slice(0, 8), avatar: "" };
 
-    const parsed: BlockEntry[] = [];
-    if (usage) {
-      for (const block of usage.blocks) {
-        if (!isRankedSource(block.source)) continue;
-        const blockTime = new Date(block.blockStart).getTime();
-        if (blockTime >= startMs && blockTime < endMs) {
-          parsed.push({
-            t: blockTime,
-            cost: Math.round(block.costUSD * 10000) / 10000,
-            tokens: getNonCacheTokens(block),
-            totalTokens: block.totalTokens,
-            chats: block.chatCount || 0,
-          });
-        }
-      }
-    }
-    parsed.sort((a, b) => a.t - b.t);
-
-    const totalCost = parsed.reduce((s, bl) => s + bl.cost, 0);
-    const blocks = parsed.map((bl) => ({
-      t: new Date(bl.t).toISOString(),
-      cost: bl.cost,
-      tokens: bl.tokens,
-      totalTokens: bl.totalTokens,
-      chats: bl.chats,
+    const totalCost = parsed.reduce((s, [, cost]) => s + cost, 0);
+    const blocks = parsed.map(([t, cost, tokens, totalTokens, chats]) => ({
+      t: new Date(t).toISOString(),
+      cost,
+      tokens,
+      totalTokens,
+      chats,
     }));
 
     series.push({ userId, slug: info.slug, displayName: info.displayName, avatar: info.avatar, url: info.url, totalCost, blocks });
@@ -720,8 +869,14 @@ app.get("/activity/:code", async (c) => {
 
   const activityResult = { range, start: new Date(startMs).toISOString(), end: new Date(endMs).toISOString(), series: limited };
 
+  const storedActivity: ActivityCache = { data: activityResult, computedAt: Date.now() };
+  if (!isGlobal && (range === "24h" || range === "yesterday")) {
+    storedActivity.window = activityWindow;
+    storedActivity.fullAt = carryActivity ? activityCacheEntry!.fullAt : nowUtc;
+    storedActivity.parts = parts;
+  }
   c.executionCtx.waitUntil(
-    c.env.KV.put(activityCacheKey, JSON.stringify({ data: activityResult, computedAt: Date.now() }), {
+    c.env.KV.put(activityCacheKey, JSON.stringify(storedActivity), {
       expirationTtl: 600,
     })
   );

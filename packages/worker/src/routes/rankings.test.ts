@@ -3,7 +3,9 @@ import type { GroupRecord, MemberProject, RankResponse, UsageBlock, UsageData } 
 import type { Env } from "../types.js";
 import {
   GLOBAL_RANK_CACHE_MIN_AGE_MS,
+  INCREMENTAL_MIN_MEMBERS,
   RANK_CACHE_MIN_AGE_MS,
+  RANK_FULL_REFRESH_MS,
   canServeCachedRanking,
   rankRoutes,
 } from "./rankings.js";
@@ -27,25 +29,45 @@ function nowBlock(): UsageBlock {
 }
 
 /** Fake KV that records every key read and written, so a test can assert that
- *  a cache hit did no per-member fan-out at all. */
+ *  a cache hit did no per-member fan-out at all. `getWithMetadata` counts as a
+ *  read of its key exactly like `get`; `lists` counts listing calls. */
 type PutRecord = { key: string; value: string; options?: KVNamespacePutOptions };
 
-function testEnv(initial: Record<string, unknown>): { env: Env; values: Map<string, string>; gets: string[]; puts: PutRecord[] } {
+function testEnv(
+  initial: Record<string, unknown>,
+  metadata: Record<string, unknown> = {},
+): { env: Env; values: Map<string, string>; meta: Map<string, unknown>; gets: string[]; puts: PutRecord[]; lists: string[] } {
   const values = new Map(Object.entries(initial).map(([key, value]) => [key, JSON.stringify(value)]));
+  const meta = new Map(Object.entries(metadata));
   const gets: string[] = [];
   const puts: PutRecord[] = [];
+  const lists: string[] = [];
+  const read = (key: string, type?: string) => {
+    gets.push(key);
+    const value = values.get(key) ?? null;
+    return type === "json" && value != null ? JSON.parse(value) : value;
+  };
   const KV = {
     async get(key: string, type?: string) {
-      gets.push(key);
-      const value = values.get(key) ?? null;
-      return type === "json" && value != null ? JSON.parse(value) : value;
+      return read(key, type);
+    },
+    async getWithMetadata(key: string, type?: string) {
+      return { value: read(key, type), metadata: meta.get(key) ?? null };
+    },
+    async list({ prefix = "" }: { prefix?: string } = {}) {
+      lists.push(prefix);
+      const keys = [...values.keys()].filter((key) => key.startsWith(prefix)).sort()
+        .map((name) => (meta.has(name) ? { name, metadata: meta.get(name) } : { name }));
+      return { keys, list_complete: true };
     },
     async put(key: string, value: string, options?: KVNamespacePutOptions) {
       puts.push({ key, value, options });
       values.set(key, value);
+      if (options?.metadata !== undefined) meta.set(key, options.metadata);
+      else meta.delete(key);
     },
   } as unknown as KVNamespace;
-  return { env: { KV }, values, gets, puts };
+  return { env: { KV }, values, meta, gets, puts, lists };
 }
 
 const executionCtx = {
@@ -139,7 +161,7 @@ describe("ranking cache age floor", () => {
       "group:ABCDEF": group(members),
       "usage:user-1": usage,
       "usage:user-2": usage,
-      "rank_cache:v10:ABCDEF:daily:0": { data: cached, computedAt: now - cacheAgeMs },
+      "rank_cache:v11:ABCDEF:daily:0": { data: cached, computedAt: now - cacheAgeMs },
       "last_sync:ABCDEF": now - lastSyncAgeMs,
     });
   }
@@ -228,7 +250,7 @@ describe("ranking cache age floor", () => {
 
     expect(response.status).toBe(200);
     await settled();
-    expect(puts.map((put) => put.key)).toEqual(["rank_cache:v10:ABCDEF:daily:0"]);
+    expect(puts.map((put) => put.key)).toEqual(["rank_cache:v11:ABCDEF:daily:0"]);
     // Past the floor a cache newer than the last sync serves until it expires,
     // so the TTL is the only bound on staleness there — part of the contract,
     // not an incidental argument.
@@ -266,7 +288,7 @@ describe("ranking cache age floor", () => {
       "group:ABCDEF": group(members),
       "usage:user-1": usage,
       "usage:user-2": usage,
-      "rank_cache:v10:ABCDEF:daily:0": { data: preSync, computedAt: now - 5_000 },
+      "rank_cache:v11:ABCDEF:daily:0": { data: preSync, computedAt: now - 5_000 },
       "last_sync:ABCDEF": now - 200,
     });
 
@@ -294,7 +316,7 @@ describe("GET /rank/global caching", () => {
     expect(first.status).toBe(200);
     const firstData = await first.json() as RankResponse;
     await settled();
-    expect(puts.map((put) => put.key)).toEqual(["rank_cache:v10:global:daily:0"]);
+    expect(puts.map((put) => put.key)).toEqual(["rank_cache:v11:global:daily:0"]);
     // The TTL is the only bound on a "past the floor but computedAt >= lastSync"
     // serve, so it is part of the contract, not an incidental argument.
     expect(puts[0].options).toEqual({ expirationTtl: 600 });
@@ -304,7 +326,7 @@ describe("GET /rank/global caching", () => {
 
     expect(second.status).toBe(200);
     expect(await second.json()).toEqual(firstData);
-    expect(gets).toEqual(["rank_cache:v10:global:daily:0"]);
+    expect(gets).toEqual(["rank_cache:v11:global:daily:0"]);
   });
 });
 
@@ -325,7 +347,7 @@ describe("the global board's longer floor", () => {
         { userId: "user-1", displayName: "One", avatar: "", joinedAt: "2026-07-24T00:00:00.000Z" },
       ]),
       "usage:user-1": usage,
-      "rank_cache:v10:global:daily:0": { data: cachedGlobal, computedAt: Date.now() - cacheAgeMs },
+      "rank_cache:v11:global:daily:0": { data: cachedGlobal, computedAt: Date.now() - cacheAgeMs },
     });
   }
 
@@ -396,5 +418,182 @@ describe("canServeCachedRanking", () => {
     // hair past it does not.
     expect(canServeCachedRanking(Date.now() - (RANK_CACHE_MIN_AGE_MS - 5_000), Date.now())).toBe(true);
     expect(canServeCachedRanking(Date.now() - RANK_CACHE_MIN_AGE_MS - 1, Date.now())).toBe(false);
+  });
+});
+
+describe("carrying member parts between recomputes", () => {
+  const ids = Array.from({ length: INCREMENTAL_MIN_MEMBERS }, (_, i) => `user-${i + 1}`);
+  const wide = group(ids.map((userId) => ({ userId, displayName: userId, avatar: "", joinedAt: "2026-07-24T00:00:00.000Z" })));
+  const KEY = "rank_cache:v11:ABCDEF:daily:0";
+
+  function usageCosting(cost: number): UsageData {
+    return { blocks: [{ ...nowBlock(), costUSD: cost }], lastSync: new Date().toISOString() };
+  }
+
+  /** A wide group whose board has been computed once, with every member at version 1. */
+  async function computedOnce() {
+    const initial: Record<string, unknown> = { "group:ABCDEF": wide };
+    const metadata: Record<string, unknown> = {};
+    ids.forEach((id, i) => {
+      initial[`usage:${id}`] = usageCosting(i + 1);
+      metadata[`usage:${id}`] = { v: 1 };
+    });
+    const t = testEnv(initial, metadata);
+    const { ctx, settled } = testCtx();
+    await rankRoutes.request("/rank/ABCDEF?period=daily", {}, t.env, ctx);
+    await settled();
+    t.gets.length = 0;
+    t.lists.length = 0;
+    t.puts.length = 0;
+    return { ...t, ctx, settled };
+  }
+
+  /** Age the cached board past the floor and record a newer sync by `userId`. */
+  function syncLanded(t: Awaited<ReturnType<typeof computedOnce>>, userId: string | null, cacheAgeMs = 60_000) {
+    const entry = JSON.parse(t.values.get(KEY)!);
+    entry.computedAt = Date.now() - cacheAgeMs;
+    t.values.set(KEY, JSON.stringify(entry));
+    t.values.set("last_sync:ABCDEF", userId ? `${Date.now() - 1_000}:${userId}` : String(Date.now() - 1_000));
+  }
+
+  async function board(t: { env: Env }, ctx?: ExecutionContext) {
+    const response = await rankRoutes.request("/rank/ABCDEF?period=daily", {}, t.env, ctx ?? executionCtx);
+    expect(response.status).toBe(200);
+    return await response.json() as RankResponse;
+  }
+
+  function costOf(data: RankResponse, userId: string) {
+    return data.rankings.find((r) => r.userId === userId)?.costUSD;
+  }
+
+  it("reads only the member whose version moved", async () => {
+    const t = await computedOnce();
+    t.values.set("usage:user-3", JSON.stringify(usageCosting(50)));
+    t.meta.set("usage:user-3", { v: 2 });
+    syncLanded(t, null);
+
+    const data = await board(t);
+
+    expect(t.gets.filter((key) => key.startsWith("usage:"))).toEqual(["usage:user-3"]);
+    expect(t.lists).toEqual(["usage:"]);
+    expect(costOf(data, "user-3")).toBe(50);
+    expect(data.rankings[0].userId).toBe("user-3");
+  });
+
+  it("matches a recompute from scratch field for field", async () => {
+    const t = await computedOnce();
+    t.values.set("usage:user-5", JSON.stringify(usageCosting(7.5)));
+    t.meta.set("usage:user-5", { v: 2 });
+    syncLanded(t, "user-5");
+
+    const carried = await board(t);
+    const fresh = testEnv({});
+    for (const [key, value] of t.values) if (!key.startsWith("rank_cache:")) fresh.values.set(key, value);
+    const scratch = await board(fresh);
+
+    expect(carried).toEqual(scratch);
+  });
+
+  it("re-reads the member named by the sync marker even before the listing shows their write", async () => {
+    // The CLI asks for its board right after its own sync; a listing can lag
+    // that write, a read at the same location does not.
+    const t = await computedOnce();
+    t.values.set("usage:user-2", JSON.stringify(usageCosting(40)));
+    syncLanded(t, "user-2");
+
+    const data = await board(t);
+
+    expect(t.gets.filter((key) => key.startsWith("usage:"))).toEqual(["usage:user-2"]);
+    expect(costOf(data, "user-2")).toBe(40);
+  });
+
+  it("keeps the carried part when a read returns an older copy", async () => {
+    const t = await computedOnce();
+    t.values.set("usage:user-4", JSON.stringify(usageCosting(0)));
+    t.meta.set("usage:user-4", { v: 0 });
+    syncLanded(t, "user-4");
+
+    const data = await board(t);
+
+    expect(costOf(data, "user-4")).toBe(4);
+  });
+
+  it("reads every member once the parts are older than the full refresh", async () => {
+    const t = await computedOnce();
+    const entry = JSON.parse(t.values.get(KEY)!);
+    entry.fullAt = Date.now() - RANK_FULL_REFRESH_MS - 1;
+    t.values.set(KEY, JSON.stringify(entry));
+    syncLanded(t, null);
+
+    await board(t, t.ctx);
+    await t.settled();
+
+    expect(t.gets.filter((key) => key.startsWith("usage:"))).toHaveLength(ids.length);
+    expect(t.lists).toEqual([]);
+    expect(JSON.parse(t.values.get(KEY)!).fullAt).toBeGreaterThan(Date.now() - 5_000);
+  });
+
+  it("reads every member when the windows have moved", async () => {
+    const t = await computedOnce();
+    const entry = JSON.parse(t.values.get(KEY)!);
+    entry.window = "yesterday's windows";
+    t.values.set(KEY, JSON.stringify(entry));
+    syncLanded(t, null);
+
+    await board(t);
+
+    expect(t.gets.filter((key) => key.startsWith("usage:"))).toHaveLength(ids.length);
+  });
+
+  it("keeps the first full read's time across carried recomputes", async () => {
+    const t = await computedOnce();
+    const fullAt = JSON.parse(t.values.get(KEY)!).fullAt;
+    syncLanded(t, "user-1");
+
+    await board(t, t.ctx);
+    await t.settled();
+
+    expect(JSON.parse(t.values.get(KEY)!).fullAt).toBe(fullAt);
+  });
+
+  it("carries the activity board's series the same way", async () => {
+    const t = await computedOnce();
+    const ACTIVITY = "activity_cache:ABCDEF:24h:0";
+    await rankRoutes.request("/activity/ABCDEF", {}, t.env, t.ctx);
+    await t.settled();
+    const entry = JSON.parse(t.values.get(ACTIVITY)!);
+    entry.computedAt = Date.now() - 60_000;
+    t.values.set(ACTIVITY, JSON.stringify(entry));
+    t.values.set("usage:user-6", JSON.stringify(usageCosting(99)));
+    t.meta.set("usage:user-6", { v: 2 });
+    t.values.set("last_sync:ABCDEF", String(Date.now() - 1_000));
+    t.gets.length = 0;
+
+    const response = await rankRoutes.request("/activity/ABCDEF", {}, t.env, executionCtx);
+    const data = await response.json() as { series: Array<{ userId: string; totalCost: number }> };
+
+    expect(t.gets.filter((key) => key.startsWith("usage:"))).toEqual(["usage:user-6"]);
+    expect(data.series[0]).toMatchObject({ userId: "user-6", totalCost: 99 });
+  });
+
+  it("does not list for a group too small to be worth it", async () => {
+    const { env, gets, lists } = testEnv({
+      "group:ABCDEF": group(ids.slice(0, INCREMENTAL_MIN_MEMBERS - 1).map((userId) => ({ userId, displayName: userId, avatar: "", joinedAt: "2026-07-24T00:00:00.000Z" }))),
+    });
+    const { ctx, settled } = testCtx();
+    await rankRoutes.request("/rank/ABCDEF?period=daily", {}, env, ctx);
+    await settled();
+    gets.length = 0;
+
+    const entry = JSON.parse((await env.KV.get(KEY)) as string);
+    entry.computedAt = Date.now() - 60_000;
+    await env.KV.put(KEY, JSON.stringify(entry));
+    await env.KV.put("last_sync:ABCDEF", String(Date.now() - 1_000));
+    gets.length = 0;
+
+    await rankRoutes.request("/rank/ABCDEF?period=daily", {}, env, executionCtx);
+
+    expect(lists).toEqual([]);
+    expect(gets.filter((key) => key.startsWith("usage:"))).toHaveLength(INCREMENTAL_MIN_MEMBERS - 1);
   });
 });

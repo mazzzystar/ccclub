@@ -33,7 +33,7 @@ interface SourceStanding {
 /** local day index -> source -> standing. One shared tally for the group. */
 export type WeekTally = Map<number, Map<AgentSource, SourceStanding>>;
 
-interface MemberSourceDay {
+export interface MemberSourceDay {
   cost: number;
   tokens: number;
   blocks: number;

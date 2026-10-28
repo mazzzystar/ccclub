@@ -3,6 +3,7 @@ import type { Env } from "../types.js";
 import { AGENT_SOURCES } from "@ccclub/shared";
 import type { UserRecord, UsageData, UsageSnapshot, SyncResponse, SyncRequest } from "@ccclub/shared";
 import { mergeUsageBlocks } from "../usage-merge.js";
+import { syncMarker, usageVersion } from "../usage-version.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -211,13 +212,14 @@ app.post("/sync", async (c) => {
     return c.json<SyncResponse>({ synced: blocks.length, unchanged: true });
   }
 
-  await c.env.KV.put(`usage:${user.userId}`, JSON.stringify(usageData));
+  const now = Date.now();
+  await c.env.KV.put(`usage:${user.userId}`, JSON.stringify(usageData), usageVersion(now));
 
   // Invalidate rank cache for all groups this user belongs to
   const userGroups = (await c.env.KV.get<string[]>(`user_groups:${user.userId}`, "json")) || [];
   if (userGroups.length > 0) {
     await Promise.all(
-      userGroups.map((code) => c.env.KV.put(`last_sync:${code}`, String(Date.now())))
+      userGroups.map((code) => c.env.KV.put(`last_sync:${code}`, syncMarker(now, user.userId)))
     );
   }
 

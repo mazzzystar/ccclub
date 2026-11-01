@@ -6,6 +6,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import {
   parseModelWeekly,
   writeModelWeekly,
+  writeFiveHourLimit,
   isTokenExpired,
   readCostlineFallback,
   readLimitsState,
@@ -317,3 +318,33 @@ describe("recordLimitsOutcome", () => {
     expect(readLimitsState(p.statePath)).toEqual({ failures: 0 });
   });
 });
+
+describe("writeFiveHourLimit", () => {
+  async function read(path: string) {
+    return JSON.parse(await readFile(path, "utf-8")) as Record<string, unknown>;
+  }
+
+  it("records an explicit null as no limit", async () => {
+    const path = join(await makeTempDir(), "five-hour.json");
+    writeFiveHourLimit(null, path);
+    const stored = await read(path);
+    expect(stored.limited).toBe(false);
+    expect(typeof stored.fetchedAt).toBe("number");
+  });
+
+  it("records any window as limited, readable or not", async () => {
+    const path = join(await makeTempDir(), "five-hour.json");
+    writeFiveHourLimit({ utilization: 12 }, path);
+    expect((await read(path)).limited).toBe(true);
+    writeFiveHourLimit({}, path);
+    expect((await read(path)).limited).toBe(true);
+  });
+
+  it("leaves the last answer alone when the response has no such field", async () => {
+    const path = join(await makeTempDir(), "five-hour.json");
+    writeFiveHourLimit(null, path);
+    writeFiveHourLimit(undefined, path);
+    expect((await read(path)).limited).toBe(false);
+  });
+});
+

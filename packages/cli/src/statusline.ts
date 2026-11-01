@@ -74,6 +74,11 @@ export function getModelWeeklyPath(): string {
   return join(homedir(), CCCLUB_CONFIG_DIR, "model-weekly.json");
 }
 
+/** Written only by the usage fetch; see writeFiveHourLimit in usage-limits.ts. */
+export function getFiveHourPath(): string {
+  return join(homedir(), CCCLUB_CONFIG_DIR, "five-hour.json");
+}
+
 interface RankCacheEntry {
   rank: number;
   total: number;
@@ -149,16 +154,33 @@ function readLiveLimit(value: unknown, now: number): LiveLimit | null {
   return { percent: Math.max(0, Math.min(100, percent)), resetsAt };
 }
 
-/** Both windows as this session last saw them; null where absent or expired. */
+/**
+ * Both windows as this session last saw them; null where absent or expired.
+ *
+ * `fiveHourApplies` is what the payload says about the 5-hour limit existing
+ * at all: true when it carries the window, false when it carries the weekly
+ * window without it — both come off the same API response, so that is a plan
+ * with no 5-hour limit — and null when it carries neither, as before a
+ * session's first turn.
+ */
 function readLiveLimits(data: Record<string, unknown>, now: number): {
   fiveHour: LiveLimit | null;
   sevenDay: LiveLimit | null;
+  fiveHourApplies: boolean | null;
 } {
   const raw = data.rate_limits as { five_hour?: unknown; seven_day?: unknown } | null | undefined;
   return {
     fiveHour: readLiveLimit(raw?.five_hour, now),
     sevenDay: readLiveLimit(raw?.seven_day, now),
+    fiveHourApplies: raw?.five_hour != null ? true : raw?.seven_day != null ? false : null,
   };
+}
+
+/** The last fetch's answer to "does this account have a 5-hour limit", or null when unknown. */
+function readFiveHourLimited(path: string, now: number): boolean | null {
+  const raw = readJsonFile(path);
+  if (typeof raw?.limited !== "boolean") return null;
+  return validAge(asFiniteNumber(raw.fetchedAt), now, MAX_AGE_MS) == null ? null : raw.limited;
 }
 
 /**
@@ -329,6 +351,7 @@ function rankColor(rank: number): string {
  *
  * Example: ` Fable 5 xhigh | 5h: 15% / 7d: 43% / Fable: 8% | #11/67 $19.0`
  * Stale limits keep their place, dimmed: ` … | 5h: 15% / 7d: 43% ~ | …`
+ * A plan without a 5-hour limit drops that part: ` … | 7d: 43% / Fable: 8% | …`
  */
 export function renderStatusline(
   input: string,
@@ -337,6 +360,7 @@ export function renderStatusline(
     usageCachePath?: string;
     rankCachePath?: string;
     modelWeeklyPath?: string;
+    fiveHourPath?: string;
   } = {},
 ): string {
   let data: Record<string, unknown>;
@@ -369,25 +393,29 @@ export function renderStatusline(
   const cachedLimit = (pick: (snapshot: UsageSnapshot) => number): CacheRead<number> | null =>
     usage ? { value: pick(usage.value), stale: usage.stale, fetchedAt: usage.fetchedAt } : null;
   const live = readLiveLimits(data, now);
-  const fiveHour = resolveLimit(live.fiveHour, cachedLimit((snapshot) => snapshot.fiveHour), FIVE_HOUR_MS);
+  // A plan without a 5-hour limit still has the window in usage-cache.json,
+  // stored as 0 by every build that predates the distinction. The payload
+  // decides when it can; otherwise the last fetch does; with neither, the
+  // window is assumed to exist, as it always used to.
+  const fiveHourApplies =
+    live.fiveHourApplies ?? readFiveHourLimited(options.fiveHourPath ?? getFiveHourPath(), now) ?? true;
+  const fiveHour = fiveHourApplies
+    ? resolveLimit(live.fiveHour, cachedLimit((snapshot) => snapshot.fiveHour), FIVE_HOUR_MS)
+    : null;
   const sevenDay = resolveLimit(live.sevenDay, cachedLimit((snapshot) => snapshot.sevenDay), SEVEN_DAY_MS);
-  if (fiveHour && sevenDay) {
+  if (sevenDay) {
     // Stale parts lose their threshold color: dim numbers plus one trailing
     // `~` say "last known" without spending a second character on it.
     const color = (pct: number, stale: boolean) => (stale ? DIM : percentColor(pct));
-    const five = Math.round(fiveHour.percent);
-    const seven = Math.round(sevenDay.percent);
-    let seg =
-      `${DIM}5h:${RESET} ${color(five, fiveHour.stale)}${five}%${RESET} ${DIM}/${RESET} ` +
-      `${DIM}7d:${RESET} ${color(seven, sevenDay.stale)}${seven}%${RESET}`;
+    const part = (label: string, pct: number, stale: boolean) =>
+      `${DIM}${label}:${RESET} ${color(pct, stale)}${pct}%${RESET}`;
+    const parts: string[] = [];
+    if (fiveHour) parts.push(part("5h", Math.round(fiveHour.percent), fiveHour.stale));
+    parts.push(part("7d", Math.round(sevenDay.percent), sevenDay.stale));
     const modelWeekly = readModelWeekly(options.modelWeeklyPath ?? getModelWeeklyPath(), now);
-    if (modelWeekly) {
-      const pct = Math.round(modelWeekly.value.percent);
-      seg +=
-        ` ${DIM}/${RESET} ${DIM}${modelWeekly.value.label}:${RESET} ` +
-        `${color(pct, modelWeekly.stale)}${pct}%${RESET}`;
-    }
-    if (fiveHour.stale || sevenDay.stale || modelWeekly?.stale) seg += ` ${DIM}~${RESET}`;
+    if (modelWeekly) parts.push(part(modelWeekly.value.label, Math.round(modelWeekly.value.percent), modelWeekly.stale));
+    let seg = parts.join(` ${DIM}/${RESET} `);
+    if (fiveHour?.stale || sevenDay.stale || modelWeekly?.stale) seg += ` ${DIM}~${RESET}`;
     segments.push(seg);
   }
 

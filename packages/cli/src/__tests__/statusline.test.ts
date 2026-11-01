@@ -39,6 +39,8 @@ interface CacheSetup {
   sevenDay?: number;
   /** Contents of model-weekly.json; omit to leave the file absent. */
   modelWeekly?: Record<string, unknown>;
+  /** Contents of five-hour.json; omit to leave the file absent. */
+  fiveHourLimit?: Record<string, unknown>;
   modelWeeklyAgeMs?: number;
 }
 
@@ -46,11 +48,13 @@ async function setUpCaches(dir: string, setup: CacheSetup = {}): Promise<{
   usageCachePath: string;
   rankCachePath: string;
   modelWeeklyPath: string;
+  fiveHourPath: string;
   now: number;
 }> {
   const usageCachePath = join(dir, "usage-cache.json");
   const rankCachePath = join(dir, "rank-cache.json");
   const modelWeeklyPath = join(dir, "model-weekly.json");
+  const fiveHourPath = join(dir, "five-hour.json");
   await writeFile(usageCachePath, JSON.stringify({
     snapshot: {
       fiveHour: setup.fiveHour ?? 15,
@@ -71,7 +75,10 @@ async function setUpCaches(dir: string, setup: CacheSetup = {}): Promise<{
       ...setup.modelWeekly,
     }));
   }
-  return { usageCachePath, rankCachePath, modelWeeklyPath, now: NOW };
+  if (setup.fiveHourLimit !== undefined) {
+    await writeFile(fiveHourPath, JSON.stringify({ fetchedAt: NOW - 60_000, ...setup.fiveHourLimit }));
+  }
+  return { usageCachePath, rankCachePath, modelWeeklyPath, fiveHourPath, now: NOW };
 }
 
 describe("renderStatusline", () => {
@@ -88,6 +95,7 @@ describe("renderStatusline", () => {
       usageCachePath: join(dir, "missing-usage.json"),
       rankCachePath: join(dir, "missing-rank.json"),
       modelWeeklyPath: join(dir, "missing-model-weekly.json"),
+      fiveHourPath: join(dir, "missing-five-hour.json"),
     }));
     expect(line).toBe(" Fable 5");
   });
@@ -146,6 +154,7 @@ describe("renderStatusline", () => {
       usageCachePath,
       rankCachePath,
       modelWeeklyPath: join(dir, "model-weekly.json"),
+      fiveHourPath: join(dir, "missing-five-hour.json"),
     }));
     expect(line).toBe(" Fable 5 | 5h: 15% / 7d: 43%");
   });
@@ -168,7 +177,7 @@ describe("renderStatusline", () => {
     const dir = await makeTempDir();
     const line = stripAnsi(renderStatusline(
       JSON.stringify({ model: { display_name: "Fable 5 (200K context)" } }),
-      { now: NOW, usageCachePath: join(dir, "u"), rankCachePath: join(dir, "r"), modelWeeklyPath: join(dir, "m") },
+      { now: NOW, usageCachePath: join(dir, "u"), rankCachePath: join(dir, "r"), modelWeeklyPath: join(dir, "m"), fiveHourPath: join(dir, "f") },
     ));
     expect(line).toBe(" Fable 5 (200K)");
   });
@@ -187,7 +196,7 @@ describe("renderStatusline", () => {
     const dir = await makeTempDir();
     const render = (level: unknown) => renderStatusline(
       JSON.stringify({ model: { display_name: "Fable 5" }, effort: { level } }),
-      { now: NOW, usageCachePath: join(dir, "u"), rankCachePath: join(dir, "r"), modelWeeklyPath: join(dir, "m") },
+      { now: NOW, usageCachePath: join(dir, "u"), rankCachePath: join(dir, "r"), modelWeeklyPath: join(dir, "m"), fiveHourPath: join(dir, "f") },
     );
     expect(render("low")).toContain("\x1b[38;5;102mlow"); // dim
     expect(render("medium")).toContain("\x1b[38;2;122;183;198mmedium"); // cyan
@@ -366,6 +375,7 @@ describe("live rate limits from stdin", () => {
       usageCachePath: join(dir, "missing-usage.json"),
       rankCachePath: join(dir, "missing-rank.json"),
       modelWeeklyPath: join(dir, "missing-model-weekly.json"),
+      fiveHourPath: join(dir, "missing-five-hour.json"),
     }));
     expect(line).toBe(" Fable 5 | 5h: 12% / 7d: 33%");
   });
@@ -416,6 +426,7 @@ async function renderWithRankUrl(dir: string, url: unknown): Promise<string> {
     usageCachePath: join(dir, "no-usage"),
     rankCachePath,
     modelWeeklyPath: join(dir, "no-model-weekly"),
+    fiveHourPath: join(dir, "no-five-hour"),
   });
 }
 
@@ -672,5 +683,61 @@ describe("maybeAutoEnableStatusline", () => {
     // "other" is the protected class: off refuses to delete it.
     await uninstallStatusline(settingsPath);
     expect((await readFile(settingsPath, "utf-8"))).toContain("my-filter");
+  });
+});
+
+describe("plans without a 5-hour limit", () => {
+  // Ultra dropped its 5-hour limit in 2026-11: the usage API now answers
+  // `"five_hour": null` and Claude Code's payload carries only `seven_day`.
+  // Older builds still store the missing window as 0 in usage-cache.json.
+  const weeklyOnly = (percent: number) =>
+    stdinWithLimits({ seven_day: { used_percentage: percent, resets_at: Math.floor(NOW / 1000) + 3 * 86_400 } });
+
+  it("drops the 5h part when the payload carries the weekly window without it", async () => {
+    const options = await setUpCaches(await makeTempDir(), { fiveHour: 0 });
+    const line = stripAnsi(renderStatusline(weeklyOnly(50), options));
+    expect(line).toBe(" Fable 5 | 7d: 50% | #11/67 $19.0");
+  });
+
+  it("drops it from the last fetch's answer before the session's first turn", async () => {
+    const options = await setUpCaches(await makeTempDir(), { fiveHour: 0, fiveHourLimit: { limited: false } });
+    const line = stripAnsi(renderStatusline(STDIN_JSON, options));
+    expect(line).toBe(" Fable 5 | 7d: 43% | #11/67 $19.0");
+  });
+
+  it("keeps the model-scoped weekly limit beside the 7d part", async () => {
+    const options = await setUpCaches(await makeTempDir(), {
+      fiveHourLimit: { limited: false },
+      modelWeekly: { label: "Fable", percent: 8 },
+    });
+    const line = stripAnsi(renderStatusline(STDIN_JSON, options));
+    expect(line).toBe(" Fable 5 | 7d: 43% / Fable: 8% | #11/67 $19.0");
+  });
+
+  it("lets a payload that carries the window win over a recorded no-limit", async () => {
+    const options = await setUpCaches(await makeTempDir(), { fiveHourLimit: { limited: false } });
+    const input = stdinWithLimits({
+      five_hour: { used_percentage: 20, resets_at: Math.floor(NOW / 1000) + 3_600 },
+      seven_day: { used_percentage: 50, resets_at: Math.floor(NOW / 1000) + 3 * 86_400 },
+    });
+    const line = stripAnsi(renderStatusline(input, options));
+    expect(line).toBe(" Fable 5 | 5h: 20% / 7d: 50% | #11/67 $19.0");
+  });
+
+  it("still shows 5h when the record says limited, is missing, or is too old to trust", async () => {
+    for (const fiveHourLimit of [{ limited: true }, undefined, { limited: false, fetchedAt: NOW - 13 * 60 * 60 * 1000 }]) {
+      const options = await setUpCaches(await makeTempDir(), { fiveHourLimit });
+      const line = stripAnsi(renderStatusline(STDIN_JSON, options));
+      expect(line).toBe(" Fable 5 | 5h: 15% / 7d: 43% | #11/67 $19.0");
+    }
+  });
+
+  it("marks a stale 7d part on its own", async () => {
+    const options = await setUpCaches(await makeTempDir(), {
+      fiveHourLimit: { limited: false },
+      usageAgeMs: 4 * 60 * 60 * 1000,
+    });
+    const line = stripAnsi(renderStatusline(STDIN_JSON, options));
+    expect(line).toBe(" Fable 5 | 7d: 43% ~ | #11/67 $19.0");
   });
 });

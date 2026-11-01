@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync, renameSync, rmSync, lstatSync } from "node
 import { CCCLUB_CONFIG_DIR } from "@ccclub/shared";
 import type { UsageSnapshot } from "@ccclub/shared";
 import { appendCappedLog } from "./fs-utils.js";
-import { getModelWeeklyPath, USAGE_MAX_AGE_MS } from "./statusline.js";
+import { getFiveHourPath, getModelWeeklyPath, USAGE_MAX_AGE_MS } from "./statusline.js";
 import type { ModelWeekly } from "./statusline.js";
 
 export type { UsageSnapshot };
@@ -136,6 +136,31 @@ export function writeModelWeekly(result: ScopedLimit, path = getModelWeeklyPath(
     renameSync(tmp, path);
   } catch {
     // Unwritable — the statusline just keeps the previous value until it ages out.
+    try { rmSync(tmp, { force: true }); } catch { /* nothing to clean up */ }
+  }
+}
+
+/**
+ * Whether this account has a 5-hour limit at all, in its own file for the
+ * same reason as writeModelWeekly: usage-cache.json is rewritten wholesale by
+ * every pinned build, and those builds still store a missing window as 0.
+ *
+ * Plans without the limit (Ultra, since 2026-11) get `"five_hour": null` from
+ * the usage API. That is recorded as `limited: false`, so the statusline drops
+ * the 5h figure instead of showing a 0% that reads as plenty of headroom.
+ * Only an explicit null means "no limit"; a response without the field says
+ * nothing and leaves the last answer in place. Any other value counts as
+ * limited, readable or not — an unparseable window is still a window.
+ * @internal exported for tests.
+ */
+export function writeFiveHourLimit(fiveHour: unknown, path = getFiveHourPath()): void {
+  if (fiveHour === undefined) return;
+  const body = JSON.stringify({ limited: fiveHour !== null, fetchedAt: Date.now() });
+  const tmp = `${path}.${process.pid}.tmp`;
+  try {
+    writeFileSync(tmp, body);
+    renameSync(tmp, path);
+  } catch {
     try { rmSync(tmp, { force: true }); } catch { /* nothing to clean up */ }
   }
 }
@@ -329,6 +354,7 @@ async function requestLimits(timeoutMs: number): Promise<UsageSnapshot | LimitsF
   debug("returning snapshot:", result.fiveHour, result.sevenDay);
   writeCache(result);
   writeModelWeekly(parseModelWeekly(data.limits));
+  writeFiveHourLimit(data.five_hour);
   return result;
 }
 

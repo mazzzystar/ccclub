@@ -283,7 +283,8 @@ describe("the single-intent pages are registered everywhere", () => {
       expect((body.match(/<h1>/g) ?? []).length).toBe(1);
 
       const sitemap = await (await fetchPath("/sitemap.xml")).text();
-      expect(sitemap).toContain(`<loc>https://ccclub.dev/${slug}</loc><lastmod>2026-09-29</lastmod>`);
+      const updated = GUIDE_PAGES.find((g) => g.slug === slug)!.dateModified;
+      expect(sitemap).toContain(`<loc>https://ccclub.dev/${slug}</loc><lastmod>${updated}</lastmod>`);
 
       const llms = await (await fetchPath("/llms.txt")).text();
       expect(llms).toContain(`[${inLlms}](https://ccclub.dev/${slug})`);
@@ -430,7 +431,7 @@ describe("the machine-readable documents are reachable", () => {
     const xml = await (await fetchPath("/sitemap.xml")).text();
     for (const doc of ["/llms.txt", "/llms-full.txt", "/prompt.txt", "/comparisons.md"]) {
       expect(xml).toContain(
-        `<loc>https://ccclub.dev${doc}</loc><lastmod>2026-09-29</lastmod>`,
+        `<loc>https://ccclub.dev${doc}</loc><lastmod>2026-11-01</lastmod>`,
       );
     }
   });

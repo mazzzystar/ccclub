@@ -109,7 +109,7 @@ export const GUIDE_PAGES: GuidePage[] = [
     description:
       "Check Claude Code usage in order: the built-in /usage screen, the local transcripts, then ccclub for a dated history — and how to read what you get.",
     datePublished: "2026-09-29",
-    dateModified: "2026-09-29",
+    dateModified: "2026-11-01",
     body: `
       <p>There is no single place that holds all of it, which is why this question keeps getting asked. What exists is a short ladder: one command that answers it for right now, a directory of files that answers it for the past, and a tool on top of those files if you want the past arranged by day. Work down the ladder and stop at the rung that answers your question — most people never need the bottom one.</p>
 
@@ -123,7 +123,7 @@ export const GUIDE_PAGES: GuidePage[] = [
 
       <p>If you want something to read rather than a screen to squint at, the same documentation describes <code>/insights</code>: it analyses recent sessions on that machine and writes an HTML report to <code>~/.claude/usage-data/report.html</code>, keeping a timestamped copy of each run. Note what it is and is not — the documentation calls it a report on how you work rather than how many tokens you have used, covering what you work on, friction points such as misunderstood requests or buggy code, and suggestions for using Claude Code more effectively. It also costs tokens to produce, since the analysis runs through your own account.</p>
 
-      <p>For a number that is in front of you permanently instead of on demand, Claude Code passes its status line script a <code>rate_limits</code> object with your five-hour and seven-day percentages, for subscription accounts, after the first API response of a session. Writing that script is a small job, and <a href="/claude-code-statusline">ccclub ships one</a> if you would rather not.</p>
+      <p>For a number that is in front of you permanently instead of on demand, Claude Code passes its status line script a <code>rate_limits</code> object with your seven-day percentage, and your five-hour one on plans that still have that window, for subscription accounts, after the first API response of a session. Writing that script is a small job, and <a href="/claude-code-statusline">ccclub ships one</a> if you would rather not.</p>
 
       <h2>Step 3: know where the raw data is</h2>
 
@@ -192,15 +192,17 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
     metaTitle: "Claude Code Limits: 5-Hour Window, Weekly Caps & Reset Times",
     h1: "Claude Code limits, explained",
     description:
-      "How Claude Code rate limits work on Pro and Max — the 5-hour rolling window, weekly caps, when each one resets — and how to see exactly where you stand.",
+      "How Claude Code rate limits work — the 5-hour rolling window (gone from Ultra since November 2026), weekly caps, when each resets, and where you stand.",
     datePublished: "2026-07-07",
-    dateModified: "2026-09-29",
+    dateModified: "2026-11-01",
     body: `
-      <p>On a subscription, Claude Code meters you with rolling allowances rather than a per-token bill, and there is more than one of them running at once. The mechanics are simple once laid side by side; what confuses people is that three separate ceilings can each stop a request, for different reasons, with different ways out. Everything below about Anthropic's behaviour is read from its own documentation, cited where it matters and checked on 2026-09-19 — limits change, and <code>/usage</code> is always the authority for your account.</p>
+      <p>On a subscription, Claude Code meters you with rolling allowances rather than a per-token bill, and there is more than one of them running at once. The mechanics are simple once laid side by side; what confuses people is that up to three separate ceilings can each stop a request, for different reasons, with different ways out. Everything below about Anthropic's behaviour is read from its own documentation, cited where it matters and checked on 2026-09-19, with the five-hour change of 1 November 2026 added since — limits change, and <code>/usage</code> is always the authority for your account.</p>
 
       <h2>The rolling 5-hour session window</h2>
 
       <p>The shortest ceiling is a session window, and Claude Code's status-line documentation is where its shape is written down: a rolling five-hour window, exposed to a status line as <code>rate_limits.five_hour</code> with a used percentage from 0 to 100 and a <code>resets_at</code> timestamp in epoch seconds. Rolling is the word that matters — it is not a daily quota, it has no calendar boundary, and several complete windows can pass inside one working day. Where yours ends is what <code>resets_at</code> reports, and what <code>/usage</code> shows as a reset time. (<a href="https://code.claude.com/docs/en/statusline" rel="noopener">code.claude.com/docs/en/statusline</a>, read 2026-09-19.)</p>
+
+      <p>Not every plan has one any more. On 1 November 2026 Anthropic removed it from Ultra (formerly Max 20x), keeping the price and the weekly limits. On such an account the usage endpoint reports <code>five_hour</code> as <code>null</code> and the status-line payload carries only <code>rate_limits.seven_day</code>.</p>
 
       <h2>The weekly window on top of it</h2>
 
@@ -228,7 +230,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
 
       <h2>How ccclub reads your limits</h2>
 
-      <p>ccclub does not scrape <code>/usage</code> or guess from your logs. During a sync it asks Anthropic's own usage endpoint for your percentages, authenticating with the OAuth credentials Claude Code already stored in the macOS Keychain — no second login, and the token is sent only to Anthropic, the service that issued it, and is never uploaded to ccclub. It reads the five-hour and seven-day utilisation figures from that response, plus any model-scoped weekly entry, and writes them to a small cache under <code>~/.ccclub/</code> with a five-minute freshness window. The <a href="/claude-code-statusline">Claude Code statusline</a> then renders that cache without ever making a request of its own.</p>
+      <p>ccclub does not scrape <code>/usage</code> or guess from your logs. During a sync it asks Anthropic's own usage endpoint for your percentages, authenticating with the OAuth credentials Claude Code already stored in the macOS Keychain — no second login, and the token is sent only to Anthropic, the service that issued it, and is never uploaded to ccclub. It reads the five-hour and seven-day utilisation figures from that response, plus any model-scoped weekly entry, and writes them to a small cache under <code>~/.ccclub/</code> with a five-minute freshness window. The <a href="/claude-code-statusline">Claude Code statusline</a> then renders that cache without ever making a request of its own. On a plan with no five-hour window it shows 7d alone rather than a misleading 0%.</p>
 
       <p>Three honest limitations follow from that design. It is macOS-only, because the Keychain is where the credential lives. It covers Claude only — no other agent ccclub tracks exposes an equivalent endpoint. And it is a periodic reading rather than a live monitor: past three hours the numbers render dimmed with a trailing marker, and past twelve they are not shown at all, since a percentage that old describes a window which has since emptied and refilled. If you want alerts or burn-rate predictions, a dedicated real-time monitor is the right tool, not this.</p>
 
@@ -251,6 +253,10 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
       {
         q: "How does the Claude Code 5-hour limit work?",
         a: "It is a rolling five-hour window with its own allowance, which Claude Code exposes to a status line as rate_limits.five_hour — a used percentage and a resets_at timestamp. When the allowance runs out, Claude Code blocks further requests until the reset time shown in the message. The session allowance is shared across models, so switching models does not restore access.",
+      },
+      {
+        q: "Does the Claude Ultra plan have a 5-hour limit?",
+        a: "No. Anthropic removed the five-hour limit from Ultra (formerly Max 20x) on 1 November 2026; the price is unchanged and the weekly limits still apply. /usage shows which limits apply to your own plan.",
       },
       {
         q: "When does the Claude Code limit reset?",
@@ -278,11 +284,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
       },
       {
         q: "Do Claude Code weekly limits exist on every plan?",
-        a: "Subscription plans have a weekly window alongside the five-hour one, and separate model-scoped weekly limits exist too — the documented error messages name Opus and Sonnet. On Team and Enterprise the allowance is per seat and shared with Claude chat and Cowork. API pay-per-token usage has rate limits but no subscription-style weekly window.",
-      },
-      {
-        q: "What's the best way to use less of my limit without working less?",
-        a: "Use smaller models for mechanical tasks, keep sessions short and contexts compact, and batch related questions instead of sending many small turns. Model choice and context size dominate everything else you could tune.",
+        a: "Subscription plans have a weekly window, plus a five-hour one everywhere except Ultra, and separate model-scoped weekly limits exist too — the documented error messages name Opus and Sonnet. On Team and Enterprise the allowance is per seat and shared with Claude chat and Cowork. API pay-per-token usage has rate limits but no subscription-style weekly window.",
       },
     ],
   },
@@ -372,7 +374,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
     description:
       "A Claude Code statusline showing model, effort, your 5h and 7d limit percentages and your group rank — drawn from cache, with no network call to render.",
     datePublished: "2026-09-29",
-    dateModified: "2026-09-29",
+    dateModified: "2026-11-01",
     body: `
       <p>Claude Code lets you replace the bar under the prompt with the output of any command: it hands your script a JSON payload on stdin and prints whatever comes back. That is a genuinely open slot, and most people fill it with context percentage and a git branch. ccclub fills it with the two numbers that are otherwise a command away — how much of your rate-limit windows you have spent, and where you sit on your group's board today. This page is about that one line: what it contains, how it stays current, and what it deliberately refuses to do.</p>
 
@@ -384,7 +386,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
 
       <ul>
         <li><strong>Model and effort.</strong> The display name Claude Code passes in, with a parenthetical context size shortened so "(200K context)" does not eat the line, followed by the session's reasoning effort level when the current model has one. The effort word is coloured by intensity, so a session left on the highest setting is visible without reading it.</li>
-        <li><strong>Limits.</strong> The percentage of your five-hour window and your seven-day window consumed, plus a third figure when a model-scoped weekly limit applies — labelled with whatever family name the API returns. Each percentage turns amber at 60% and above, and red at 80% and above, which is the only warning the line gives.</li>
+        <li><strong>Limits.</strong> The percentage of your five-hour window and your seven-day window consumed, plus a third figure when a model-scoped weekly limit applies — labelled with whatever family name the API returns. On a plan with no five-hour window, such as Ultra since 1 November 2026, the 5h figure is left out and the segment starts at 7d, rather than showing a 0% that would look like unused headroom. Each percentage turns amber at 60% and above, and red at 80% and above, which is the only warning the line gives.</li>
         <li><strong>Rank and cost.</strong> Your position on your first group's board for today and today's estimated cost, with the top three positions in gold, silver and bronze. The segment is wrapped in a terminal hyperlink, so in a terminal that supports them the rank is click-through to the group dashboard, and in one that does not it renders as ordinary text.</li>
       </ul>
 
@@ -398,7 +400,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
 
       <h2>Where the numbers come from</h2>
 
-      <p>Not from the payload Claude Code hands it. The renderer reads exactly two things out of that JSON — the model display name and the effort level — and takes everything else off disk. Limit percentages and rank live in small cache files under <code>~/.ccclub/</code>, written by <code>ccclub sync</code>: the sync asks Anthropic's usage endpoint for your own percentages, using the credential Claude Code already holds locally, and asks the ccclub API for your rank. The render path opens those files, formats a line and exits.</p>
+      <p>Mostly from disk. Out of the JSON Claude Code hands it, the renderer reads the model display name, the effort level and the <code>rate_limits</code> that session last saw; everything else comes from small cache files under <code>~/.ccclub/</code>, written by <code>ccclub sync</code>: the sync asks Anthropic's usage endpoint for your own percentages, using the credential Claude Code already holds locally, and asks the ccclub API for your rank. Where the payload and the cache disagree inside the same window, the higher percentage is shown, since usage within a window only climbs. Whether your plan has a five-hour window at all is decided the same way: a payload that carries the weekly window without the five-hour one settles it, and before a session's first turn the last answer from the usage endpoint does. The render path opens those files, formats a line and exits.</p>
 
       <p>Sync runs often enough for that to work without anyone thinking about it. <code>ccclub init</code> installs Claude Code hooks that fire when a turn stops and when a session ends, and on macOS a LaunchAgent that syncs every five minutes on top of them. On Linux and Windows there is no such agent: the hooks are the whole of the schedule, so the cache is as fresh as your last turn. Either way, while you are actually using Claude Code it is rarely more than a few minutes old.</p>
 
@@ -410,7 +412,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
 
       <h2>What it never does</h2>
 
-      <p>The render path makes no network request. None: it reads stdin and three small JSON files, and every one of those reads is wrapped so that a missing or corrupt file drops one segment instead of failing. Both the payload and the caches are treated as untrusted input, since the line is printed raw into a terminal between escape codes — text from either is stripped to printable ASCII and length-bounded before it is used, and the dashboard URL behind the rank hyperlink has to match a strict pattern or the link is dropped and the text printed plain.</p>
+      <p>The render path makes no network request. None: it reads stdin and four small JSON files, and every one of those reads is wrapped so that a missing or corrupt file drops one segment instead of failing. Both the payload and the caches are treated as untrusted input, since the line is printed raw into a terminal between escape codes — text from either is stripped to printable ASCII and length-bounded before it is used, and the dashboard URL behind the rank hyperlink has to match a strict pattern or the link is dropped and the text printed plain.</p>
 
       <p>It also does not alert, predict, or notify. There is no burn-rate projection and no "you will run out at 4pm" — just a percentage that changes colour. If you want prediction, run a monitor built for it; this is a readout, and it is honest about being one.</p>
 
@@ -418,7 +420,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
 
       <p>Claude Code has one <code>statusLine</code> slot, so two tools cannot both own it. ccclub resolves that in the only direction that cannot lose someone's work: if the configured command is not exactly <code>ccclub-statusline</code>, ccclub treats it as yours and refuses to touch it. <code>ccclub statusline on</code> declines with a message telling you to remove the existing one first; the automatic enable never fires at all; and uninstalling only ever removes a command that is byte-for-byte ours. Even a pipeline that mentions ccclub by name — piping our output into your own filter, say — counts as yours under that rule, which is the conservative reading and the right one.</p>
 
-      <p>If you would rather build your own, Claude Code's own payload already carries <code>rate_limits.five_hour</code> and <code>rate_limits.seven_day</code> for subscription accounts, with a percentage and a reset timestamp each, and its <a href="https://code.claude.com/docs/en/statusline" rel="noopener">status line documentation</a> (read 2026-09-19) has worked examples. ccclub's version exists because it also knows your rank, and because the limit figures it shows are fetched independently rather than waiting on the first API response of a session.</p>
+      <p>If you would rather build your own, Claude Code's own payload already carries <code>rate_limits.seven_day</code> for subscription accounts, and <code>rate_limits.five_hour</code> on plans that still have that window, with a percentage and a reset timestamp each, and its <a href="https://code.claude.com/docs/en/statusline" rel="noopener">status line documentation</a> (read 2026-09-19) has worked examples. ccclub's version exists because it also knows your rank, and because the limit figures it shows are fetched independently rather than waiting on the first API response of a session.</p>
     `,
     faq: [
       {
@@ -431,7 +433,7 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
       },
       {
         q: "Does the statusline slow down Claude Code or call the network?",
-        a: "The render path makes no network request. It reads the JSON payload on stdin plus three small cache files under ~/.ccclub/ and prints one line. The percentages are fetched separately by ccclub sync, which the Claude Code session hooks already run — and on macOS a LaunchAgent runs it every five minutes as well.",
+        a: "The render path makes no network request. It reads the JSON payload on stdin plus four small cache files under ~/.ccclub/ and prints one line. The percentages are fetched separately by ccclub sync, which the Claude Code session hooks already run — and on macOS a LaunchAgent runs it every five minutes as well.",
       },
       {
         q: "Why are my limit percentages dim with a tilde after them?",
@@ -440,6 +442,10 @@ ccclub --json          # the same data as JSON, for scripts and agents</code></p
       {
         q: "Why does the statusline show no limits at all?",
         a: "Either no usable reading exists yet or the machine cannot produce one. The percentages come from Anthropic's usage endpoint via the credential Claude Code stores in the macOS Keychain, so they are macOS-only and Claude-only, and an expired credential or a never-run sync leaves the segment out rather than showing a zero.",
+      },
+      {
+        q: "Why did the 5h figure disappear from my statusline?",
+        a: "Your plan no longer has a five-hour limit. Anthropic removed it from Ultra (formerly Max 20x) on 1 November 2026, and from version 0.9.9 ccclub leaves the 5h figure out for such accounts instead of showing 0%. The 7d figure and any model-scoped weekly limit still show. Older versions keep printing 5h: 0%; update with npm i -g ccclub.",
       },
     ],
   },

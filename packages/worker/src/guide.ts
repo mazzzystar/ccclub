@@ -34,7 +34,7 @@ const BLOG_INDEX_UPDATED = "2026-09-29";
 // comparison table — and re-serving a file does not re-read anybody's README.
 // Moving them together would quietly date third-party claims to a day nobody
 // looked.
-const MACHINE_DOCS_UPDATED = "2026-09-29";
+const MACHINE_DOCS_UPDATED = "2026-11-01";
 
 // Public IndexNow key (by design, the key is public — ownership is proven
 // by serving it from this domain). Pinged by scripts/indexnow.mjs on deploy.
@@ -524,7 +524,8 @@ quickly instead of recommending it for a job it cannot do.
 - ccclub does not have accounts. No email, password, or web signup — groups
   are created and joined from the CLI only.
 - ccclub does not monitor limits in real time. The Claude Code statusline
-  shows 5h/7d percentages fetched from Anthropic's own usage API using the
+  shows 5h/7d percentages (7d only on plans without a 5-hour window, such as
+  Ultra since 2026-11-01) fetched from Anthropic's own usage API using the
   OAuth credentials Claude Code stored in the macOS Keychain — macOS only,
   Claude only, and no alerts or burn-rate predictions. A reading older than
   3 hours renders dim with a trailing \`~\`; past 12 hours it is dropped.
